@@ -287,11 +287,14 @@ def events(full: str, doc_id: str) -> None:
     r, sub, _ = call("POST", "/hub", full, {"callback": f"https://webhook.site/{tok}", "query": "eventType=DocumentStateChangeEvent"})
     check(r.status_code == 201 and len((sub or {}).get("signingSecret", "")) == 64, "subscription created with a one-time signing secret")
     secret = (sub or {}).get("signingSecret", "")
+    r2, sub2, _ = call("POST", "/hub", full, {"callback": f"https://webhook.site/{tok}?v4=1", "query": "eventType=DocumentChangeEvent"})
+    check(r2.status_code == 201, "standard subscription (eventType=DocumentChangeEvent) created")
     _, nd, _ = call("POST", "/document", full, {"name": f"TMF test event {RUN}", "documentType": "quote", "relatedEntity": [{"id": ORDER, "role": "subject"}], "attachment": {"mimeType": "application/pdf", "contentHash": hashlib.sha256(b"e" + RUN.encode()).hexdigest()}}, idem=f"evc-{RUN}")
     doc_id = (nd or {}).get("id", doc_id)
     r, j, _ = call("POST", f"/document/{doc_id}/transition", full, {"lifecycleState": "in_review"}, idem=f"ev-{RUN}")
     print(f"INFO transition for event: HTTP {r.status_code} {(j or {}).get('lifecycleState') or (j or {}).get('code')}")
     got = None
+    got_v4 = None
     via = "scheduler"
     for i in range(30):
         time.sleep(5)
@@ -302,9 +305,12 @@ def events(full: str, doc_id: str) -> None:
             print(f"INFO scheduler had not delivered after 80s; ran one delivery pass directly: {out.stdout.strip() or out.stderr.strip()[:200]}")
         reqs = requests.get(f"https://webhook.site/token/{tok}/requests?sorting=newest", headers={"Accept": "application/json"}, timeout=20).json().get("data", [])
         for q in reqs:
-            if doc_id in (q.get("content") or ""):
+            if doc_id in (q.get("content") or "") and "v4=1" not in (q.get("url") or ""):
                 got = q
-                break
+            if doc_id in (q.get("content") or "") and "v4=1" in (q.get("url") or ""):
+                got_v4 = q
+        if got and got_v4:
+            break
         if got:
             break
     check(got is not None, "event delivered to the subscriber within 150 seconds")
@@ -319,6 +325,12 @@ def events(full: str, doc_id: str) -> None:
         ev = json.loads(content)
         check(ev.get("eventType") == "DocumentStateChangeEvent" and ev["event"]["document"]["id"] == doc_id, "event names the document and change type")
         check(set(ev["event"]["document"].keys()) <= {"id", "href", "@type", "status", "lifecycleState"}, "event carries no document content or details")
+    check(got_v4 is not None and json.loads(got_v4["content"]).get("eventType") == "DocumentChangeEvent", "standard subscriber receives DocumentChangeEvent (v4 name)")
+    if got_v4:
+        ev4 = json.loads(got_v4["content"])
+        check(all(k in ev4 for k in ("correlationId", "domain", "title", "priority", "timeOcurred")) and ev4["event"]["document"].get("status") == "reviewed", "v4 envelope fields present; status=reviewed")
+    if sub2:
+        call("DELETE", f"/hub/{sub2['id']}", full)
     if sub:
         r, _, _ = call("DELETE", f"/hub/{sub['id']}", full)
         check(r.status_code == 204, "unsubscribe → 204")
