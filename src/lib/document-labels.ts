@@ -53,6 +53,8 @@ const ACTIVITY: Record<string, string> = {
   metadataChange: "Details edited",
   pipelineStateChange: "Processing updated",
   accessDenied: "Access refused",
+  configChange: "Setting changed",
+  purge: "Deleted permanently",
 };
 
 export function activityLabel(action: string): string {
@@ -74,6 +76,12 @@ export function friendlyError(code: string | undefined): string {
       return "This document is still within its keep-until period.";
     case "doc.edit.frozen":
       return "This document is closed, so its details are kept as they are.";
+    case "config.locked":
+      return "This setting is locked by the group.";
+    case "config.extendOnly":
+      return "You can add to this type, but its group settings stay as they are.";
+    case "config.belowFloor":
+      return "That retention is shorter than the group minimum.";
     case "doc.notFound":
       return "This document is no longer available to you.";
     default:

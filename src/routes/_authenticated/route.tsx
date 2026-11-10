@@ -32,7 +32,7 @@ function AuthenticatedLayout() {
     );
   }
   return (
-    <AppShell tenantName={me.access.tenantName} userName={me.access.displayName}>
+    <AppShell tenantName={me.access.tenantName} userName={me.access.displayName} role={me.access.role}>
       <Outlet />
     </AppShell>
   );

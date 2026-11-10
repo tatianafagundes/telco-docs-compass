@@ -1,0 +1,2 @@
+ALTER TABLE public.documents ADD COLUMN IF NOT EXISTS purged_at timestamptz;
+COMMENT ON COLUMN public.documents.purged_at IS 'Set by Delete permanently. Versions and events are append-only, so the record stays as a tombstone with its stored files removed.';

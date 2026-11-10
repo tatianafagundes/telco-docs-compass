@@ -1,6 +1,7 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Button } from "@/components/erad/button";
+import { Lock } from "lucide-react";
 import { Tag } from "@/components/erad/tag";
 import { Spinner } from "@/components/erad/misc";
 import { DocumentActionsBar } from "@/components/documents/document-actions-bar";
@@ -40,7 +41,7 @@ export function DocumentPanel({ id, entityId, role }: { id: string; entityId: st
         <div className="flex flex-wrap gap-2">
           <Tag tone={STATUS_TONE[doc.status]} small>{STATUS_LABEL[doc.status]}</Tag>
           <Tag tone={PIPELINE_TONE[doc.pipeline_state]} small>{PIPELINE_LABEL[doc.pipeline_state]}</Tag>
-          {doc.legal_hold ? <Tag tone="major" small>On legal hold</Tag> : null}
+          {doc.legal_hold ? <Tag tone="major" icon={<Lock aria-hidden="true" className="size-4" />}>On hold</Tag> : null}
         </div>
         {current ? <p className="type-label-12 text-text-secondary">Version {current.label} · {format(new Date(current.created_at), "d MMM yyyy")}</p> : null}
       </header>

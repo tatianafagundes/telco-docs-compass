@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Button } from "@/components/erad/button";
 import { Dialog } from "@/components/erad/dialog";
 import { useDocumentActions } from "@/hooks/use-document-actions";
-import { deleteState, manageState, nextStep, sendBackState } from "@/services/document-actions";
+import { deleteState, manageState, nextStep, purgeState, sendBackState } from "@/services/document-actions";
+import { TextField } from "@/components/erad/text-field";
 import type { AppRole } from "@/services/document-rules";
 import type { DocStatus } from "@/schemas/document";
 
@@ -12,7 +13,7 @@ interface Props {
   role: AppRole;
 }
 
-type Open = null | "sendBack" | "report" | "hold" | "delete";
+type Open = null | "sendBack" | "report" | "hold" | "release" | "delete" | "purge";
 
 const textAreaClass =
   "type-paragraph-14 min-h-20 w-full border border-border-input bg-input p-2 text-text-main outline-none focus:border-focus";
@@ -25,13 +26,17 @@ export function DocumentActionsBar({ entityId, doc, role }: Props) {
   const a = useDocumentActions(entityId, doc.id);
   const [open, setOpen] = useState<Open>(null);
   const [note, setNote] = useState("");
-  const close = () => { setOpen(null); setNote(""); };
+  const [reference, setReference] = useState("");
+  const close = () => { setOpen(null); setNote(""); setReference(""); };
 
   const next = nextStep(role, doc.status);
   const back = sendBackState(role, doc.status);
   const manage = manageState(role);
-  const del = deleteState(role, doc.legal_hold, doc.retain_until, new Date().toISOString().slice(0, 10));
-  const busy = a.transition.isPending || a.reportProblem.isPending || a.setHold.isPending || a.remove.isPending;
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const del = deleteState(role, doc.legal_hold, doc.retain_until, todayIso);
+  const purge = purgeState(role, doc.legal_hold, doc.retain_until, todayIso);
+  const isAdmin = role === "tenant_admin" || role === "master_admin";
+  const busy = a.transition.isPending || a.reportProblem.isPending || a.setHold.isPending || a.remove.isPending || a.purge.isPending;
 
   return (
     <section aria-label="Actions" className="flex flex-col gap-3">
@@ -52,12 +57,18 @@ export function DocumentActionsBar({ entityId, doc, role }: Props) {
       <details className="border-t border-border-subtle pt-3">
         <summary className="type-label-14 focus-ring cursor-pointer text-text-secondary">More</summary>
         <div className="mt-3 flex flex-col gap-2">
-          <Button unavailable={!manage.available} onClick={() => (doc.legal_hold ? a.setHold.mutate({ active: false }) : setOpen("hold"))}>
-            {doc.legal_hold ? "Release legal hold" : "Set legal hold"}
+          <Button unavailable={!manage.available} onClick={() => setOpen(doc.legal_hold ? "release" : "hold")}>
+            {doc.legal_hold ? "Release legal hold" : "Place legal hold"}
           </Button>
           <Reason text={manage.reason} />
-          <Button variant="destructive" unavailable={!del.available} onClick={() => setOpen("delete")}>Delete document</Button>
+          <Button unavailable={!del.available} onClick={() => setOpen("delete")}>Delete document</Button>
           {manage.available ? <Reason text={del.reason} /> : null}
+          {isAdmin ? (
+            <>
+              <Button unavailable={!purge.available} onClick={() => setOpen("purge")}>Delete permanently</Button>
+              <Reason text={purge.reason} />
+            </>
+          ) : null}
         </div>
       </details>
 
@@ -94,17 +105,49 @@ export function DocumentActionsBar({ entityId, doc, role }: Props) {
       <Dialog
         open={open === "hold"}
         onOpenChange={(o) => (o ? null : close())}
-        title="Set legal hold"
-        description="While on hold, this document can't be deleted, whatever its keep-until date."
+        title="Place legal hold"
+        description="This blocks permanent deletion and keeps every version until the hold is released. Editing and restoring versions stay allowed."
         actions={<>
           <Button onClick={close}>Cancel</Button>
-          <Button variant="primary" unavailable={!note.trim()} onClick={() => { a.setHold.mutate({ active: true, reason: note.trim() }); close(); }}>Set hold</Button>
+          <Button variant="primary" unavailable={!note.trim()} onClick={() => { a.setHold.mutate({ active: true, reason: note.trim(), ...(reference.trim() ? { reference: reference.trim() } : {}) }); close(); }}>Place hold</Button>
         </>}
       >
-        <label className="type-label-14 flex flex-col gap-1">Reason or case reference
+        <label className="type-label-14 flex flex-col gap-1">Reason
           <textarea className={textAreaClass} maxLength={120} value={note} onChange={(e) => setNote(e.target.value)} />
         </label>
         {!note.trim() ? <Reason text="A reason is needed so others know why the hold exists." /> : null}
+        <TextField label="Reference (optional)" maxLength={40} value={reference} onChange={(e) => setReference(e.target.value)} helper="For example a case or dispute number." />
+      </Dialog>
+
+      <Dialog
+        open={open === "release"}
+        onOpenChange={(o) => (o ? null : close())}
+        title="Release legal hold"
+        description="The document then follows its normal retention again and can be deleted once its keep-until date has passed."
+        actions={<>
+          <Button onClick={close}>Keep the hold</Button>
+          <Button variant="primary" unavailable={!note.trim()} onClick={() => { a.setHold.mutate({ active: false, reason: note.trim() }); close(); }}>Release hold</Button>
+        </>}
+      >
+        <label className="type-label-14 flex flex-col gap-1">Reason for release
+          <textarea className={textAreaClass} maxLength={120} value={note} onChange={(e) => setNote(e.target.value)} />
+        </label>
+        {!note.trim() ? <Reason text="A reason is needed so the history explains the release." /> : null}
+      </Dialog>
+
+      <Dialog
+        open={open === "purge"}
+        onOpenChange={(o) => (o ? null : close())}
+        title={`Delete "${doc.name}" permanently`}
+        description="Its stored files and extracted details are removed for good. It can't be restored. The activity history stays."
+        actions={<>
+          <Button onClick={close}>Keep document</Button>
+          <Button variant="destructive" unavailable={!note.trim()} onClick={() => { a.purge.mutate(note.trim()); close(); }}>Delete permanently</Button>
+        </>}
+      >
+        <label className="type-label-14 flex flex-col gap-1">Reason
+          <textarea className={textAreaClass} maxLength={120} value={note} onChange={(e) => setNote(e.target.value)} />
+        </label>
       </Dialog>
 
       <Dialog

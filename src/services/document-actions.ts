@@ -50,6 +50,14 @@ export function manageState(role: AppRole): ActionState {
   return can(role, "manage") ? { available: true } : { available: false, reason: ROLE_REASON.manage };
 }
 
+/** "Delete permanently": admins only, no hold, and past the keep-until date. */
+export function purgeState(role: AppRole, legalHold: boolean, retainUntil: string | null, today: string): ActionState {
+  if (role !== "tenant_admin" && role !== "master_admin") return { available: false, reason: "Only administrators can delete permanently." };
+  if (legalHold) return { available: false, reason: "A legal hold blocks permanent deletion. Release the hold first." };
+  if (retainUntil && retainUntil >= today) return { available: false, reason: `This document must be kept until ${retainUntil}.` };
+  return { available: true };
+}
+
 export function deleteState(role: AppRole, legalHold: boolean, retainUntil: string | null, today: string): ActionState {
   const m = manageState(role);
   if (!m.available) return m;

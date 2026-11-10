@@ -32,6 +32,7 @@ import {
   type SpecCharacteristic,
 } from "@/services/document-rules";
 import { audit, forbidden, runRead, runWrite, type Db } from "@/services/seam-runtime";
+import { expireDue } from "@/services/retention.functions";
 
 const BUCKET = "documents";
 
@@ -76,7 +77,9 @@ export const find = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: z.input<typeof findSchema>) => findSchema.parse(input))
   .handler(async ({ data, context }) =>
-    runRead(context, "find", null, async ({ caller }) => {
+    runRead(context, "find", null, async ({ caller, tenantId }) => {
+      // No scheduler in the prototype: expiry is applied whenever documents are listed.
+      await expireDue(await adminClient(), tenantId);
       const pageSize = data.pageSize ?? 50;
       const offset = data.pageToken ? Number(data.pageToken) : 0;
       const select = `${DOC_COLUMNS}, document_relations${data.entityId ? "!inner" : ""}(entity_id, role)`;
@@ -374,17 +377,23 @@ export const setHold = createServerFn({ method: "POST" })
     const { idempotencyKey, ...body } = data;
     return runWrite(context, await adminClient(), { op: "setHold", idempotencyKey, body, documentId: data.id }, async (env) => {
       if (!can(env.role, "manage")) return forbidden();
+      const now = new Date().toISOString();
       await env.admin
         .from("documents")
         .update({
           legal_hold: data.active,
           hold_reason: data.active ? (data.reason ?? null) : null,
+          hold_reference: data.active ? (data.reference ?? null) : null,
+          hold_since: data.active ? now : null,
           hold_set_by: data.active ? env.userId : null,
-          updated_at: new Date().toISOString(),
+          updated_at: now,
         })
         .eq("id", data.id);
-      await audit(env, "hold", data.id, data.active ? `Hold set: ${data.reason ?? ""}` : "Hold released");
-      return { ok: true, data: await loadDoc(env.admin, data.id) };
+      const { count } = await env.admin.from("document_versions").select("id", { count: "exact", head: true }).eq("document_id", data.id);
+      const ref = data.reference ? ` (${data.reference})` : "";
+      await audit(env, "hold", data.id, data.active ? `Hold placed${ref}: ${data.reason ?? ""}` : `Hold released: ${data.reason ?? ""}`);
+      // metadataOnly: the record and its versions are protected here; the content store itself is not locked.
+      return { ok: true, data: { doc: await loadDoc(env.admin, data.id), versionsCovered: count ?? 0 } };
     });
   });
 
@@ -427,8 +436,8 @@ export const restoreDeleted = createServerFn({ method: "POST" })
     // A deleted row is hidden by RLS, so visibility is checked here: same tenant and entity access.
     return runWrite(context, await adminClient(), { op: "restoreDeleted", idempotencyKey, body, documentId: null }, async (env) => {
       if (!can(env.role, "manage")) return forbidden();
-      const { data: doc } = await env.admin.from("documents").select("id, tenant_id, deleted_at").eq("id", data.id).maybeSingle();
-      if (!doc || doc.tenant_id !== env.tenantId || !doc.deleted_at) return fail("doc.notFound", "notFound");
+      const { data: doc } = await env.admin.from("documents").select("id, tenant_id, deleted_at, purged_at").eq("id", data.id).maybeSingle();
+      if (!doc || doc.tenant_id !== env.tenantId || !doc.deleted_at || doc.purged_at) return fail("doc.notFound", "notFound");
       if (env.role !== "tenant_admin") {
         const { data: rel } = await env.admin.from("document_relations").select("entity_id").eq("document_id", data.id);
         const ids = (rel ?? []).map((r) => r.entity_id);
