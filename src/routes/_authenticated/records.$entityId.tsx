@@ -106,7 +106,7 @@ function RecordPage() {
                 >
                   <span className="flex min-w-0 flex-col">
                     <span className="type-label-14 truncate">{d.name}</span>
-                    {toCheck(d) > 0 ? <span className="type-label-12 text-text-secondary">{toCheck(d)} to check</span> : null}
+                    {toCheck(d) > 0 ? <span className={cn("type-label-12", d.id !== doc && "text-text-secondary")}>{toCheck(d)} to check</span> : null}
                   </span>
                   <span className="flex shrink-0 gap-2">
                     <Tag tone={STATUS_TONE[d.status]} small>{STATUS_LABEL[d.status]}</Tag>

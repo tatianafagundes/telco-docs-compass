@@ -41,7 +41,7 @@ export function FieldRow({ field, index, selected, canReview, busy, editing, onS
       id={`field-${field.id}`}
       aria-selected={selected}
       onClick={onSelect}
-      className={cn("flex min-h-12 cursor-pointer flex-col gap-1 border-b border-border-subtle px-3 py-2", selected && "bg-item-selected")}
+      className={cn("flex min-h-12 cursor-pointer flex-col gap-1 border-b border-border-subtle px-3 py-2", selected && "border-l-2 border-l-focus bg-item-hover")}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="type-label-14">[{index + 1}] {label}</span>
