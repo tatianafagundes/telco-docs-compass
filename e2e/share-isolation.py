@@ -77,7 +77,8 @@ async def main():
         # 2. Share with the viewer
         mgr, _ = await sign_in(browser, "se.manager@example.test")
         await visit(mgr, f"/records/{RECORD}?doc={DOC}")
-        await mgr.get_by_role("button", name="Manage access").click()
+        await mgr.get_by_role("button", name="More actions").click()
+        await mgr.get_by_role("menuitem", name="Manage access").click()
         dialog = mgr.get_by_role("dialog")
         while await dialog.get_by_role("button", name="Remove access").count():  # start clean
             await dialog.get_by_role("button", name="Remove access").first.click()
