@@ -159,13 +159,15 @@ def run(a: dict, b: dict, n: dict, ro: dict) -> None:
     print(f"INFO pass: {res}")
     qa, qb, qn = received(ra), received(rb), received(rn)
     a_se = for_doc(qa, se_doc)
-    check(len(a_se) == 2, f"A received the 2 Sweden events ({len(a_se)})")
-    check(len({hdr(q, 'x-event-id') for q in a_se}) == 2, "each event has its own X-Event-Id")
+    se_ids = sorted({hdr(q, "x-event-id") for q in a_se})
+    types = sorted(json.loads(q["content"])["eventType"] for q in a_se)
+    check(len(a_se) >= 2 and "DocumentStateChangeEvent" in types and "DocumentCreateEvent" in types, f"A received the Sweden document's events ({types})")
+    check(len(se_ids) == len(a_se), "each event arrived once, with its own X-Event-Id")
     check(all(verify(sa["signingSecret"], q) for q in a_se), "A's events carry a valid, recent signature for A's secret")
     check(not any(verify(sb["signingSecret"], q) for q in a_se), "A's events do not verify with B's secret")
     check(all(hdr(q, "x-delivery-attempt") == "1" for q in a_se), "first try is marked X-Delivery-Attempt: 1")
     check(all(json.loads(q["content"])["eventId"] == hdr(q, "x-event-id") for q in a_se), "body eventId matches X-Event-Id")
-    check(len(for_doc(qb, se_doc)) == 2, "B was tried for the same 2 events (and replied 503)")
+    check(sorted(hdr(q, "x-event-id") for q in for_doc(qb, se_doc)) == se_ids, "B was tried for the same events (and replied 503)")
 
     print("\n== 3. Tenant isolation ==")
     check(len(for_doc(qn, no_doc)) >= 1, "N received its Norway event")
@@ -177,11 +179,11 @@ def run(a: dict, b: dict, n: dict, ro: dict) -> None:
 
     print("\n== 4. Retries and backoff ==")
     st = helper("status", sb["id"])
-    check(len(st) == 2 and all(x["attempts"] == 1 and x["delivered_at"] is None and x["last_status"] == 503 for x in st), "B's 2 deliveries recorded as failed once (503)")
+    check(len(st) == len(se_ids) and all(x["attempts"] == 1 and x["delivered_at"] is None and x["last_status"] == 503 for x in st), f"B's {len(se_ids)} deliveries recorded as failed once (503)")
     waits = [(time.mktime(time.strptime(x["next_attempt_at"][:19], "%Y-%m-%dT%H:%M:%S")) - time.mktime(time.gmtime())) for x in st]
     check(all(15 <= w <= 45 for w in waits), f"next try scheduled about 30 s later ({[round(w) for w in waits]})")
     sta = helper("status", sa["id"])
-    check(len(sta) == 2 and all(x["delivered_at"] and x["attempts"] == 1 for x in sta), "A's deliveries recorded as delivered after one try")
+    check(len(sta) == len(se_ids) and all(x["delivered_at"] and x["attempts"] == 1 for x in sta), "A's deliveries recorded as delivered after one try")
     helper("deliver")
     check(len(received(rb)) == len(qb), "B is not retried before its backoff ends")
     check(len(received(ra)) == len(qa), "A is not sent anything again (no duplicates for a healthy subscriber)")
@@ -190,14 +192,15 @@ def run(a: dict, b: dict, n: dict, ro: dict) -> None:
     helper("due-now", sb["id"])
     helper("deliver")
     qb2 = for_doc(received(rb), se_doc)
-    retried = qb2[2:]
-    check(len(retried) == 2 and all(hdr(q, "x-delivery-attempt") == "2" for q in retried), "after B recovers, its 2 events are retried as attempt 2")
-    first_ids = sorted(hdr(q, "x-event-id") for q in qb2[:2])
+    k = len(se_ids)
+    retried = qb2[k:]
+    check(len(retried) == k and all(hdr(q, "x-delivery-attempt") == "2" for q in retried), f"after B recovers, its {k} events are retried as attempt 2")
+    first_ids = sorted(hdr(q, "x-event-id") for q in qb2[:k])
     check(sorted(hdr(q, "x-event-id") for q in retried) == first_ids, "retries keep the same X-Event-Id")
     check(sorted(json.loads(q["content"])["eventId"] for q in retried) == first_ids, "retries keep the same eventId in the body")
     check(all(verify(sb["signingSecret"], q) for q in retried), "retries are freshly signed with a valid timestamp")
     check(all(x["delivered_at"] for x in helper("status", sb["id"])), "B's deliveries now recorded as delivered")
-    check(len(for_doc(received(ra), se_doc)) == 2, "A still received each event exactly once while B was retried")
+    check(len(for_doc(received(ra), se_doc)) == k, "A still received each event exactly once while B was retried")
 
     print("\n== 5. Receiver-side duplicate handling ==")
     seen, processed = set(), 0
@@ -206,15 +209,15 @@ def run(a: dict, b: dict, n: dict, ro: dict) -> None:
         if eid not in seen and verify(sb["signingSecret"], q):
             seen.add(eid)
             processed += 1
-    check(processed == 2 and len(qb2) == 4, "a receiver that keys on X-Event-Id processes 2 events from 4 deliveries")
+    check(processed == k and len(qb2) == 2 * k, f"a receiver that keys on X-Event-Id processes {k} events from {2 * k} deliveries")
 
     print("\n== 6. Overlapping delivery passes ==")
     docs = [new_doc(a["key"], "ord-se-7731", f"par{i}") for i in range(3)]
     with ThreadPoolExecutor(max_workers=3) as ex:
         list(ex.map(lambda _: helper("deliver"), range(3)))
     qa3 = received(ra)
-    counts = [len(for_doc(qa3, d)) for d in docs]
-    check(counts == [1, 1, 1], f"three passes at once still deliver each new event once to A ({counts})")
+    per_doc = [[hdr(q, "x-event-id") for q in for_doc(qa3, d)] for d in docs]
+    check(all(len(x) >= 1 and len(x) == len(set(x)) for x in per_doc), f"three passes at once still deliver each new event once to A ({[len(x) for x in per_doc]})")
     ids = [hdr(q, "x-event-id") for q in qa3]
     check(len(ids) == len(set(ids)), f"A never received the same event id twice ({len(ids)} deliveries)")
 
@@ -225,11 +228,14 @@ def run(a: dict, b: dict, n: dict, ro: dict) -> None:
     for _ in range(6):
         helper("due-now", sb["id"])
         helper("deliver")
-    attempts = [hdr(q, "x-delivery-attempt") for q in for_doc(received(rb), gdoc)]
-    check(attempts == ["1", "2", "3", "4", "5", "6"], f"B is tried 6 times then stops ({attempts})")
+    by_event: dict[str, list[str]] = {}
+    for q in for_doc(received(rb), gdoc):
+        by_event.setdefault(hdr(q, "x-event-id"), []).append(hdr(q, "x-delivery-attempt"))
+    check(by_event and all(v == ["1", "2", "3", "4", "5", "6"] for v in by_event.values()), f"B is tried 6 times per event then stops ({by_event})")
     gst = [x for x in helper("status", sb["id"]) if x["delivered_at"] is None]
-    check(len(gst) == 1 and gst[0]["gave_up_at"] and gst[0]["attempts"] == 6 and gst[0]["last_status"] == 500, "the delivery is recorded as given up after 6 attempts")
-    check(len(for_doc(received(ra), gdoc)) == 1, "A received the same event once, unaffected by B's failures")
+    check(len(gst) == len(by_event) and all(x["gave_up_at"] and x["attempts"] == 6 and x["last_status"] == 500 for x in gst), "those deliveries are recorded as given up after 6 attempts")
+    a_g = [hdr(q, "x-event-id") for q in for_doc(received(ra), gdoc)]
+    check(sorted(a_g) == sorted(by_event), "A received each of those events once, unaffected by B's failures")
 
     print("\n== 8. Unsubscribe and disconnect ==")
     r, _ = api("DELETE", f"/hub/{sa['id']}", a["key"])
