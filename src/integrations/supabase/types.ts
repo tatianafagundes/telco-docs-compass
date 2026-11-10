@@ -738,6 +738,7 @@ export type Database = {
           version: string
         }[]
       }
+      entity_in_my_tenant: { Args: { _entity_id: string }; Returns: boolean }
       has_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
