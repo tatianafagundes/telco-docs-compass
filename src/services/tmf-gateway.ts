@@ -6,15 +6,20 @@ import { z } from "zod";
 import type { Json } from "@/integrations/supabase/types";
 import type { DocStatus } from "@/schemas/document";
 import { hashBody, idempotencyOutcome, isFrozen, isTransitionAllowed, pendingRequiredDetails, type SpecCharacteristic } from "@/services/document-rules";
+import { deleteState } from "@/services/document-actions";
 import type { Db } from "@/services/seam-runtime";
 import {
+  asExternalIdentifiers,
+  fromStandardReferredType,
   hasScope,
+  isPrivateIp,
   isSafeCallback,
   parseListQuery,
   readBearer,
   scopeForTransition,
   selectFields,
   sha256Hex,
+  targetForTmfStatus,
   tmfError,
   toTmfDocument,
   toTmfSpecification,
@@ -27,6 +32,12 @@ import {
 } from "@/services/tmf667-mapper";
 
 export const MAX_BODY_CHARS = 50_000;
+/** Inline base64 attachments (TMF attachment.content) may be larger than ordinary bodies. */
+export const MAX_INLINE_BYTES = 5 * 1024 * 1024;
+const MAX_INLINE_BODY_CHARS = Math.ceil((MAX_INLINE_BYTES * 4) / 3) + 20_000;
+const MAX_URL_FETCH_BYTES = 25 * 1024 * 1024;
+/** Per key, per minute. */
+export const RATE_LIMITS = { read: 120, write: 30 } as const;
 
 export interface SystemCtx {
   admin: Db;
@@ -50,32 +61,48 @@ export function errorReply(e: TmfError, requestId: string): Response {
 }
 
 const DOC_COLS =
-  "id, name, description, document_type, status, sensitivity, legal_hold, effective_date, expiry_date, created_at, updated_at, current_version_id, characteristic";
+  "id, tenant_id, name, description, document_type, status, sensitivity, legal_hold, effective_date, expiry_date, created_at, updated_at, current_version_id, characteristic, external_identifier, retain_until";
 
-/** Verifies the system key and returns a tenant-pinned context, or an error response. */
+/**
+ * Verifies the system key (erad_…) or a short-lived OAuth token (eradt_…), checks expiry, scope and
+ * the per-minute rate limit, and returns a tenant-pinned context, or an error response.
+ */
 export async function authenticate(request: Request, needed: Scope): Promise<SystemCtx | Response> {
   const requestId = crypto.randomUUID();
   const key = readBearer(request.headers.get("authorization"));
-  if (!key) return errorReply(tmfError(401, "unauthorized", "Unauthorized", "Send a system key as 'Authorization: Bearer erad_…'."), requestId);
+  if (!key) return errorReply(tmfError(401, "unauthorized", "Unauthorized", "Send a system key or access token as 'Authorization: Bearer …'."), requestId);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const admin = supabaseAdmin as Db;
-  const { data: client } = await admin
-    .from("integration_clients")
-    .select("id, name, tenant_id, scopes, revoked_at")
-    .eq("key_hash", await sha256Hex(key))
-    .maybeSingle();
-  if (!client || client.revoked_at) return errorReply(tmfError(401, "unauthorized", "Unauthorized", "This system key is not valid."), requestId);
+  let clientId: string | null = null;
+  if (key.startsWith("eradt_")) {
+    const { data: tok } = await admin.from("integration_tokens").select("client_id, expires_at").eq("token_hash", await sha256Hex(key)).maybeSingle();
+    if (tok && new Date(tok.expires_at) > new Date()) clientId = tok.client_id;
+  }
+  const base = admin.from("integration_clients").select("id, name, tenant_id, scopes, revoked_at, expires_at");
+  const { data: client } = clientId ? await base.eq("id", clientId).maybeSingle() : key.startsWith("erad_") ? await base.eq("key_hash", await sha256Hex(key)).maybeSingle() : { data: null };
+  const expired = client?.expires_at ? new Date(client.expires_at) <= new Date() : false;
+  if (!client || client.revoked_at || expired) {
+    return errorReply(tmfError(401, "unauthorized", "Unauthorized", expired ? "This system key has expired. Ask an administrator for a new key." : "This system key is not valid."), requestId);
+  }
   if (!hasScope(client.scopes, needed)) {
     return errorReply(tmfError(403, "scopeMissing", "Forbidden", `This system key does not include '${needed}'.`), requestId);
+  }
+  const kind = request.method === "GET" ? "read" : "write";
+  const { data: hits } = await admin.rpc("api_hit", { p_client: client.id, p_kind: kind });
+  if (typeof hits === "number" && hits > RATE_LIMITS[kind]) {
+    await admin.from("integration_clients").update({ last_rate_limited_at: new Date().toISOString() }).eq("id", client.id);
+    const r = errorReply(tmfError(429, "tooManyRequests", "Too Many Requests", `Limit is ${RATE_LIMITS[kind]} ${kind === "read" ? "reads" : "changes"} per minute for this key.`), requestId);
+    r.headers.set("Retry-After", String(60 - new Date().getSeconds()));
+    return r;
   }
   await admin.from("integration_clients").update({ last_used_at: new Date().toISOString() }).eq("id", client.id);
   console.info(JSON.stringify({ op: "tmf", client: client.id, tenant: client.tenant_id, scope: needed, requestId }));
   return { admin, clientId: client.id, name: client.name, tenantId: client.tenant_id, scopes: client.scopes, origin: new URL(request.url).origin, requestId };
 }
 
-async function readJson(request: Request, ctx: SystemCtx): Promise<{ ok: true; body: unknown } | { ok: false; res: Response }> {
+async function readJson(request: Request, ctx: SystemCtx, maxChars = MAX_BODY_CHARS): Promise<{ ok: true; body: unknown } | { ok: false; res: Response }> {
   const text = await request.text();
-  if (text.length > MAX_BODY_CHARS) return { ok: false, res: errorReply(tmfError(400, "bodyTooLarge", "Bad Request", "Request body is too large."), ctx.requestId) };
+  if (text.length > maxChars) return { ok: false, res: errorReply(tmfError(400, "bodyTooLarge", "Bad Request", "Request body is too large."), ctx.requestId) };
   try {
     return { ok: true, body: text ? JSON.parse(text) : {} };
   } catch {
@@ -170,7 +197,8 @@ export async function listDocuments(request: Request): Promise<Response> {
   let dq = ctx.admin.from("documents").select(DOC_COLS, { count: "exact" }).eq("tenant_id", ctx.tenantId).is("deleted_at", null).is("purged_at", null);
   if (docIds) dq = dq.in("id", docIds);
   if (q.documentType) dq = dq.eq("document_type", q.documentType);
-  if (q.lifecycleState) dq = dq.in("status", q.lifecycleState);
+  if (q.lifecycleState) dq = dq.in("status", q.lifecycleState.length ? q.lifecycleState : ["__none__" as DocStatus]);
+  if (q.externalId) dq = dq.contains("external_identifier", [{ id: q.externalId }]);
   const { data, count } = await dq.order("updated_at", { ascending: false }).range(q.offset, q.offset + q.limit - 1);
   const docs = await loadTmfDocs(ctx, (data ?? []) as DocRow[]);
   const body = docs.map((d) => selectFields(d as unknown as Record<string, unknown>, q.fields));
