@@ -268,6 +268,7 @@ export async function createDocument(request: Request): Promise<Response> {
       })
       .select("id")
       .single();
+    if (error) console.error(JSON.stringify({ op: "tmf.createDocument", requestId: ctx.requestId, code: error.code, message: error.message }));
     if (error || !doc) return { status: 503, body: tmfError(503, "unavailable", "Service Unavailable", "Try again shortly.") };
     const versionId = crypto.randomUUID();
     const storagePath = `${ctx.tenantId}/${versionId}`;
