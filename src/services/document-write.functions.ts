@@ -308,7 +308,7 @@ export const getContentUrl = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: z.input<typeof contentUrlSchema>) => contentUrlSchema.parse(input))
   .handler(async ({ data, context }) =>
-    runRead(context, "getContentUrl", data.id, async ({ caller }) => {
+    runRead<ContentResult>(context, "getContentUrl", data.id, async ({ caller }) => {
       const doc = await loadDoc(caller, data.id);
       if (!doc || !doc.current_version_id) return fail("doc.notFound", "notFound");
       if (contentLocked(doc.pipeline_state)) return fail("doc.content.locked", "rejected", "none", doc.pipeline_state);
