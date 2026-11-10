@@ -34,3 +34,5 @@ use the editor.
 - ERAD primitives live in `src/components/erad/`; unavailable controls use `aria-disabled` plus visible reason text, never native `disabled`. Why: the reason must stay keyboard-reachable.
 - The document seam (contracts/seams/document.openapi.yaml) is implemented as `requireSupabaseAuth` server functions in `src/services/document.functions.ts`, not edge functions. Reads run as the caller (RLS); writes use the service role after an explicit role/access check and append their own audit event. Why: TanStack Start stack, schema allows writes only via service role.
 - Clients may record only `view` and `download` audit actions. Why: all other events are written by the operation itself.
+- Seam operations return `SeamResult` (`{ok,data}` or `{ok:false,error:SeamError}`) instead of throwing; `src/services/api.ts` unwraps into `SeamFailure` and is the only backend entry for screens. Why: typed customer-facing errors cross the RPC boundary intact.
+- Pure document rules (status path, approve gate, delete blockers, idempotency) live in `src/services/document-rules.ts` with tests in `src/services/__tests__/`. Why: rules are testable without a database.
