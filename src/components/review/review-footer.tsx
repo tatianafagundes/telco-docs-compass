@@ -19,6 +19,7 @@ export function ReviewFooter({ checked, total, action, busy, onNext, onTransitio
       <div className="flex min-w-0 flex-col">
         <span className="type-label-14" aria-live="polite">{total === 0 ? "No details to check" : `${checked} of ${total} checked`}</span>
         {total > 0 ? (
+          // Width comes from progress data, the only inline style here.
           <span aria-hidden="true" className="mt-1 h-1 w-40 overflow-hidden rounded-full bg-item-hover">
             <span className="block h-full bg-status-cleared transition-[width]" style={{ width: `${Math.round((checked / total) * 100)}%` }} />
           </span>
