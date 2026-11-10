@@ -50,7 +50,7 @@ const idInput = z.object({ id: z.string().uuid() });
 
 export const get = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => idInput.parse(input))
+  .inputValidator((input: { id: string }) => idInput.parse(input))
   .handler(async ({ data, context }) => {
     const { data: doc, error } = await context.supabase
       .from("documents")
@@ -63,7 +63,7 @@ export const get = createServerFn({ method: "POST" })
 
 export const listVersions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => idInput.parse(input))
+  .inputValidator((input: { id: string }) => idInput.parse(input))
   .handler(async ({ data, context }) => {
     const { data: rows, error } = await context.supabase
       .from("document_versions")
@@ -76,7 +76,7 @@ export const listVersions = createServerFn({ method: "POST" })
 
 export const getExtraction = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => idInput.parse(input))
+  .inputValidator((input: { id: string }) => idInput.parse(input))
   .handler(async ({ data, context }) => {
     const { data: rows, error } = await context.supabase
       .from("extraction_fields")
@@ -118,7 +118,7 @@ const recordInput = z.object({
 
 export const recordAccess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => recordInput.parse(input))
+  .inputValidator((input: z.input<typeof recordInput>) => recordInput.parse(input))
   .handler(async ({ data, context }) => {
     const { data: visible } = await context.supabase.rpc("can_see_document", { _doc: data.id });
     const { data: tenantId } = await context.supabase.rpc("user_tenant");

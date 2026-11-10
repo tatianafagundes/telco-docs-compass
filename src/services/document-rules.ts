@@ -16,7 +16,8 @@ export interface SeamError {
   };
 }
 
-export type SeamResult<T> = { ok: true; data: T } | { ok: false; error: SeamError };
+export type SeamErr = { ok: false; error: SeamError };
+export type SeamResult<T> = { ok: true; data: T } | SeamErr;
 
 export function seamError(
   code: string,

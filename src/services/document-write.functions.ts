@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import type { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Json } from "@/integrations/supabase/types";
 import {
@@ -27,7 +28,7 @@ import {
   PREVIEW_URL_SECONDS,
   seamError,
   transitionCapability,
-  type SeamResult,
+  type SeamErr,
   type SpecCharacteristic,
 } from "@/services/document-rules";
 import { audit, forbidden, runRead, runWrite, type Db } from "@/services/seam-runtime";
@@ -42,7 +43,7 @@ async function adminClient(): Promise<Db> {
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
-const fail = <T>(code: string, category: Parameters<typeof seamError>[1], next?: Parameters<typeof seamError>[2], detail?: string): SeamResult<T> => ({
+const fail = (code: string, category: Parameters<typeof seamError>[1], next?: Parameters<typeof seamError>[2], detail?: string): SeamErr => ({
   ok: false,
   error: seamError(code, category, next, detail),
 });
@@ -62,7 +63,7 @@ async function specFor(caller: Db, code: string): Promise<SpecCharacteristic[]> 
 // ---------- find (read, RLS) ----------
 export const find = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => findSchema.parse(input))
+  .inputValidator((input: z.input<typeof findSchema>) => findSchema.parse(input))
   .handler(async ({ data, context }) =>
     runRead(context, "find", null, async ({ caller }) => {
       const pageSize = data.pageSize ?? 50;
@@ -107,7 +108,7 @@ export const find = createServerFn({ method: "POST" })
 // ---------- register ----------
 export const register = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => registerSchema.parse(input))
+  .inputValidator((input: z.input<typeof registerSchema>) => registerSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { idempotencyKey, ...body } = data;
     return runWrite(context, await adminClient(), { op: "register", idempotencyKey, body, documentId: null }, async (env) => {
@@ -179,7 +180,7 @@ export const register = createServerFn({ method: "POST" })
 // ---------- updateMetadata ----------
 export const updateMetadata = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => updateMetadataSchema.parse(input))
+  .inputValidator((input: z.input<typeof updateMetadataSchema>) => updateMetadataSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { idempotencyKey, ...body } = data;
     return runWrite(context, await adminClient(), { op: "updateMetadata", idempotencyKey, body, documentId: data.id }, async (env) => {
@@ -209,7 +210,7 @@ export const updateMetadata = createServerFn({ method: "POST" })
 // ---------- addVersion ----------
 export const addVersion = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => addVersionSchema.parse(input))
+  .inputValidator((input: z.input<typeof addVersionSchema>) => addVersionSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { idempotencyKey, ...body } = data;
     return runWrite(context, await adminClient(), { op: "addVersion", idempotencyKey, body, documentId: data.id }, async (env) => {
@@ -294,7 +295,7 @@ export const addVersion = createServerFn({ method: "POST" })
 // ---------- getContentUrl (read) ----------
 export const getContentUrl = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => contentUrlSchema.parse(input))
+  .inputValidator((input: z.input<typeof contentUrlSchema>) => contentUrlSchema.parse(input))
   .handler(async ({ data, context }) =>
     runRead(context, "getContentUrl", data.id, async ({ caller }) => {
       const doc = await loadDoc(caller, data.id);
@@ -331,7 +332,7 @@ export const getContentUrl = createServerFn({ method: "POST" })
 // ---------- transition ----------
 export const transition = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => transitionSchema.parse(input))
+  .inputValidator((input: z.input<typeof transitionSchema>) => transitionSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { idempotencyKey, ...body } = data;
     return runWrite(context, await adminClient(), { op: "transition", idempotencyKey, body, documentId: data.id }, async (env) => {
@@ -358,7 +359,7 @@ export const transition = createServerFn({ method: "POST" })
 // ---------- setHold ----------
 export const setHold = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => setHoldSchema.parse(input))
+  .inputValidator((input: z.input<typeof setHoldSchema>) => setHoldSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { idempotencyKey, ...body } = data;
     return runWrite(context, await adminClient(), { op: "setHold", idempotencyKey, body, documentId: data.id }, async (env) => {
@@ -380,7 +381,7 @@ export const setHold = createServerFn({ method: "POST" })
 // ---------- delete (soft) ----------
 export const deleteDocument = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => docWriteSchema.parse(input))
+  .inputValidator((input: z.input<typeof docWriteSchema>) => docWriteSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { idempotencyKey, ...body } = data;
     return runWrite(context, await adminClient(), { op: "delete", idempotencyKey, body, documentId: data.id }, async (env) => {
@@ -410,7 +411,7 @@ export const deleteDocument = createServerFn({ method: "POST" })
 // ---------- restoreDeleted ----------
 export const restoreDeleted = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => docWriteSchema.parse(input))
+  .inputValidator((input: z.input<typeof docWriteSchema>) => docWriteSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { idempotencyKey, ...body } = data;
     // A deleted row is hidden by RLS, so visibility is checked here: same tenant and entity access.
@@ -437,7 +438,7 @@ export const restoreDeleted = createServerFn({ method: "POST" })
 // ---------- reportProblem ----------
 export const reportProblem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => reportProblemSchema.parse(input))
+  .inputValidator((input: z.input<typeof reportProblemSchema>) => reportProblemSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { idempotencyKey, ...body } = data;
     return runWrite(context, await adminClient(), { op: "reportProblem", idempotencyKey, body, documentId: data.id }, async (env) => {
@@ -457,7 +458,7 @@ export const reportProblem = createServerFn({ method: "POST" })
 // ---------- grantAccess / revokeAccess ----------
 export const grantAccess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => grantAccessSchema.parse(input))
+  .inputValidator((input: z.input<typeof grantAccessSchema>) => grantAccessSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { idempotencyKey, ...body } = data;
     return runWrite(context, await adminClient(), { op: "grantAccess", idempotencyKey, body, documentId: data.id }, async (env) => {
@@ -494,7 +495,7 @@ export const grantAccess = createServerFn({ method: "POST" })
 
 export const revokeAccess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => revokeAccessSchema.parse(input))
+  .inputValidator((input: z.input<typeof revokeAccessSchema>) => revokeAccessSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { idempotencyKey, ...body } = data;
     return runWrite(context, await adminClient(), { op: "revokeAccess", idempotencyKey, body, documentId: data.id }, async (env) => {
@@ -516,7 +517,7 @@ export const revokeAccess = createServerFn({ method: "POST" })
 // ---------- listAccess (read, RLS) ----------
 export const listAccess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => docWriteSchema.pick({ id: true }).parse(input))
+  .inputValidator((input: { id: string }) => docWriteSchema.pick({ id: true }).parse(input))
   .handler(async ({ data, context }) =>
     runRead(context, "listAccess", data.id, async ({ caller }) => {
       const { data: visible } = await caller.rpc("can_see_document", { _doc: data.id });
@@ -567,7 +568,7 @@ export const listAccess = createServerFn({ method: "POST" })
 // ---------- reviewExtraction ----------
 export const reviewExtraction = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => reviewExtractionSchema.parse(input))
+  .inputValidator((input: z.input<typeof reviewExtractionSchema>) => reviewExtractionSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { idempotencyKey, ...body } = data;
     return runWrite(context, await adminClient(), { op: "reviewExtraction", idempotencyKey, body, documentId: data.id }, async (env) => {

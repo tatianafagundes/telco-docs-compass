@@ -8,6 +8,7 @@ import {
   idempotencyOutcome,
   seamError,
   type AppRole,
+  type SeamErr,
   type SeamResult,
 } from "@/services/document-rules";
 
@@ -143,6 +144,6 @@ export async function runWrite<T>(
   }
 }
 
-export function forbidden<T>(): SeamResult<T> {
+export function forbidden(): SeamErr {
   return { ok: false, error: seamError("access.roleTooLow", "rejected", "contactSupport") };
 }

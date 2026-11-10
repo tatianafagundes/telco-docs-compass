@@ -30,24 +30,24 @@ export function newIdempotencyKey(op: string): string {
   return `${crypto.randomUUID()}:document.${op}`;
 }
 
-type WithoutKey<T> = Omit<T, "idempotencyKey"> & { idempotencyKey?: string };
-type InputOf<F> = F extends (opts: { data: infer D }) => unknown ? D : never;
+type WithoutKey<D> = Omit<D, "idempotencyKey"> & { idempotencyKey?: string };
 
-async function write<F extends (opts: { data: never }) => Promise<SeamResult<unknown>>>(
-  fn: F,
+async function write<D extends { idempotencyKey: string }, T>(
+  fn: (opts: { data: D }) => Promise<SeamResult<T>>,
   op: string,
-  input: WithoutKey<InputOf<F>>,
-): Promise<Awaited<ReturnType<F>> extends SeamResult<infer T> ? T : never> {
-  const data = { ...input, idempotencyKey: input.idempotencyKey ?? newIdempotencyKey(op) };
-  const res = await (fn as unknown as (o: { data: unknown }) => Promise<SeamResult<unknown>>)({ data });
-  return unwrap(res) as Awaited<ReturnType<F>> extends SeamResult<infer T> ? T : never;
+  input: WithoutKey<D>,
+): Promise<T> {
+  const data = { ...input, idempotencyKey: input.idempotencyKey ?? newIdempotencyKey(op) } as D;
+  return unwrap(await fn({ data }));
 }
+
+type FindInput = Parameters<typeof writes.find>[0]["data"];
 
 export const api = {
   // reads
   me: () => reads.getMe(),
   listEntities: () => reads.listEntities(),
-  find: async (input: InputOf<typeof writes.find>) => unwrap(await writes.find({ data: input })),
+  find: async (input: FindInput) => unwrap(await writes.find({ data: input })),
   get: (id: string) => reads.get({ data: { id } }),
   listVersions: (id: string) => reads.listVersions({ data: { id } }),
   getExtraction: (id: string) => reads.getExtraction({ data: { id } }),
@@ -58,17 +58,16 @@ export const api = {
   listAccess: async (id: string) => unwrap(await writes.listAccess({ data: { id } })),
   recordAccess: (id: string, action: "view" | "download", versionId?: string) =>
     reads.recordAccess({ data: { id, action, ...(versionId ? { versionId } : {}) } }),
-  // writes
-  register: (input: WithoutKey<InputOf<typeof writes.register>>) => write(writes.register, "register", input),
-  updateMetadata: (input: WithoutKey<InputOf<typeof writes.updateMetadata>>) => write(writes.updateMetadata, "updateMetadata", input),
-  addVersion: (input: WithoutKey<InputOf<typeof writes.addVersion>>) => write(writes.addVersion, "addVersion", input),
-  transition: (input: WithoutKey<InputOf<typeof writes.transition>>) => write(writes.transition, "transition", input),
-  setHold: (input: WithoutKey<InputOf<typeof writes.setHold>>) => write(writes.setHold, "setHold", input),
-  delete: (input: WithoutKey<InputOf<typeof writes.deleteDocument>>) => write(writes.deleteDocument, "delete", input),
-  restoreDeleted: (input: WithoutKey<InputOf<typeof writes.restoreDeleted>>) => write(writes.restoreDeleted, "restoreDeleted", input),
-  reportProblem: (input: WithoutKey<InputOf<typeof writes.reportProblem>>) => write(writes.reportProblem, "reportProblem", input),
-  grantAccess: (input: WithoutKey<InputOf<typeof writes.grantAccess>>) => write(writes.grantAccess, "grantAccess", input),
-  revokeAccess: (input: WithoutKey<InputOf<typeof writes.revokeAccess>>) => write(writes.revokeAccess, "revokeAccess", input),
-  reviewExtraction: (input: WithoutKey<InputOf<typeof writes.reviewExtraction>>) =>
-    write(writes.reviewExtraction, "reviewExtraction", input),
+  // writes (idempotency key generated here unless the caller retries with its own)
+  register: (i: WithoutKey<Parameters<typeof writes.register>[0]["data"]>) => write(writes.register, "register", i),
+  updateMetadata: (i: WithoutKey<Parameters<typeof writes.updateMetadata>[0]["data"]>) => write(writes.updateMetadata, "updateMetadata", i),
+  addVersion: (i: WithoutKey<Parameters<typeof writes.addVersion>[0]["data"]>) => write(writes.addVersion, "addVersion", i),
+  transition: (i: WithoutKey<Parameters<typeof writes.transition>[0]["data"]>) => write(writes.transition, "transition", i),
+  setHold: (i: WithoutKey<Parameters<typeof writes.setHold>[0]["data"]>) => write(writes.setHold, "setHold", i),
+  delete: (i: WithoutKey<Parameters<typeof writes.deleteDocument>[0]["data"]>) => write(writes.deleteDocument, "delete", i),
+  restoreDeleted: (i: WithoutKey<Parameters<typeof writes.restoreDeleted>[0]["data"]>) => write(writes.restoreDeleted, "restoreDeleted", i),
+  reportProblem: (i: WithoutKey<Parameters<typeof writes.reportProblem>[0]["data"]>) => write(writes.reportProblem, "reportProblem", i),
+  grantAccess: (i: WithoutKey<Parameters<typeof writes.grantAccess>[0]["data"]>) => write(writes.grantAccess, "grantAccess", i),
+  revokeAccess: (i: WithoutKey<Parameters<typeof writes.revokeAccess>[0]["data"]>) => write(writes.revokeAccess, "revokeAccess", i),
+  reviewExtraction: (i: WithoutKey<Parameters<typeof writes.reviewExtraction>[0]["data"]>) => write(writes.reviewExtraction, "reviewExtraction", i),
 };
