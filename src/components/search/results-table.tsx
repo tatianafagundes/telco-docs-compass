@@ -67,7 +67,7 @@ export function ResultsTable(p: ResultsTableProps) {
     else if (e.key === "Home") { e.preventDefault(); moveTo(0); }
     else if (e.key === "End") { e.preventDefault(); moveTo(p.rows.length - 1); }
     else if (e.key === "Enter" && row) { e.preventDefault(); p.onOpen(row.id); }
-    else if (e.key === " " && row && (e.target as HTMLElement).dataset.row !== undefined) { e.preventDefault(); p.onToggle(row.id); }
+    else if (e.key === " " && row && (e.target as HTMLElement).dataset["row"] !== undefined) { e.preventDefault(); p.onToggle(row.id); }
   };
 
   return (

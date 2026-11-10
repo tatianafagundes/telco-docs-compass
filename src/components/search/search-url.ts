@@ -19,23 +19,23 @@ const date = (v: unknown) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.tes
 /** Lenient: unknown values are dropped rather than replacing the whole search. */
 export function parseDocumentsSearch(raw: Record<string, unknown>): DocumentsSearch {
   const out: DocumentsSearch = {};
-  if (typeof raw.q === "string" && raw.q.trim()) out.q = raw.q.slice(0, 200);
-  const types = strArr(raw.types);
+  if (typeof raw["q"] === "string" && raw["q"].trim()) out.q = raw["q"].slice(0, 200);
+  const types = strArr(raw["types"]);
   if (types) out.types = types;
-  const statuses = strArr(raw.statuses)?.filter((s): s is DocStatus => (STATUSES as string[]).includes(s));
+  const statuses = strArr(raw["statuses"])?.filter((s): s is DocStatus => (STATUSES as string[]).includes(s));
   if (statuses?.length) out.statuses = statuses;
-  const sens = strArr(raw.sensitivity)?.filter((s): s is (typeof SENSITIVITIES)[number] => (SENSITIVITIES as readonly string[]).includes(s));
+  const sens = strArr(raw["sensitivity"])?.filter((s): s is (typeof SENSITIVITIES)[number] => (SENSITIVITIES as readonly string[]).includes(s));
   if (sens?.length) out.sensitivity = sens;
-  const et = strArr(raw.entityTypes, 10);
+  const et = strArr(raw["entityTypes"], 10);
   if (et) out.entityTypes = et;
-  if (typeof raw.entityId === "string" && raw.entityId.length <= 64 && raw.entityId) out.entityId = raw.entityId;
-  if (bool(raw.hold)) out.hold = true;
-  if (bool(raw.review)) out.review = true;
-  const exp = date(raw.expiringBefore);
+  if (typeof raw["entityId"] === "string" && raw["entityId"].length <= 64 && raw["entityId"]) out.entityId = raw["entityId"];
+  if (bool(raw["hold"])) out.hold = true;
+  if (bool(raw["review"])) out.review = true;
+  const exp = date(raw["expiringBefore"]);
   if (exp) out.expiringBefore = exp;
-  if (typeof raw.sort === "string" && (SORTS as readonly string[]).includes(raw.sort)) out.sort = raw.sort as SortKey;
-  if (typeof raw.doc === "string" && /^[0-9a-f-]{36}$/i.test(raw.doc)) out.doc = raw.doc;
-  if (bool(raw.all)) out.all = true;
+  if (typeof raw["sort"] === "string" && (SORTS as readonly string[]).includes(raw["sort"])) out.sort = raw["sort"] as SortKey;
+  if (typeof raw["doc"] === "string" && /^[0-9a-f-]{36}$/i.test(raw["doc"])) out.doc = raw["doc"];
+  if (bool(raw["all"])) out.all = true;
   return out;
 }
 

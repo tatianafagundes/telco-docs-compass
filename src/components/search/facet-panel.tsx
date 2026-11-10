@@ -65,7 +65,7 @@ export function FacetPanel({ filters, onChange }: { filters: SearchFilters; onCh
         <Checkbox label="Details to check" checked={Boolean(filters.review)} onCheckedChange={(c) => onChange({ ...filters, review: c === true || undefined })} />
         <div className="flex items-center justify-between gap-2">
           <Checkbox label="On legal hold" checked={Boolean(filters.hold)} onCheckedChange={(c) => onChange({ ...filters, hold: c === true || undefined })} />
-          <span className="type-label-12 text-text-secondary">{facets.isPending ? "…" : (counts?.hold.true ?? 0).toLocaleString("en-GB")}</span>
+          <span className="type-label-12 text-text-secondary">{facets.isPending ? "…" : (counts?.hold["true"] ?? 0).toLocaleString("en-GB")}</span>
         </div>
       </fieldset>
       {facets.isPending && typeOptions.length === 0 ? <Skeleton className="h-24 w-full" /> : group("Document type", "types", typeOptions, "types")}
