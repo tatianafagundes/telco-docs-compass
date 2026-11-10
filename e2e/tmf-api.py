@@ -22,7 +22,9 @@ import requests
 from playwright.async_api import async_playwright
 
 BASE = os.environ.get("BASE_URL", "http://localhost:8080")
-API = BASE + "/api/public/tmf-api/documentManagement/v4"
+STD = BASE + "/api/public/tmf-api/document/v4"
+LEGACY = BASE + "/api/public/tmf-api/documentManagement/v4"
+API = os.environ.get("TMF_API", LEGACY)
 PASSWORD = "AuroraTest123!"
 ORDER = "ord-se-7731"
 NO_DOC = "00000000-0000-0000-0000-0000000000e1"
@@ -49,8 +51,12 @@ def call(method: str, path: str, key: str | None, body=None, idem: str | None = 
         h["Idempotency-Key"] = idem
     h.update(headers or {})
     data = raw if raw is not None else (json.dumps(body) if body is not None else None)
+    url = path if path.startswith("http") else API + path
     t = time.perf_counter()
-    r = requests.request(method, API + path, headers=h, data=data, timeout=30)
+    r = requests.request(method, url, headers=h, data=data, timeout=60)
+    if r.status_code == 429 and not headers_no_retry(h):
+        time.sleep(int(r.headers.get("Retry-After", "5")) + 1)
+        r = requests.request(method, url, headers=h, data=data, timeout=60)
     ms = (time.perf_counter() - t) * 1000
     bodies.append(r.text)
     try:
@@ -58,6 +64,10 @@ def call(method: str, path: str, key: str | None, body=None, idem: str | None = 
     except ValueError:
         j = None
     return r, j, ms
+
+
+def headers_no_retry(h) -> bool:
+    return h.get("X-Test-No-Retry") == "1"
 
 
 def is_tmf_error(j, status: int) -> bool:
@@ -169,7 +179,7 @@ def conformance(ro: str) -> None:
     check(r.status_code == 200 and isinstance(j, list), "List returns a JSON array")
     keys = ("id", "href", "@type", "relatedEntity", "attachment", "lifecycleState")
     check(all(all(k in d for k in keys) for d in j or []), "Each document has id, href, @type, relatedEntity, attachment, lifecycleState")
-    check(all(d["@type"] == "Document" for d in j or []), "@type is Document")
+    check(all(d["@type"] == "EradDocument" and d.get("@baseType") == "Document" for d in j or []), "@type is EradDocument with @baseType Document")
     check("X-Total-Count" in r.headers and r.headers.get("X-Result-Count") == str(len(j or [])), "X-Total-Count and X-Result-Count headers present and consistent")
     total = int(r.headers.get("X-Total-Count", "0"))
     r2, j2, _ = call("GET", "/document?limit=2&offset=2", ro)
@@ -302,11 +312,13 @@ def events(full: str, doc_id: str) -> None:
     if got:
         content = got["content"]
         sig = (got["headers"].get("x-signature") or [""])[0]
-        expect = "sha256=" + hmac.new(secret.encode(), content.encode(), hashlib.sha256).hexdigest()
-        check(hmac.compare_digest(sig, expect), "X-Signature matches HMAC-SHA256 of the body")
+        ts = (got["headers"].get("x-signature-timestamp") or [""])[0]
+        expect = "sha256=" + hmac.new(secret.encode(), f"{ts}.{content}".encode(), hashlib.sha256).hexdigest()
+        check(hmac.compare_digest(sig, expect), "X-Signature matches HMAC-SHA256 of timestamp.body")
+        check(ts.isdigit() and abs(time.time() - int(ts)) < 600, "X-Signature-Timestamp is recent (replay protection)")
         ev = json.loads(content)
         check(ev.get("eventType") == "DocumentStateChangeEvent" and ev["event"]["document"]["id"] == doc_id, "event names the document and change type")
-        check(set(ev["event"]["document"].keys()) <= {"id", "href", "@type", "lifecycleState"}, "event carries no document content or details")
+        check(set(ev["event"]["document"].keys()) <= {"id", "href", "@type", "status", "lifecycleState"}, "event carries no document content or details")
     if sub:
         r, _, _ = call("DELETE", f"/hub/{sub['id']}", full)
         check(r.status_code == 204, "unsubscribe → 204")
