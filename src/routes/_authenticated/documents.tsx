@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Search, FolderOpen } from "lucide-react";
@@ -65,9 +65,11 @@ function DocumentsPage() {
               <h2 className="type-label-12 flex h-[30px] items-center text-text-secondary">{g.label}</h2>
               <ul className="border-t border-border-subtle">
                 {items.map((e) => (
-                  <li key={e.id} className="flex h-12 items-center justify-between gap-4 border-b border-border-subtle px-4 hover:bg-item-hover">
-                    <span className="type-label-14 truncate">{e.display_name}</span>
-                    {e.status_label ? <Tag tone="indeterminate" small>{e.status_label}</Tag> : null}
+                  <li key={e.id} className="border-b border-border-subtle">
+                    <Link to="/records/$entityId" params={{ entityId: e.id }} className="focus-ring flex h-12 items-center justify-between gap-4 px-4 hover:bg-item-hover">
+                      <span className="type-label-14 truncate">{e.display_name}</span>
+                      {e.status_label ? <Tag tone="indeterminate" small>{e.status_label}</Tag> : null}
+                    </Link>
                   </li>
                 ))}
               </ul>

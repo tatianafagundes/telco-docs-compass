@@ -136,3 +136,17 @@ export const recordAccess = createServerFn({ method: "POST" })
     });
     return { ok: true };
   });
+
+export const listActivity = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { id: string }) => idInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("document_events")
+      .select("id, action, detail, created_at")
+      .eq("document_id", data.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (error) throw new Error("activity.loadFailed");
+    return rows;
+  });
