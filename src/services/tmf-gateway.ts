@@ -287,12 +287,12 @@ function sizeBytes(size: z.infer<typeof attachmentSchema>["size"]): number | und
   return typeof size === "number" ? size : Math.round(size.amount);
 }
 
-async function sha256Bytes(bytes: Uint8Array): Promise<string> {
+async function sha256Bytes(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function decodeBase64(b64: string): Uint8Array | null {
+function decodeBase64(b64: string): Uint8Array<ArrayBuffer> | null {
   try {
     const bin = atob(b64.replace(/\s/g, ""));
     const out = new Uint8Array(bin.length);
@@ -321,7 +321,7 @@ export async function resolvesPublic(url: string): Promise<boolean> {
   }
 }
 
-async function fetchBytes(url: string): Promise<Uint8Array | null> {
+async function fetchBytes(url: string): Promise<Uint8Array<ArrayBuffer> | null> {
   if (!(await resolvesPublic(url))) return null;
   try {
     const r = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(15000) });
@@ -361,7 +361,7 @@ export async function createDocument(request: Request): Promise<Response> {
     if (def.acceptedMimeTypes && !def.acceptedMimeTypes.includes(att.mimeType)) return { status: 400, body: tmfError(400, "mimeNotAccepted", "Bad Request", "This file type isn't accepted for this documentType.") };
 
     // Get the bytes when the client sent them (inline) or pointed at them (url).
-    let bytes: Uint8Array | null = null;
+    let bytes: Uint8Array<ArrayBuffer> | null = null;
     if (att.content) {
       bytes = decodeBase64(att.content);
       if (!bytes) return { status: 400, body: tmfError(400, "invalidContent", "Bad Request", "attachment.content must be base64.") };
