@@ -79,8 +79,9 @@ export const resetTestData = createServerFn({ method: "POST" })
     const { count: synthetic } = await admin.from("tenants").select("id", { count: "exact", head: true }).like("id", "aurora-%");
     if (!synthetic) return { ok: false as const, error: seamError("reset.notTestData", "rejected", "none") };
 
-    const { data: added } = await admin.from("documents").select("id").not("created_by", "is", null).is("purged_at", null);
-    const ids = (added ?? []).map((d) => d.id);
+    // Added = created by a person, or by a connected system (no creator, but not one of the fixed seed ids).
+    const { data: added } = await admin.from("documents").select("id, created_by").is("purged_at", null);
+    const ids = (added ?? []).filter((d) => d.created_by !== null || !d.id.startsWith("00000000-0000-0000-0000-")).map((d) => d.id);
     const { data: versions } = ids.length
       ? await admin.from("document_versions").select("storage_path").in("document_id", ids)
       : { data: [] as { storage_path: string | null }[] };

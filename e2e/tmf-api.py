@@ -6,6 +6,7 @@ Run against the dev server:  python3 e2e/tmf-api.py   (exit code 1 on any failur
     (one with every permission, one read-only), then disconnects both at the end.
   - Documents it creates are named "TMF test …" on order O-7731; "Reset test data" removes them.
   - Event delivery uses a temporary webhook.site receiver and the managed scheduler (runs each minute).
+  - Leftover "TMF test" documents: open Admin as the group admin and use "Reset test data".
 Set SKIP_SLOW=1 to skip the 60-second download-link expiry and event-delivery waits.
 """
 import asyncio
