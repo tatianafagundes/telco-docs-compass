@@ -16,3 +16,6 @@
 - [x] "Shared with me" list for documents shared directly
 - [ ] Share with another organisation, full Activity page (rest of prompt 08)
 - [ ] Phases 3–9 remainder – entity documents, preview, upload, versions, review, access/activity, search
+- [x] TMF667 API: read, register, change details, status path, legal hold, download links, document types, event hub; Admin › Connected systems (keys, rotate, disconnect)
+- [ ] TMF667: rate limits per system key; OAuth client sign-in if your systems need it (waits on your choice)
+- [ ] TMF667: per-system integration guides and test scripts for Ticket management, CRM, CPQ
