@@ -21,6 +21,8 @@ import type { DocStatus, PipelineState } from "@/schemas/document";
 // find() builds its select string dynamically, so its row type is narrowed here.
 interface DocListItem { id: string; name: string; status: DocStatus; pipeline_state: PipelineState; legal_hold: boolean; current_version_id: string | null; extraction_fields?: { status: string; version_id: string }[] }
 
+const RECORD_KIND: Record<string, string> = { Quote: "Quote", ProductOrder: "Order", Account: "Account", Customer: "Customer" };
+
 const toCheck = (d: DocListItem) => (d.extraction_fields ?? []).filter((f) => f.status === "pending" && f.version_id === d.current_version_id).length;
 
 const recordQuery = (entityId: string) =>
@@ -73,8 +75,15 @@ function RecordPage() {
   return (
     <div className="relative flex min-h-full gap-6">
       <div className="flex min-w-0 flex-1 flex-col gap-4">
-        <Link to="/documents" className="type-label-12 text-text-secondary hover:underline">Documents</Link>
-        <PageHeader title={data.entity.display_name} />
+        <Link to="/documents" className="focus-ring type-label-12 inline-flex min-h-6 items-center self-start text-text-secondary hover:underline">Documents</Link>
+        <div className="flex flex-col gap-1">
+          <PageHeader title={data.entity.display_name} />
+          <p className="type-label-12 -mt-3 text-text-secondary">
+            {RECORD_KIND[data.entity.referred_type] ?? data.entity.referred_type}
+            {data.entity.status_label ? ` · ${data.entity.status_label}` : ""}
+            {` · ${data.items.length} ${data.items.length === 1 ? "document" : "documents"}`}
+          </p>
+        </div>
         <AddDocuments
           entityId={entityId}
           entityKind={entityKind}

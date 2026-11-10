@@ -53,7 +53,7 @@ export function DocumentActionsBar({ entityId, doc, role, approveGate }: Props) 
           </Button>
           <Reason text={next.reason} />
           {gated ? (
-            <Link to="/records/$entityId/review/$docId" params={{ entityId, docId: doc.id }} className="focus-ring type-label-12 underline">Review details</Link>
+            <Link to="/records/$entityId/review/$docId" params={{ entityId, docId: doc.id }} className="focus-ring type-label-12 inline-flex min-h-6 items-center self-start underline">Review details</Link>
           ) : null}
         </div>
       ) : null}

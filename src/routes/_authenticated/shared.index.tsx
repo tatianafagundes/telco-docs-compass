@@ -9,7 +9,7 @@ import { Tag } from "@/components/erad/tag";
 import { Button } from "@/components/erad/button";
 import { SkeletonRow } from "@/components/erad/misc";
 import { sharedQuery } from "@/hooks/use-shared";
-import { STATUS_LABEL, STATUS_TONE } from "@/lib/document-labels";
+import { STATUS_LABEL, STATUS_TONE, typeLabel } from "@/lib/document-labels";
 import type { DocStatus } from "@/schemas/document";
 
 export const Route = createFileRoute("/_authenticated/shared/")({
@@ -58,7 +58,7 @@ function SharedPage() {
                 <>
                   <span className="flex flex-col">
                     <span className="type-label-14">{d.name}</span>
-                    <span className="type-label-12 text-text-secondary">{d.documentType} · {meta}</span>
+                    <span className="type-label-12 text-text-secondary">{typeLabel(d.documentType)} · {meta}</span>
                   </span>
                   <Tag tone={STATUS_TONE[d.status as DocStatus]} small>{STATUS_LABEL[d.status as DocStatus]}</Tag>
                 </>

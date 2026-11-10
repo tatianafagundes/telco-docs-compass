@@ -32,6 +32,7 @@ export function DocumentPanel({ id, entityId, role }: { id: string; entityId: st
   const recordId = entityId ?? "";
   const q = useQuery(documentQuery(id));
   const [sharing, setSharing] = useState(false);
+  const [allActivity, setAllActivity] = useState(false);
   const review = useReviewState(id, q.data?.doc?.document_type ?? "", q.data?.doc?.current_version_id ?? null);
   const toCheck = toCheckCount(review.fields);
   if (q.isPending) return <Spinner label="Opening document" />;
@@ -94,7 +95,7 @@ export function DocumentPanel({ id, entityId, role }: { id: string; entityId: st
           <p className="type-paragraph-14 text-text-secondary">Nothing has happened here yet.</p>
         ) : (
           <ol className="flex flex-col gap-2">
-            {activity.map((e) => (
+            {(allActivity ? activity : activity.slice(0, 5)).map((e) => (
               <li key={e.id} className="flex flex-col">
                 <span className="type-label-14">{activityLabel(e.action)}{e.detail ? ` · ${activityDetail(e.detail)}` : ""}</span>
                 <span className="type-label-12 text-text-secondary">{format(new Date(e.created_at), "d MMM yyyy, HH:mm")}</span>
@@ -102,6 +103,11 @@ export function DocumentPanel({ id, entityId, role }: { id: string; entityId: st
             ))}
           </ol>
         )}
+        {activity.length > 5 ? (
+          <button type="button" className="focus-ring type-label-12 inline-flex min-h-6 items-center self-start underline" onClick={() => setAllActivity(!allActivity)}>
+            {allActivity ? "Show recent only" : `Show all ${activity.length}`}
+          </button>
+        ) : null}
       </section>
     </div>
   );

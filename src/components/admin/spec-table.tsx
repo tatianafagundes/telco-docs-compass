@@ -30,7 +30,7 @@ export function SpecTable({ view, activeCode, onOpen }: { view: ConfigView; acti
     { key: "code", header: "Code", cell: (s) => <code className="type-label-12">{s.code}</code> },
     { key: "where", header: "Where defined", cell: (s) => <SourceTag source={settingSource(specFacts(view, s))} groupName={view.tenant.groupName} /> },
     { key: "retention", header: "Retention policy", cell: (s) => retention.get(String(s.definition["retentionPolicyRef"] ?? "")) ?? "Not set" },
-    { key: "signature", header: "Signature required", cell: (s) => (s.definition["signatureRequired"] ? String(s.definition["signatureRequired"]) : "No") },
+    { key: "signature", header: "Signature required", cell: (s) => (s.definition["signatureRequired"] ? String(s.definition["signatureRequired"]).replace(/^./, (c) => c.toUpperCase()) : "No") },
     { key: "review", header: "Review required", cell: (s) => yesNo(s.definition["requiresReview"]) },
     { key: "pd", header: "Contains personal data", cell: (s) => yesNo(s.definition["containsPersonalData"]) },
     {
