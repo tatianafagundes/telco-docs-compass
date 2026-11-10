@@ -159,3 +159,6 @@ Error shape for internal operations: `{code, category, retryable, customerFacing
 | BR-140 | TMF API four-eyes: a system key cannot approve (PATCH status or /transition) a document it registered; 409 `fourEyesRequired`. |
 | BR-141 | Replies carry `category` (document type business-process names) and `document` refs to same-tenant bundle siblings; specifications carry `isBundle: false` and `targetEntitySchema`. |
 | BR-142 | A bulk change pass writes one `DocumentBatchEvent` listing changed ids; it is delivered only to subscriptions whose query names DocumentBatchEvent. |
+
+### BR-143 Approved content is protected
+On approved or effective documents, name and description (plus sensitivity and record links) can still change. Confirmed details, dates (expiry/validFor) and file versions cannot; the API replies 409 `approvedContentLocked`. Superseded, expired and archived documents stay fully closed. Tests: `document-rules.test.ts` "approved content protection", `e2e/tmf-api.py` section 4.
