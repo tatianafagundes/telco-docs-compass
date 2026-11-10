@@ -16,6 +16,8 @@ export interface DocumentPageProps {
   onSelect: (id: string) => void;
 }
 
+// Positions of lines and source boxes come from data, so they are the only inline style values here.
+
 /** The synthetic document page with numbered source boxes; clicking a box selects its field. */
 export function DocumentPage({ pages, fields, selectedId, onSelect }: DocumentPageProps) {
   const [pageNo, setPageNo] = useState(pages[0]?.page ?? 1);
