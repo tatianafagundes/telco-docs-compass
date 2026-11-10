@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/erad/button";
@@ -64,8 +64,12 @@ export function AddDocuments({ entityId, entityKind, role, existing, upload, onS
     return () => window.removeEventListener("paste", paste);
   });
 
+  const qc = useQueryClient();
   const act = (fn: () => Promise<unknown>, done: string) =>
-    void fn().then(() => toast.success(done), (e: unknown) => toast.error(friendlyError(e instanceof Error ? e.message : undefined)));
+    void fn().then(
+      () => { toast.success(done); void qc.invalidateQueries({ queryKey: ["documents", { entityId }] }); },
+      (e: unknown) => toast.error(friendlyError(e instanceof Error ? e.message : undefined)),
+    );
 
   return (
     <div
