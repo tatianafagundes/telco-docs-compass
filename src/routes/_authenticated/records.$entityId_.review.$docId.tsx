@@ -11,7 +11,7 @@ import { documentQuery } from "@/components/documents/document-panel";
 import { meQuery } from "@/hooks/use-me";
 import { useReviewField, useReviewState } from "@/hooks/use-review";
 import { api } from "@/services/api";
-import { can } from "@/services/document-rules";
+import { can, isFrozen } from "@/services/document-rules";
 import { nextToCheck, reviewOrder, toCheckCount } from "@/services/review-rules";
 
 export const Route = createFileRoute("/_authenticated/records/$entityId_/review/$docId")({
@@ -34,9 +34,10 @@ function ReviewPage() {
   const navigate = useNavigate();
   const { data: me } = useSuspenseQuery(meQuery);
   const role = me.access?.role ?? "viewer";
-  const canReview = can(role, "review");
   const docQ = useQuery(documentQuery(docId));
   const doc = docQ.data?.doc ?? null;
+  const closed = doc ? isFrozen(doc.status) : false;
+  const canReview = can(role, "review") && !closed;
   const review = useReviewState(docId, doc?.document_type ?? "", doc?.current_version_id ?? null);
   const pagesQ = useQuery({ queryKey: ["content", docId, "preview"], queryFn: () => api.getContentUrl(docId, "preview") });
   const decide = useReviewField(entityId, docId);
@@ -105,7 +106,7 @@ function ReviewPage() {
               <p className="type-label-14" aria-live="polite">{k === 0 ? "All details are checked" : `${k} of ${fields.length} to check`}</p>
               <Button unavailable={k === 0} onClick={() => goNext()}>Next to check</Button>
             </div>
-            {!canReview ? <p className="type-label-12 text-text-secondary">Only reviewers and managers can check details. You can still read them.</p> : null}
+            {closed ? <p className="type-label-12 text-text-secondary">This document is closed, so its checked details are kept as they are.</p> : !canReview ? <p className="type-label-12 text-text-secondary">Only reviewers and managers can check details. You can still read them.</p> : null}
             <p className="type-label-12 text-text-secondary">Shortcuts in the list: N next to check, Shift+N previous, Ctrl+Enter accept. Nothing is accepted automatically.</p>
             <ul
               role="listbox"
