@@ -1,3 +1,4 @@
+import { BusinessProcess } from "@/components/admin/spec-table";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/erad/button";
 import { Checkbox } from "@/components/erad/checkbox";
@@ -107,6 +108,7 @@ export function SpecPanel(p: SpecPanelProps) {
         <code className="type-label-12 text-text-secondary">{spec.code}</code>
       </div>
       <ul className="flex flex-col gap-4">{(["retentionPolicyRef", "signatureRequired", "requiresReview", "containsPersonalData", "defaultSensitivity"] as const).map(control)}</ul>
+      <BusinessProcess spec={spec} />
       {isGroup && !p.readOnly ? (
         <div className="flex flex-col gap-2">
           <Checkbox

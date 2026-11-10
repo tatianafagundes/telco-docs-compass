@@ -15,8 +15,19 @@ export function specFacts(view: ConfigView, s: EffectiveSpec) {
   return { locked: s.locked, definedIn: s.definedIn, overriddenFields: s.overriddenFields, isGroupTenant: view.tenant.isGroup };
 }
 
-function yesNo(v: unknown): string {
-  return v === true ? "Yes" : "No";
+/** Business process (GB921/eTOM) for one type; shown in the side panel. */
+export function BusinessProcess({ spec }: { spec: EffectiveSpec }) {
+  const p = ((spec.definition["businessProcess"] ?? []) as Process[])[0];
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="type-label-12 text-text-secondary">Business process</span>
+      {p?.id ? (
+        <Tooltip content={`${p.framework ?? "GB921"} ${p.release ?? ""}`.trim()}>
+          <span tabIndex={0} className="focus-ring type-paragraph-14 self-start">{`${p.id} ${p.name ?? ""}`}</span>
+        </Tooltip>
+      ) : <span className="type-paragraph-14">Not set</span>}
+    </div>
+  );
 }
 
 export function SpecTable({ view, activeCode, onOpen }: { view: ConfigView; activeCode?: string; onOpen: (code: string) => void }) {
