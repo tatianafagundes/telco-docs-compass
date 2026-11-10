@@ -44,8 +44,9 @@ function AdminLayout() {
           <Link
             key={t.to}
             to={t.to}
-            className="focus-ring type-label-14 flex h-8 items-center border-b-2 border-transparent px-1 text-text-secondary hover:text-text-main"
+            className="focus-ring type-label-14 flex h-8 items-center border-b-2 px-1 hover:text-text-main"
             activeProps={{ className: "border-border-selected text-text-main", "aria-current": "page" }}
+            inactiveProps={{ className: "border-transparent text-text-secondary" }}
           >
             {t.label}
           </Link>
