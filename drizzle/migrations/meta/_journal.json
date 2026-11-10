@@ -8,6 +8,20 @@
       "when": 1794303673995,
       "tag": "0000_documents_schema_v0_1_0",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794305440873,
+      "tag": "0001_grant_read_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794305567564,
+      "tag": "0002_fix_entity_policy_recursion",
+      "breakpoints": true
     }
   ]
 }
