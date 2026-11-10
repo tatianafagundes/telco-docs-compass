@@ -2,6 +2,7 @@
 import type { SeamError, SeamResult } from "@/services/document-rules";
 import * as reads from "@/services/document.functions";
 import * as writes from "@/services/document-write.functions";
+import * as config from "@/services/tenant-config.functions";
 
 export class SeamFailure extends Error {
   readonly code: string;
@@ -71,4 +72,13 @@ export const api = {
   grantAccess: (i: WithoutKey<Parameters<typeof writes.grantAccess>[0]["data"]>) => write(writes.grantAccess, "grantAccess", i),
   revokeAccess: (i: WithoutKey<Parameters<typeof writes.revokeAccess>[0]["data"]>) => write(writes.revokeAccess, "revokeAccess", i),
   reviewExtraction: (i: WithoutKey<Parameters<typeof writes.reviewExtraction>[0]["data"]>) => write(writes.reviewExtraction, "reviewExtraction", i),
+  // shared configuration (group and countries)
+  getConfig: async () => unwrap(await config.getConfig()),
+  listChildTenants: async () => unwrap(await config.listChildTenants()),
+  getChildView: async (tenantId: string) => unwrap(await config.getChildView({ data: { tenantId } })),
+  specUsage: async (code: string) => unwrap(await config.specUsage({ data: { code } })),
+  saveSpecification: (i: WithoutKey<Parameters<typeof config.saveSpecification>[0]["data"]>) =>
+    write(config.saveSpecification, "config.saveSpecification", i),
+  resetSpecification: (i: WithoutKey<Parameters<typeof config.resetSpecification>[0]["data"]>) =>
+    write(config.resetSpecification, "config.resetSpecification", i),
 };
