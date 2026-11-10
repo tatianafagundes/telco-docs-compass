@@ -22,7 +22,11 @@ function yesNo(v: unknown): string {
 export function SpecTable({ view, activeCode, onOpen }: { view: ConfigView; activeCode?: string; onOpen: (code: string) => void }) {
   const retention = new Map(view.retention.map((r) => [r.id, r.name]));
   const columns: Column<EffectiveSpec>[] = [
-    { key: "name", header: "Name", cell: (s) => <span className="type-label-14-medium">{s.name}</span> },
+    { key: "name", header: "Name", cell: (s) => (
+        <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(s.code); }} className="focus-ring type-label-14-medium text-left underline-offset-2 hover:underline">
+          {s.name}
+        </button>
+      ) },
     { key: "code", header: "Code", cell: (s) => <code className="type-label-12">{s.code}</code> },
     { key: "where", header: "Where defined", cell: (s) => <SourceTag source={settingSource(specFacts(view, s))} groupName={view.tenant.groupName} /> },
     { key: "retention", header: "Retention policy", cell: (s) => retention.get(String(s.definition["retentionPolicyRef"] ?? "")) ?? "Not set" },
