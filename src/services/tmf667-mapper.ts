@@ -2,9 +2,15 @@
 // plus TMF630-style query parsing and errors. No I/O here; tested in __tests__/tmf667-mapper.test.ts.
 import type { DocStatus } from "@/schemas/document";
 
-export const TMF_BASE_PATH = "/api/public/tmf-api/documentManagement/v4";
+/** Standard TMF667 v4 address (/tmf-api/document/v4) under the app's public API prefix. */
+export const TMF_BASE_PATH = "/api/public/tmf-api/document/v4";
+/** Earlier profile address; still served, with Deprecation/Sunset headers. */
+export const LEGACY_BASE_PATH = "/api/public/tmf-api/documentManagement/v4";
+export const LEGACY_SUNSET = "Mon, 10 May 2027 00:00:00 GMT";
+/** Published JSON schema for our Document extension fields. */
+export const ERAD_SCHEMA_PATH = "/tmf-schemas/EradDocument.schema.json";
 
-export const SCOPES = ["read", "register", "transition", "approve", "hold", "subscribe"] as const;
+export const SCOPES = ["read", "register", "transition", "approve", "hold", "delete", "subscribe"] as const;
 export type Scope = (typeof SCOPES)[number];
 
 export const SYSTEM_KINDS = ["orderCare", "ticketManagement", "crm", "cpq", "other"] as const;
@@ -12,6 +18,43 @@ export type SystemKind = (typeof SYSTEM_KINDS)[number];
 
 /** TMF622/621/629/666/648 referred types our business entities map to. */
 export const REFERRED_TYPES = ["ProductOrder", "TroubleTicket", "Customer", "BillingAccount", "Quote", "Agreement", "Site"] as const;
+
+/** TMF667 v4 DocumentStatusType. */
+export const TMF_STATUSES = ["created", "reviewed", "approved", "published", "archived", "deleted"] as const;
+export type TmfStatus = (typeof TMF_STATUSES)[number];
+
+const TO_TMF_STATUS: Record<DocStatus, TmfStatus> = {
+  draft: "created",
+  in_review: "reviewed",
+  approved: "approved",
+  effective: "published",
+  superseded: "archived",
+  expired: "archived",
+  archived: "archived",
+};
+
+export function toTmfStatus(s: DocStatus, deleted = false): TmfStatus {
+  return deleted ? "deleted" : TO_TMF_STATUS[s];
+}
+
+/** Internal states a TMF status filter matches. */
+export function statesForTmfStatus(s: TmfStatus): DocStatus[] {
+  return (Object.keys(TO_TMF_STATUS) as DocStatus[]).filter((k) => TO_TMF_STATUS[k] === s);
+}
+
+/** Target internal state when a client PATCHes `status`. null = not something a client can set. */
+export function targetForTmfStatus(s: string): DocStatus | null {
+  const m: Record<string, DocStatus> = { created: "draft", reviewed: "in_review", approved: "approved", published: "effective", archived: "archived" };
+  return m[s] ?? null;
+}
+
+/** SID names: our records say "Account"; the standard type is BillingAccount. */
+export function toStandardReferredType(t: string): string {
+  return t === "Account" ? "BillingAccount" : t;
+}
+export function fromStandardReferredType(t: string): string {
+  return t === "BillingAccount" ? "Account" : t;
+}
 
 export const MAX_LIMIT = 100;
 export const DEFAULT_LIMIT = 20;
@@ -45,6 +88,7 @@ export interface ListQuery {
   referredType: string | null;
   documentType: string | null;
   lifecycleState: DocStatus[] | null;
+  externalId: string | null;
 }
 
 const STATUSES: DocStatus[] = ["draft", "in_review", "approved", "effective", "superseded", "expired", "archived"];
