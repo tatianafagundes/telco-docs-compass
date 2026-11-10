@@ -56,7 +56,7 @@ export function FieldRow({ field, marker, selected, canReview, busy, editing, cr
       <li role="option" id={`field-${field.id}`} aria-selected={selected} onClick={onSelect} className={cn("flex min-h-10 cursor-pointer items-center gap-2 border-b border-border-subtle px-3 py-2", selected && "bg-item-hover")}>
         <Marker n={marker} active={selected} />
         <CircleCheck aria-hidden="true" className="size-4 shrink-0 text-status-cleared" />
-        <span className="type-label-14 min-w-0 flex-1 truncate">
+        <span className="type-label-14 min-w-0 flex-1 break-words">
           {label}: <span className="type-paragraph-14">{show(field.value)}</span>
         </span>
         <span className="type-label-12 hidden text-text-secondary sm:inline">
