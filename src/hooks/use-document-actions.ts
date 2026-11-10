@@ -33,8 +33,16 @@ export function useDocumentActions(entityId: string, docId: string) {
     onError,
   });
   const setHold = useMutation({
-    mutationFn: (v: { active: boolean; reason?: string }) => api.setHold({ id: docId, ...v }),
-    onSuccess: (_d, v) => { toast.success(v.active ? "Legal hold set" : "Legal hold released"); refresh(); },
+    mutationFn: (v: { active: boolean; reason: string; reference?: string }) => api.setHold({ id: docId, ...v }),
+    onSuccess: (d, v) => {
+      toast.success(
+        v.active ? "Legal hold placed" : "Legal hold released",
+        v.active
+          ? { description: `Hold applied to this record and all ${d.versionsCovered} ${d.versionsCovered === 1 ? "version" : "versions"}. The content store is not locked in this prototype.` }
+          : undefined,
+      );
+      refresh();
+    },
     onError,
   });
   const restore = useMutation({
@@ -51,5 +59,11 @@ export function useDocumentActions(entityId: string, docId: string) {
     onError,
   });
 
-  return { updateDetails, transition, reportProblem, setHold, remove, restore };
+  const purge = useMutation({
+    mutationFn: (reason: string) => api.purge({ id: docId, reason }),
+    onSuccess: () => { toast.success("Document deleted permanently"); refresh(); },
+    onError,
+  });
+
+  return { updateDetails, transition, reportProblem, setHold, remove, restore, purge };
 }
