@@ -91,4 +91,4 @@ stateDiagram-v2
   reading --> failed: unreadable (sim: TEST-UNREADABLE), retry fails again
   reading --> ready
 ```
-While a file is `scanning` or `quarantined` its content is locked (HTTP 423 for content).
+While a file is `scanning` or `quarantined` its content is locked (internal `doc.content.locked`, TMF 409 `contentLocked`).

@@ -67,7 +67,7 @@ Error shape for internal operations: `{code, category, retryable, customerFacing
 ## F. Content and pipeline (`document-rules.ts`, `upload-rules.ts`)
 | ID | Rule |
 |---|---|
-| BR-060 | Content is locked while pipeline_state is scanning or quarantined (`doc.content.locked`, HTTP 423 externally). |
+| BR-060 | Content is locked while pipeline_state is scanning or quarantined (`doc.content.locked`; TMF API answers 409 `contentLocked`). |
 | BR-061 | Preview URL lives 300 s; download URL lives 60 s. |
 | BR-062 | Pipeline: uploading→scanning→(quarantined | reading)→(failed | ready). Simulation: `.exe` or text TEST-QUARANTINE gives quarantined; TEST-UNREADABLE gives failed, and retrying fails again. |
 | BR-063 | Default type: an account plus a file name containing contract, agreement, avtal, kontrakt or msa gives contract ("Based on: the file name mentions a contract"). Else orderAttachment ("Based on: added to an order" / "Based on: the safest general type"). Else none ("Choose a type for this file"). A type that has required fields to type is never picked by default. |
@@ -138,7 +138,7 @@ Error shape for internal operations: `{code, category, retryable, customerFacing
 | BR-121 | Up to 6 attempts. Backoff after failures 1–5: 30, 120, 600, 1800, 7200 s. The subscriber's Retry-After is honoured up to 3600 s; the wait is max(backoff, Retry-After). |
 | BR-122 | Retry-After may be given in seconds or as an HTTP date. An invalid value is ignored. |
 | BR-123 | Subscribers receive only events created at or after their subscription. |
-| BR-124 | Signature: header `X-Signature: sha256=HMAC_SHA256(secret, "<timestamp>.<body>")` with a timestamp header. Receivers reject timestamps more than 300 s off. Comparison is constant-time. |
+| BR-124 | Signature: header `X-Signature: sha256=HMAC_SHA256(secret, "<timestamp>.<body>")` with headers `X-Signature-Timestamp` and `X-Event-Id`. Receivers reject timestamps more than 300 s off. Comparison is constant-time. |
 | BR-125 | One delivery row per (event, subscription), claimed with a lock (SKIP LOCKED). One subscriber's failure never re-sends to others, and overlapping passes never send twice. |
 | BR-126 | Events carry id, href and status only, never document content. Subscriptions are same-tenant only. |
 | BR-127 | Event names: DocumentCreateEvent, DocumentStateChangeEvent (changed: status), DocumentAttributeValueChangeEvent (attachment, characteristic, legalHold), DocumentDeleteEvent (status "deleted"). |
