@@ -66,7 +66,7 @@ export function friendlyError(code: string | undefined): string {
       return "Your role doesn't allow this action.";
     case "doc.transition.notAllowed":
       return "This step isn't available for the document right now. The page has been refreshed.";
-    case "doc.approve.pendingDetails":
+    case "doc.approve.requiredPending":
       return "A few required details still need confirming before approval.";
     case "doc.delete.legalHold":
       return "A legal hold keeps this document safe, so it can't be deleted.";
