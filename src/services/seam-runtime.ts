@@ -23,7 +23,7 @@ export interface WriteEnv {
 }
 
 export interface CallerContext {
-  caller: Db;
+  supabase: Db;
   userId: string;
 }
 
@@ -69,10 +69,10 @@ export async function runRead<T>(
   fn: (env: Omit<WriteEnv, "admin">) => Promise<SeamResult<T>>,
 ): Promise<SeamResult<T>> {
   const started = Date.now();
-  const r = await loadRole(ctx.caller, ctx.userId);
+  const r = await loadRole(ctx.supabase, ctx.userId);
   if (!r) return { ok: false, error: seamError("access.none", "rejected", "contactSupport") };
   try {
-    const res = await fn({ caller: ctx.caller, userId: ctx.userId, tenantId: r.tenantId, role: r.role });
+    const res = await fn({ caller: ctx.supabase, userId: ctx.userId, tenantId: r.tenantId, role: r.role });
     logOp(op, r.tenantId, documentId, res.ok ? "ok" : res.error.code, started);
     return res;
   } catch {
@@ -88,9 +88,9 @@ export async function runWrite<T>(
   fn: (env: WriteEnv) => Promise<SeamResult<T>>,
 ): Promise<SeamResult<T>> {
   const started = Date.now();
-  const r = await loadRole(ctx.caller, ctx.userId);
+  const r = await loadRole(ctx.supabase, ctx.userId);
   if (!r) return { ok: false, error: seamError("access.none", "rejected", "contactSupport") };
-  const env: WriteEnv = { caller: ctx.caller, admin, userId: ctx.userId, tenantId: r.tenantId, role: r.role };
+  const env: WriteEnv = { caller: ctx.supabase, admin, userId: ctx.userId, tenantId: r.tenantId, role: r.role };
   const operation = `document.${opts.op}`;
 
   try {
@@ -117,7 +117,7 @@ export async function runWrite<T>(
     }
 
     if (opts.documentId) {
-      const { data: visible } = await ctx.caller.rpc("can_see_document", { _doc: opts.documentId });
+      const { data: visible } = await ctx.supabase.rpc("can_see_document", { _doc: opts.documentId });
       if (!visible) {
         await audit(env, "accessDenied", null, operation);
         logOp(opts.op, env.tenantId, opts.documentId, "notFound", started);

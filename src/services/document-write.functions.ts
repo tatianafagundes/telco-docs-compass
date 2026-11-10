@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type { Json } from "@/integrations/supabase/types";
+import type { Database, Json } from "@/integrations/supabase/types";
 import {
   addVersionSchema,
   contentUrlSchema,
@@ -189,16 +189,16 @@ export const updateMetadata = createServerFn({ method: "POST" })
       if (!doc) return fail("doc.notFound", "notFound");
       if (isFrozen(doc.status)) return fail("doc.edit.frozen", "rejected");
       const p = data.patch;
-      const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
-      if (p.name !== undefined) update["name"] = p.name;
-      if (p.description !== undefined) update["description"] = p.description;
-      if (p.sensitivity !== undefined) update["sensitivity"] = p.sensitivity;
-      if (p.expiryDate !== undefined) update["expiry_date"] = p.expiryDate;
-      if (p.characteristic !== undefined) update["characteristic"] = p.characteristic;
+      const update: Database["public"]["Tables"]["documents"]["Update"] = { updated_at: new Date().toISOString() };
+      if (p.name !== undefined) update.name = p.name;
+      if (p.description !== undefined) update.description = p.description;
+      if (p.sensitivity !== undefined) update.sensitivity = p.sensitivity;
+      if (p.expiryDate !== undefined) update.expiry_date = p.expiryDate;
+      if (p.characteristic !== undefined) update.characteristic = p.characteristic as Json;
       if (p.keepUnread) {
         if (doc.pipeline_state !== "failed") return fail("doc.keepUnread.notFailed", "rejected");
-        update["pipeline_state"] = "ready";
-        update["pipeline_detail"] = { note: "notRead" };
+        update.pipeline_state = "ready";
+        update.pipeline_detail = { note: "notRead" };
       }
       const { error } = await env.admin.from("documents").update(update).eq("id", data.id);
       if (error) return fail("doc.update.failed", "unavailable", "retry");
