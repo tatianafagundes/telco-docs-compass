@@ -12,13 +12,17 @@ import { meQuery } from "@/hooks/use-me";
 import { PIPELINE_LABEL, PIPELINE_TONE, STATUS_LABEL, STATUS_TONE } from "@/lib/document-labels";
 import { api } from "@/services/api";
 import { cn } from "@/lib/utils";
+import type { DocStatus, PipelineState } from "@/schemas/document";
+
+// find() builds its select string dynamically, so its row type is narrowed here.
+interface DocListItem { id: string; name: string; status: DocStatus; pipeline_state: PipelineState }
 
 const recordQuery = (entityId: string) =>
   queryOptions({
     queryKey: ["documents", { entityId }],
     queryFn: async () => {
       const [entities, found] = await Promise.all([api.listEntities(), api.find({ entityId })]);
-      return { entity: entities.find((e) => e.id === entityId) ?? null, items: found.items };
+      return { entity: entities.find((e) => e.id === entityId) ?? null, items: found.items as unknown as DocListItem[] };
     },
   });
 

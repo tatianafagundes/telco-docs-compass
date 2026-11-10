@@ -2,10 +2,10 @@
 // Runs only when RUN_ACCESS_TESTS=1 so ordinary unit runs stay offline.
 import { describe, expect, it } from "vitest";
 
-const URL_ = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+const URL_ = import.meta.env["VITE_SUPABASE_URL"] as string | undefined;
+const KEY = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] as string | undefined;
 const PASSWORD = "AuroraTest123!";
-const enabled = process.env.RUN_ACCESS_TESTS === "1" && Boolean(URL_ && KEY);
+const enabled = process.env["RUN_ACCESS_TESTS"] === "1" && Boolean(URL_ && KEY);
 
 async function token(email: string): Promise<string> {
   const res = await fetch(`${URL_}/auth/v1/token?grant_type=password`, {
@@ -32,7 +32,7 @@ describe.runIf(enabled)("access rules", () => {
   it("should show the Sweden manager all 11 Sweden records and no Norway records", async () => {
     const r = await rows("se.manager@example.test", "business_entities?select=id,tenant_id");
     expect(r).toHaveLength(11);
-    expect(r.every((x) => x.tenant_id === "aurora-se")).toBe(true);
+    expect(r.every((x) => x["tenant_id"] === "aurora-se")).toBe(true);
   });
 
   it("should show the Sweden admin every Sweden record", async () => {
@@ -47,7 +47,7 @@ describe.runIf(enabled)("access rules", () => {
   it("should never show Sweden documents to the Norway manager", async () => {
     const docs = await rows("no.manager@example.test", "documents?select=id,tenant_id");
     expect(docs.length).toBe(3);
-    expect(docs.every((d) => d.tenant_id === "aurora-no")).toBe(true);
+    expect(docs.every((d) => d["tenant_id"] === "aurora-no")).toBe(true);
     expect(await rows("no.manager@example.test", "business_entities?select=id&tenant_id=eq.aurora-se")).toEqual([]);
   });
 
