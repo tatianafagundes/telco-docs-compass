@@ -116,13 +116,39 @@ def main() -> None:
     n = helper("mint", "aurora-no", f"TMF test events N {RUN}", scopes)
     ro = helper("mint", "aurora-se", f"TMF test events RO {RUN}", "read")
     clients = [a, b, n, ro]
+    n2 = helper("mint", "aurora-no", f"TMF test events N2 {RUN}", scopes)
+    clients.append(n2)
     try:
         run(a, b, n, ro)
+        batch(b, n2)
     finally:
         for c in clients:
             helper("revoke", c["id"])
     print(f"\nRun {RUN}: {len(failures)} failure(s)")
     sys.exit(1 if failures else 0)
+
+
+def batch(b: dict, n2: dict) -> None:
+    print("\n== 9. DocumentBatchEvent ==")
+    rbat, rplain, rnor = receiver(200), receiver(200), receiver(200)
+    _, sbat = api("POST", "/hub", b["key"], {"callback": f"{HOOK}/{rbat}", "query": "eventType=DocumentBatchEvent"})
+    _, splain = api("POST", "/hub", b["key"], {"callback": f"{HOOK}/{rplain}"})
+    _, snor = api("POST", "/hub", n2["key"], {"callback": f"{HOOK}/{rnor}", "query": "eventType=DocumentBatchEvent"})
+    d1, d2 = new_doc(b["key"], "ord-se-7731", "bat1"), new_doc(b["key"], "ord-se-7731", "bat2")
+    helper("deliver")
+    plain_before = len(received(rplain))
+    helper("batch", "aurora-se", d1, d2)
+    helper("deliver")
+    got = received(rbat)
+    bodies = [json.loads(q["content"]) for q in got]
+    batches = [x for x in bodies if x["eventType"] == "DocumentBatchEvent"]
+    check(len(batches) == 1 and sorted(x["id"] for x in batches[0]["event"]["document"]) == sorted([d1, d2]), "batch subscriber gets one DocumentBatchEvent listing both documents")
+    check(len(got) == len(batches), "batch-only subscriber gets no per-document events")
+    check(all(verify(sbat["signingSecret"], q) for q in got), "batch event is signed for that subscriber")
+    check(not any(json.loads(q["content"])["eventType"] == "DocumentBatchEvent" for q in received(rplain)[plain_before:]), "subscribers that didn't ask for batch events don't get them")
+    check(not received(rnor), "a Norway batch subscriber gets nothing about Sweden bulk changes")
+    helper("deliver")
+    check(len(received(rbat)) == len(got), "the batch event is not delivered twice")
 
 
 def run(a: dict, b: dict, n: dict, ro: dict) -> None:

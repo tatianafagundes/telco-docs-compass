@@ -3,9 +3,11 @@
 //   bun e2e/events-helper.ts mint <tenant> <name> <scopes,comma>   temporary system key → {"id","key"}
 //   bun e2e/events-helper.ts revoke <clientId>       disconnect a temporary system (removes its subscriptions)
 //   bun e2e/events-helper.ts due-now <subId...>      make pending retries for these subscriptions due now
+//   bun e2e/events-helper.ts batch <tenant> <docId...>  record a bulk-change DocumentBatchEvent (same code the bulk worker runs)
 //   bun e2e/events-helper.ts status <subId>          delivery records for a subscription
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { deliverPending } from "@/services/tmf-events";
+import { recordBatchEvent } from "@/services/bulk-worker";
 import { sha256Hex } from "@/services/tmf667-mapper";
 
 const [cmd, ...args] = process.argv.slice(2);
@@ -40,6 +42,11 @@ async function main(): Promise<unknown> {
         .is("gave_up_at", null)
         .select("event_id");
       return { made_due: data?.length ?? 0 };
+    }
+    case "batch": {
+      const [tenant, ...ids] = args;
+      await recordBatchEvent(admin, tenant ?? "", ids, "transition");
+      return { ok: true };
     }
     case "status": {
       const { data } = await admin

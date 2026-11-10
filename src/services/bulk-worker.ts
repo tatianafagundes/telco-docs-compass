@@ -92,19 +92,23 @@ async function runBatch(admin: Db, job: JobRow) {
     changedIds.push(id);
   }
   // One TMF667 DocumentBatchEvent per pass, for subscriptions that ask for batch events.
-  if (changedIds.length > 0) {
-    await admin.from("event_outbox").insert({
-      tenant_id: job.tenant_id,
-      event_type: "DocumentBatchEvent",
-      document_id: changedIds[0] as string,
-      payload: { documentIds: changedIds, action: job.action } as unknown as Json,
-    });
-  }
+  await recordBatchEvent(admin, job.tenant_id, changedIds, job.action);
   const done = job.done + ids.length;
   await admin
     .from("bulk_jobs")
     .update({ done, changed, skipped: skipped as Json, status: done >= job.total ? "done" : "running", ...(done >= job.total ? { finished_at: now } : {}) })
     .eq("id", job.id);
+}
+
+/** Writes one DocumentBatchEvent outbox row for documents changed in one bulk pass (none when empty). */
+export async function recordBatchEvent(admin: Db, tenantId: string, documentIds: string[], action: string): Promise<void> {
+  if (documentIds.length === 0) return;
+  await admin.from("event_outbox").insert({
+    tenant_id: tenantId,
+    event_type: "DocumentBatchEvent",
+    document_id: documentIds[0] as string,
+    payload: { documentIds, action } as unknown as Json,
+  });
 }
 
 /** Runs one batch for each pending job (or just the given one). Safe to call repeatedly. */
