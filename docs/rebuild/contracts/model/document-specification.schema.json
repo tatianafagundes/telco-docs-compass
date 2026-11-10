@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "document-specification.schema.json",
+  "title": "DocumentSpecification",
+  "description": "Document type definition, version 0.1.0. Aligned to TMF667 v5 DocumentSpecification. Configured per tenant (CM Mediator in production). Drives required metadata, retention, accepted file types and the extraction template for a type.",
+  "type": "object",
+  "required": ["id", "documentType", "name", "lifecycleStatus"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "x-tmf667": "DocumentSpecification.id" },
+    "documentType": { "type": "string", "x-tmf667": "DocumentSpecification.documentType" },
+    "name": { "type": "string", "x-tmf667": "DocumentSpecification.name" },
+    "description": { "type": "string" },
+    "version": { "type": "string", "x-tmf667": "DocumentSpecification.version" },
+    "lifecycleStatus": { "type": "string", "enum": ["inDesign", "active", "retired"], "x-tmf667": "DocumentSpecification.lifecycleStatus (free string in TMF667; our vocabulary)" },
+    "allowedRelatedEntityTypes": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["Account", "Quote", "ProductOrder", "Contract", "Line", "Customer"] },
+      "x-extension": "constraint on Document.relatedEntity"
+    },
+    "specCharacteristic": {
+      "type": "array",
+      "x-tmf667": "DocumentSpecification.specCharacteristic",
+      "items": {
+        "type": "object",
+        "required": ["name", "valueType"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "valueType": { "type": "string", "enum": ["string", "date", "number", "boolean", "enum"] },
+          "required": { "type": "boolean", "default": false },
+          "enumValues": { "type": "array", "items": { "type": "string" } },
+          "extractable": { "type": "boolean", "default": false, "description": "true = offered by extraction review with confidence." },
+          "alwaysReview": { "type": "boolean", "default": false, "description": "true = a person must accept or edit this field whatever its confidence; never included in bulk accept. Use for numbers, parties, dates, amounts." },
+          "reviewThreshold": { "type": "number", "minimum": 0, "maximum": 1, "description": "Stricter per-field cut-off for High. Can tighten the tenant/master threshold, never loosen it." }
+        }
+      }
+    },
+    "acceptedMimeTypes": { "type": "array", "items": { "type": "string" }, "x-extension": "storage rules" },
+    "maxSizeMb": { "type": "number", "x-extension": "storage rules" },
+    "defaultSensitivity": { "type": "string", "enum": ["public", "internal", "confidential", "restricted"] },
+    "retentionPolicyRef": { "type": "string", "x-extension": "retention; periods are tenant and jurisdiction configuration, not model" },
+    "requiresReview": { "type": "boolean", "default": false },
+    "signatureRequired": { "type": "string", "enum": ["none", "simple", "advanced", "qualified"], "default": "none" },
+    "businessProcess": {
+      "type": "array",
+      "description": "The business processes this document type serves, from the TM Forum Business Process Framework (GB921). Always carries the release, because codes change between releases. Our judgement, not stated by eTOM; see docs/tmf667-mapping.md.",
+      "items": {
+        "type": "object",
+        "required": ["framework", "release", "id", "name"],
+        "additionalProperties": false,
+        "properties": {
+          "framework": { "const": "GB921" },
+          "release": { "type": "string", "description": "For example 26.0.0" },
+          "id": { "type": "string", "description": "Process identifier, for example 1.12.9.5" },
+          "name": { "type": "string" }
+        }
+      },
+      "x-extension": "businessProcess"
+    },
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Where this resolved definition comes from in the tenant hierarchy. Read-only: the seam returns the effective definition for the calling tenant (master merged with child). See tenant-policy.schema.json.",
+      "readOnly": true,
+      "properties": {
+        "definedIn": { "type": "string", "enum": ["master", "tenant"] },
+        "tenantId": { "type": "string" },
+        "locked": { "type": "boolean", "description": "true = the master forbids child changes to this definition." },
+        "overriddenFields": { "type": "array", "items": { "type": "string" }, "description": "Fields the child changed relative to the master." }
+      },
+      "x-extension": "tenancy"
+    },
+    "storesPersonalData": { "type": "boolean", "default": false, "description": "true triggers minimisation rules: outcome and fields only, original held by the provider (rule 6)." }
+  }
+}

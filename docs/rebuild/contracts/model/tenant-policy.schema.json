@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tenant-policy.schema.json",
+  "title": "TenantPolicy",
+  "description": "Tenant hierarchy and configuration inheritance for the document seam, version 0.1.0. DXP evidence: tenant comes from the signed token (never a loose header); endpoints, credentials and the seam binding live per tenant in CM Mediator (ADR-010). CONFIRMED by the product owner 2026-11-06: a 'master tenant' is a parent that owns shared configuration and child tenants inherit it; the DXP documents do not define the term, so this definition is ours. Documents themselves never cross tenants; only configuration is inherited.",
+  "type": "object",
+  "required": ["tenantId", "role"],
+  "additionalProperties": false,
+  "properties": {
+    "tenantId": { "type": "string" },
+    "displayName": { "type": "string" },
+    "role": { "type": "string", "enum": ["master", "child"] },
+    "parentTenantId": { "type": "string", "description": "Required when role = child. A child has exactly one master; no deeper nesting in 0.1.0." },
+    "frontendStrategy": { "type": "string", "enum": ["common", "customized", "dedicated", "external"], "description": "The DXP frontend tenancy strategies named in ADR-010." },
+    "dataIsolation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "documents": { "const": "tenantOnly", "description": "Document metadata, versions, extraction, audit and content are readable only inside the owning tenant." },
+        "crossTenantShare": { "type": "string", "enum": ["off", "explicitGrant"], "default": "off", "description": "explicitGrant = a named document shared to named tenant(s) by a person with the right, each grant audited and revocable." },
+        "masterSupervision": { "type": "string", "enum": ["none", "metadataOnly", "auditOnGrant"], "default": "none", "description": "What the master tenant can see of a child's documents without a share. metadataOnly = counts and states, never content, names or fields. auditOnGrant = content access only through a time-boxed, audited grant." }
+      }
+    },
+    "inheritance": {
+      "type": "object",
+      "description": "Per configuration kind, how a child relates to the master. Resolution order: tenant value if mode allows, else master value, else platform default.",
+      "additionalProperties": false,
+      "properties": {
+        "documentSpecifications": { "$ref": "#/$defs/InheritanceRule" },
+        "retentionPolicies": { "$ref": "#/$defs/InheritanceRule" },
+        "sensitivityLabels": { "$ref": "#/$defs/InheritanceRule" },
+        "roleVocabulary": { "$ref": "#/$defs/InheritanceRule" },
+        "extractionThresholds": { "$ref": "#/$defs/InheritanceRule" },
+        "statusWorkflow": { "$ref": "#/$defs/InheritanceRule" },
+        "binding": { "$ref": "#/$defs/InheritanceRule" }
+      }
+    },
+    "hardFloors": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Values a child may tighten but never loosen (master-set minimums). Evaluated by the seam and by OPA.",
+      "properties": {
+        "minRetentionDays": { "type": "integer", "minimum": 0 },
+        "autoAcceptConfidenceAtLeast": { "type": "number", "minimum": 0, "maximum": 1 },
+        "requireMalwareScan": { "type": "boolean" },
+        "maxSensitivityWithoutReview": { "type": "string", "enum": ["public", "internal", "confidential", "restricted"] }
+      }
+    }
+  },
+  "$defs": {
+    "InheritanceRule": {
+      "type": "object",
+      "required": ["mode"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["inherit", "extend", "override", "locked"],
+          "description": "inherit = use the master as is. extend = master items plus own items. override = own item replaces the master's of the same code. locked = master item, child cannot change or hide it."
+        },
+        "note": { "type": "string" }
+      }
+    }
+  }
+}

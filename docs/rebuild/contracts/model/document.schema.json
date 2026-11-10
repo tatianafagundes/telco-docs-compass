@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "document.schema.json",
+  "title": "Document",
+  "description": "Canonical document model of the document seam, version 0.1.0. Aligned to TM Forum TMF667 v5 (Document, Attachment); extensions are named in x-extension and in docs/tmf667-mapping.md. A Document is metadata plus links; the binary lives in a content store and is reached only through a short-lived URL (rule 1). Status and pipelineState are two different axes (rule 5).",
+  "type": "object",
+  "required": ["id", "name", "documentType", "status", "pipelineState", "relatedEntity"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "readOnly": true, "x-tmf667": "Document.id" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 255, "x-tmf667": "Document.name" },
+    "description": { "type": "string", "x-tmf667": "Document.description" },
+    "documentType": {
+      "type": "string",
+      "description": "Code from DocumentSpecification.documentType (configured per tenant). Examples: contract, quote, orderAttachment, kycOutcome, bill, technicalDoc.",
+      "x-tmf667": "Document.documentType"
+    },
+    "documentSpecification": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": { "id": { "type": "string" }, "version": { "type": "string" } },
+      "x-tmf667": "Document.documentSpecification (DocumentSpecificationRef)"
+    },
+    "version": { "type": "string", "readOnly": true, "description": "Label of the current effective version (for example 3 or 3.1-signed).", "x-tmf667": "Document.version" },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "in_review", "approved", "effective", "superseded", "expired", "archived"],
+      "description": "Lifecycle. TMF667 gives status as a free string; this is our vocabulary. Terminal for edits: superseded, expired, archived.",
+      "x-tmf667": "Document.status",
+      "x-extension": "vocabulary"
+    },
+    "pipelineState": {
+      "type": "string",
+      "enum": ["uploading", "scanning", "reading", "ready", "failed", "quarantined"],
+      "description": "Processing of the current version. The UI shows this on every row. quarantined = malware scan flagged the file; content is never served.",
+      "x-extension": "characteristic: pipelineState"
+    },
+    "pipelineDetail": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "failedStep": { "type": "string", "enum": ["upload", "scan", "extraction"] },
+        "reasonKey": { "type": "string", "description": "i18n key; never a backend message." },
+        "retryable": { "type": "boolean" }
+      }
+    },
+    "sensitivity": {
+      "type": "string",
+      "enum": ["public", "internal", "confidential", "restricted"],
+      "default": "internal",
+      "x-extension": "characteristic: sensitivity"
+    },
+    "signatureLevel": {
+      "type": "string",
+      "enum": ["none", "simple", "advanced", "qualified"],
+      "default": "none",
+      "description": "eIDAS level of the signature carried by the current version, when any. Evidence package is held by the signature provider.",
+      "x-extension": "characteristic: signatureLevel"
+    },
+    "origin": {
+      "type": "string",
+      "enum": ["uploaded", "generated"],
+      "default": "uploaded",
+      "description": "generated = produced from a DocumentSpecification template (for example a quote PDF built from the quote). SID: GeneratedDocument vs SimpleDocument. The generate operation is not in seam 0.1.0.",
+      "x-sid": "GeneratedDocument / SimpleDocument",
+      "x-extension": "origin"
+    },
+    "bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Membership of a document set, such as a contract (core) with its annexes. SID: DocumentSet. TMF667 has no set; only documentRelationship.",
+      "properties": { "id": { "type": "string" }, "role": { "type": "string", "enum": ["core", "annex"] } },
+      "x-sid": "DocumentSet / DocumentSetSpecification",
+      "x-extension": "bundle"
+    },
+    "validFor": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Legal or commercial effectiveness (a contract's term). Different from expiryDate. TMF667 v5 states the distinction explicitly.",
+      "properties": { "startDateTime": { "type": "string", "format": "date-time" }, "endDateTime": { "type": "string", "format": "date-time" } },
+      "x-tmf667": "Document.validFor (TimePeriod)"
+    },
+    "expiryDate": { "type": "string", "format": "date", "description": "Administrative expiry of the document (for example an insurance certificate). Reaching it moves status to expired. TMF667 uses date-time; the prototype stores a date.", "x-tmf667": "Document.expiryDate" },
+    "relatedEntity": {
+      "type": "array",
+      "minItems": 1,
+      "description": "The business entities this document belongs to. Access is inherited from these (rule 4). A document with no entity is not allowed.",
+      "items": {
+        "type": "object",
+        "required": ["role", "entity"],
+        "additionalProperties": false,
+        "properties": {
+          "role": { "type": "string", "description": "contract, orderAttachment, quoteDocument, kycOutcome, billCopy, supportingEvidence" },
+          "attachedOnDateTime": { "type": "string", "format": "date-time", "readOnly": true, "description": "When the document was attached to this entity. SID Attachment.attachedOnDateTime; may differ from the start of validity.", "x-sid": "Attachment.attachedOnDateTime", "x-extension": "attachedOnDateTime" },
+          "entity": {
+            "type": "object",
+            "required": ["id", "referredType"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "referredType": { "type": "string", "enum": ["Account", "Quote", "ProductOrder", "Contract", "Line", "Customer"] },
+              "displayName": { "type": "string" }
+            }
+          }
+        }
+      },
+      "x-tmf667": "Document.relatedEntity is a SINGLE RelatedEntity (role + entity) in v5; ours is an array. The adapter sends the first as relatedEntity and the others as characteristic relatedEntity.N (see docs/tmf667-mapping.md)."
+    },
+    "relatedParty": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["role", "partyId"],
+        "additionalProperties": false,
+        "properties": {
+          "role": { "type": "string", "enum": ["owner", "author", "reviewer", "signatory"] },
+          "partyId": { "type": "string" },
+          "displayName": { "type": "string" }
+        }
+      },
+      "x-tmf667": "Document.relatedParty items are RelatedPartyRefOrPartyRoleRef {role, partyOrPartyRole{id, href, name, @referredType}}; ours flattens to {role, partyId, displayName}."
+    },
+    "documentRelationship": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["relationshipType", "documentId"],
+        "additionalProperties": false,
+        "properties": {
+          "relationshipType": { "type": "string", "enum": ["amends", "supersedes", "supports", "derivedFrom"] },
+          "documentId": { "type": "string" }
+        }
+      },
+      "x-tmf667": "Document.documentRelationship items are DocumentRef (id, href, name, version) with NO relationship type in v5; the adapter carries relationshipType in the ref's name or as a characteristic."
+    },
+    "externalIdentifier": {
+      "type": "array",
+      "description": "Ids in other systems (content store item id, signature envelope id). Never the content URL.",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "additionalProperties": false,
+        "properties": {
+          "owner": { "type": "string" },
+          "externalIdentifierType": { "type": "string" },
+          "id": { "type": "string" }
+        }
+      },
+      "x-tmf667": "Document.externalIdentifier"
+    },
+    "characteristic": {
+      "type": "array",
+      "description": "Type-specific metadata governed by DocumentSpecification.specCharacteristic (for example contractNumber, counterparty, renewalDate). Fields that tmf667 lacks and that every type needs are promoted to typed properties above, not hidden here.",
+      "items": {
+        "type": "object",
+        "required": ["name", "value"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "valueType": { "type": "string" },
+          "value": {}
+        }
+      },
+      "x-tmf667": "Document.characteristic"
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "policyRef": { "type": "string" },
+        "retainUntil": { "type": "string", "format": "date" },
+        "legalHold": { "type": "boolean", "default": false },
+        "holdReason": { "type": "string" },
+        "holdSetBy": { "type": "string" }
+      },
+      "x-extension": "retention is a policy over versions, not over the file (rule 3 and SharePoint evidence)"
+    },
+    "currentVersion": { "$ref": "#/$defs/DocumentVersion" },
+    "createdAt": { "type": "string", "format": "date-time", "readOnly": true, "x-tmf667": "Document.creationDate" },
+    "lastUpdate": { "type": "string", "format": "date-time", "readOnly": true, "x-tmf667": "Document.lastUpdate" },
+    "createdBy": { "type": "string", "readOnly": true }
+  },
+  "$defs": {
+    "DocumentVersion": {
+      "type": "object",
+      "description": "One immutable version. Maps to a TMF667 Attachment. Never overwritten; a new file is a new version.",
+      "required": ["id", "label", "mimeType", "attachmentType", "contentHash", "immutable"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "readOnly": true },
+        "label": { "type": "string", "description": "Human label: 1, 2, 3 or a given name.", "x-extension": "versionLabel" },
+        "isNamed": { "type": "boolean", "default": false, "description": "false = automatic checkpoint; true = named by a person, with note.", "x-extension": "isNamed" },
+        "note": { "type": "string" },
+        "attachmentType": { "type": "string", "default": "contractCopy", "x-tmf667": "Attachment.attachmentType (required in TMF667 v5)" },
+        "mimeType": { "type": "string", "x-tmf667": "Attachment.mimeType" },
+        "size": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "amount": { "type": "number" }, "units": { "type": "string", "enum": ["bytes", "KB", "MB"] } },
+          "x-tmf667": "Attachment.size (Quantity)"
+        },
+        "contentHash": {
+          "type": "object",
+          "required": ["algorithm", "value"],
+          "additionalProperties": false,
+          "properties": { "algorithm": { "type": "string", "enum": ["sha256"] }, "value": { "type": "string" } },
+          "x-extension": "contentHash"
+        },
+        "immutable": { "const": true },
+        "supersedes": { "type": "string", "description": "Id of the previous version." },
+        "validFor": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "startDateTime": { "type": "string", "format": "date-time" }, "endDateTime": { "type": "string", "format": "date-time" } },
+          "x-tmf667": "Attachment.validFor"
+        },
+        "createdAt": { "type": "string", "format": "date-time", "readOnly": true },
+        "createdBy": { "type": "string", "readOnly": true }
+      }
+    }
+  }
+}
