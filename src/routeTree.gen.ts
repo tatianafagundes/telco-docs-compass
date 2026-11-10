@@ -17,8 +17,10 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedDocumentsRouteImport } from './routes/_authenticated/documents'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedAdminPoliciesRouteImport } from './routes/_authenticated/admin.policies'
+import { Route as AuthenticatedAdminTenantsRouteImport } from './routes/_authenticated/admin.tenants'
 import { Route as AuthenticatedAdminTypesRouteImport } from './routes/_authenticated/admin.types'
 import { Route as AuthenticatedRecordsEntityIdRouteImport } from './routes/_authenticated/records.$entityId'
+import { Route as AuthenticatedAdminTenantsTenantIdRouteImport } from './routes/_authenticated/admin.tenants.$tenantId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -60,6 +62,12 @@ const AuthenticatedAdminPoliciesRoute =
     path: '/policies',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminTenantsRoute =
+  AuthenticatedAdminTenantsRouteImport.update({
+    id: '/tenants',
+    path: '/tenants',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminTypesRoute = AuthenticatedAdminTypesRouteImport.update({
   id: '/types',
   path: '/types',
@@ -71,6 +79,12 @@ const AuthenticatedRecordsEntityIdRoute =
     path: '/records/$entityId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAdminTenantsTenantIdRoute =
+  AuthenticatedAdminTenantsTenantIdRouteImport.update({
+    id: '/$tenantId',
+    path: '/$tenantId',
+    getParentRoute: () => AuthenticatedAdminTenantsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -79,9 +93,11 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/documents': typeof AuthenticatedDocumentsRoute
   '/admin/policies': typeof AuthenticatedAdminPoliciesRoute
+  '/admin/tenants': typeof AuthenticatedAdminTenantsRouteWithChildren
   '/admin/types': typeof AuthenticatedAdminTypesRoute
   '/records/$entityId': typeof AuthenticatedRecordsEntityIdRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/admin/tenants/$tenantId': typeof AuthenticatedAdminTenantsTenantIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -89,9 +105,11 @@ export interface FileRoutesByTo {
   '/design': typeof DesignRoute
   '/documents': typeof AuthenticatedDocumentsRoute
   '/admin/policies': typeof AuthenticatedAdminPoliciesRoute
+  '/admin/tenants': typeof AuthenticatedAdminTenantsRouteWithChildren
   '/admin/types': typeof AuthenticatedAdminTypesRoute
   '/records/$entityId': typeof AuthenticatedRecordsEntityIdRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/admin/tenants/$tenantId': typeof AuthenticatedAdminTenantsTenantIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -102,9 +120,11 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/documents': typeof AuthenticatedDocumentsRoute
   '/_authenticated/admin/policies': typeof AuthenticatedAdminPoliciesRoute
+  '/_authenticated/admin/tenants': typeof AuthenticatedAdminTenantsRouteWithChildren
   '/_authenticated/admin/types': typeof AuthenticatedAdminTypesRoute
   '/_authenticated/records/$entityId': typeof AuthenticatedRecordsEntityIdRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/admin/tenants/$tenantId': typeof AuthenticatedAdminTenantsTenantIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -115,9 +135,11 @@ export interface FileRouteTypes {
     | '/admin'
     | '/documents'
     | '/admin/policies'
+    | '/admin/tenants'
     | '/admin/types'
     | '/records/$entityId'
     | '/admin/'
+    | '/admin/tenants/$tenantId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -125,9 +147,11 @@ export interface FileRouteTypes {
     | '/design'
     | '/documents'
     | '/admin/policies'
+    | '/admin/tenants'
     | '/admin/types'
     | '/records/$entityId'
     | '/admin'
+    | '/admin/tenants/$tenantId'
   id:
     | '__root__'
     | '/'
@@ -137,9 +161,11 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/documents'
     | '/_authenticated/admin/policies'
+    | '/_authenticated/admin/tenants'
     | '/_authenticated/admin/types'
     | '/_authenticated/records/$entityId'
     | '/_authenticated/admin/'
+    | '/_authenticated/admin/tenants/$tenantId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -207,6 +233,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminPoliciesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/tenants': {
+      id: '/_authenticated/admin/tenants'
+      path: '/tenants'
+      fullPath: '/admin/tenants'
+      preLoaderRoute: typeof AuthenticatedAdminTenantsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/types': {
       id: '/_authenticated/admin/types'
       path: '/types'
@@ -221,17 +254,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRecordsEntityIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/tenants/$tenantId': {
+      id: '/_authenticated/admin/tenants/$tenantId'
+      path: '/$tenantId'
+      fullPath: '/admin/tenants/$tenantId'
+      preLoaderRoute: typeof AuthenticatedAdminTenantsTenantIdRouteImport
+      parentRoute: typeof AuthenticatedAdminTenantsRoute
+    }
   }
 }
 
+interface AuthenticatedAdminTenantsRouteChildren {
+  AuthenticatedAdminTenantsTenantIdRoute: typeof AuthenticatedAdminTenantsTenantIdRoute
+}
+
+const AuthenticatedAdminTenantsRouteChildren: AuthenticatedAdminTenantsRouteChildren =
+  {
+    AuthenticatedAdminTenantsTenantIdRoute:
+      AuthenticatedAdminTenantsTenantIdRoute,
+  }
+
+const AuthenticatedAdminTenantsRouteWithChildren =
+  AuthenticatedAdminTenantsRoute._addFileChildren(
+    AuthenticatedAdminTenantsRouteChildren,
+  )
+
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminPoliciesRoute: typeof AuthenticatedAdminPoliciesRoute
+  AuthenticatedAdminTenantsRoute: typeof AuthenticatedAdminTenantsRouteWithChildren
   AuthenticatedAdminTypesRoute: typeof AuthenticatedAdminTypesRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminPoliciesRoute: AuthenticatedAdminPoliciesRoute,
+  AuthenticatedAdminTenantsRoute: AuthenticatedAdminTenantsRouteWithChildren,
   AuthenticatedAdminTypesRoute: AuthenticatedAdminTypesRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
