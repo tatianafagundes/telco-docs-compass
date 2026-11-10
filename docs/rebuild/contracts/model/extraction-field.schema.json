@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "extraction-field.schema.json",
+  "title": "ExtractionField",
+  "description": "One value read from a document version by an extraction provider, version 0.1.0. No TMF667 counterpart (extension). Confidence is stored for audit (the provider does not keep it for us). The UI shows confidence as a band with text, never colour alone.",
+  "type": "object",
+  "required": ["id", "versionId", "name", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string" },
+    "versionId": { "type": "string", "description": "Extraction belongs to a version, never to the document." },
+    "name": { "type": "string", "description": "Matches DocumentSpecification.specCharacteristic.name." },
+    "value": {},
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "band": { "type": "string", "enum": ["high", "medium", "low"], "description": "Derived from the tenant thresholds; default high >= 0.90, medium 0.70-0.89, low < 0.70." },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Where in the file the value was read. Lets the UI highlight the passage.",
+      "properties": {
+        "page": { "type": "integer", "minimum": 1 },
+        "box": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y", "w", "h"],
+          "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "w": { "type": "number" }, "h": { "type": "number" } },
+          "description": "Fractions of page width and height, 0 to 1."
+        },
+        "excerpt": { "type": "string", "maxLength": 300 }
+      }
+    },
+    "status": { "type": "string", "enum": ["pending", "accepted", "edited", "rejected"] },
+    "spotCheck": { "type": "boolean", "default": false, "description": "Kept for human review although High, to measure calibration. Set in data, never at random in the prototype." },
+    "reviewedBy": { "type": "string" },
+    "reviewedAt": { "type": "string", "format": "date-time" },
+    "originalValue": { "description": "Kept when status = edited.", "x-note": "value is what the person set; originalValue is what the provider read." }
+  }
+}
