@@ -81,7 +81,7 @@ export function DocumentPanel({ id, entityId, role }: { id: string; entityId: st
         {can(role, "manage") ? <Button onClick={() => setSharing(true)}>Manage access</Button> : null}
         <WhyCanISee docId={id} />
       </div>
-      {sharing ? <ManageAccessDialog docId={id} open={sharing} onOpenChange={setSharing} /> : null}
+      <ManageAccessDialog docId={id} open={sharing} onOpenChange={setSharing} />
       <DocumentDetails key={doc.updated_at} entityId={entityId} role={role} doc={doc} />
 
       <section aria-label="Activity" className="flex flex-col gap-2">
