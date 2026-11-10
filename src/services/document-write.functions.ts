@@ -48,7 +48,7 @@ type ContentResult =
   | { kind: "sample"; mimeType: string; pages: Json; previewable: boolean }
   | { kind: "signed"; url: string; expiresAt: string; mimeType: string; previewable: boolean };
 const DOC_COLUMNS =
-  "id, tenant_id, name, document_type, status, pipeline_state, pipeline_detail, sensitivity, signature_level, effective_date, valid_to, expiry_date, legal_hold, hold_reason, retain_until, characteristic, current_version_id, created_at, updated_at";
+  "id, tenant_id, name, document_type, status, pipeline_state, pipeline_detail, sensitivity, signature_level, effective_date, valid_to, expiry_date, legal_hold, hold_reason, retain_until, characteristic, current_version_id, created_by, created_at, updated_at";
 
 async function adminClient(): Promise<Db> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

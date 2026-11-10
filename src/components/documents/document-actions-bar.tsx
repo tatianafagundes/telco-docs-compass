@@ -10,6 +10,7 @@ import { Link } from "@tanstack/react-router";
 import type { DocStatus } from "@/schemas/document";
 import type { ReactNode } from "react";
 import { Lock } from "lucide-react";
+import { AUTHOR_APPROVE_REASON } from "@/services/review-flow-rules";
 import { DocumentMenu, type MenuEntry } from "@/components/documents/document-menu";
 
 interface Props {
@@ -18,6 +19,8 @@ interface Props {
   role: AppRole;
   /** Required details still to check before Approve. */
   approveGate?: ApproveGate;
+  /** The signed-in person added this document (four-eyes). */
+  own?: boolean;
   /** Title block shown left of the "…" menu. */
   header: ReactNode;
   /** Extra menu entries supplied by the panel (access, explanation). */
@@ -33,7 +36,7 @@ function Reason({ text }: { text?: string | undefined }) {
   return text ? <p className="type-label-12 text-text-secondary">{text}</p> : null;
 }
 
-export function DocumentActionsBar({ entityId, doc, role, approveGate, header, extraMenu }: Props) {
+export function DocumentActionsBar({ entityId, doc, role, approveGate, own = false, header, extraMenu }: Props) {
   const a = useDocumentActions(entityId, doc.id);
   const [open, setOpen] = useState<Open>(null);
   const [note, setNote] = useState("");
@@ -42,7 +45,8 @@ export function DocumentActionsBar({ entityId, doc, role, approveGate, header, e
 
   const step = nextStep(role, doc.status);
   const gated = step?.to === "approved" && step.available && approveGate?.reason;
-  const next = step && gated ? { ...step, available: false, reason: approveGate?.reason } : step;
+  const authorBlocked = step?.to === "approved" && step.available && !gated && own;
+  const next = step && gated ? { ...step, available: false, reason: approveGate?.reason } : step && authorBlocked ? { ...step, available: false, reason: AUTHOR_APPROVE_REASON } : step;
   const back = sendBackState(role, doc.status);
   const manage = manageState(role);
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -76,7 +80,7 @@ export function DocumentActionsBar({ entityId, doc, role, approveGate, header, e
             {next.reason ? <span className="type-label-12 text-text-secondary">{next.reason}</span> : null}
           </div>
           {gated ? (
-            <Link to="/records/$entityId/review/$docId" params={{ entityId, docId: doc.id }} className="focus-ring type-label-12 inline-flex min-h-6 items-center self-start underline">Review details</Link>
+            <Link to="/records/$entityId/review/$docId" params={{ entityId, docId: doc.id }} className="focus-ring type-label-12 inline-flex min-h-6 items-center self-start underline">Check details</Link>
           ) : null}
         </div>
       ) : null}
