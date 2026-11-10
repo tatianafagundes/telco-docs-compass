@@ -32,6 +32,11 @@ info:
       - Signed events: X-Signature-Timestamp and X-Signature = sha256 HMAC of "<timestamp>.<body>";
         hub reply includes signingSecret once. Receivers should reject events older than 5 minutes.
       - Events carry a reference (id, href, status) and never document content; fetch with your key.
+      - Delivery: each subscriber is tracked separately. Any 2xx reply counts as received; otherwise the
+        event is retried for that subscriber only after 30 s, 2 min, 10 min, 30 min and 2 h (a longer
+        Retry-After is honoured up to 1 h), then given up after 6 attempts. X-Event-Id (= eventId) stays
+        the same across retries and X-Delivery-Attempt counts tries; receivers should ignore an
+        X-Event-Id they already processed. Only events after the subscription was created are sent.
       - OAuth 2.0 client credentials at /api/public/tmf-api/oauth/token (15-minute tokens)
 
     Status mapping (status ← lifecycleState): created ← draft · reviewed ← in_review ·
