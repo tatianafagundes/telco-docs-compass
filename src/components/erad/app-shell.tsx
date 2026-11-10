@@ -1,6 +1,6 @@
-import { Share2, Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, FileText, Lock, LogOut, Moon, Settings, Sun } from "lucide-react";
+import { Building2, FileText, Lock, LogOut, Moon, Settings, Share2, Sun } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { childTenantsQuery } from "@/hooks/use-config";
 import type { ReactNode } from "react";
