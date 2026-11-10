@@ -30,3 +30,17 @@ describe("document actions", () => {
     expect(deleteState("viewer", false, null, "2026-11-10").available).toBe(false);
   });
 });
+
+import { purgeState } from "@/services/document-actions";
+describe("purgeState", () => {
+  it("should block permanent deletion under legal hold", () => {
+    expect(purgeState("tenant_admin", true, null, "2026-11-10").available).toBe(false);
+  });
+  it("should block permanent deletion before the keep-until date", () => {
+    expect(purgeState("tenant_admin", false, "2036-07-01", "2026-11-10").reason).toBe("This document must be kept until 2036-07-01.");
+  });
+  it("should allow only administrators", () => {
+    expect(purgeState("manager", false, null, "2026-11-10").available).toBe(false);
+    expect(purgeState("tenant_admin", false, "2020-01-01", "2026-11-10").available).toBe(true);
+  });
+});
