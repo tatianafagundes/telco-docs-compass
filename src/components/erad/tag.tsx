@@ -53,7 +53,7 @@ export function Tag({ tone = "indeterminate", children, icon, small, className }
   return (
     <span
       className={cn(
-        "tag-tone inline-flex items-center gap-1 text-text-main",
+        "tag-tone inline-flex items-center gap-1 whitespace-nowrap text-text-main",
         TONE_CLASS[tone],
         small ? "type-label-12 h-4 rounded-[3px] px-1" : "type-label-14 h-6 rounded-badge px-2",
         className,
