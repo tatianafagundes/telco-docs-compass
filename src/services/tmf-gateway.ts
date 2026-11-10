@@ -2,6 +2,7 @@
 // Routes under /api/public/tmf-api/* skip site auth, so every handler starts with authenticate().
 // The admin client is loaded only after the system key is verified, and every query is pinned
 // to the key's tenant. Business rules are the same pure rules the screens use.
+import { decideRate, rateHeaders, rateKind, retryGuidance } from "@/services/rate-limit-rules";
 import { z } from "zod";
 import type { Json } from "@/integrations/supabase/types";
 import type { DocStatus } from "@/schemas/document";
@@ -38,7 +39,6 @@ export const MAX_INLINE_BYTES = 5 * 1024 * 1024;
 const MAX_INLINE_BODY_CHARS = Math.ceil((MAX_INLINE_BYTES * 4) / 3) + 20_000;
 const MAX_URL_FETCH_BYTES = 25 * 1024 * 1024;
 /** Per key, per minute. */
-export const RATE_LIMITS = { read: 120, write: 30 } as const;
 
 export interface SystemCtx {
   admin: Db;
@@ -79,7 +79,7 @@ export async function authenticate(request: Request, needed: Scope): Promise<Sys
     const { data: tok } = await admin.from("integration_tokens").select("client_id, expires_at").eq("token_hash", await sha256Hex(key)).maybeSingle();
     if (tok && new Date(tok.expires_at) > new Date()) clientId = tok.client_id;
   }
-  const base = admin.from("integration_clients").select("id, name, tenant_id, scopes, revoked_at, expires_at");
+  const base = admin.from("integration_clients").select("id, name, tenant_id, scopes, revoked_at, expires_at, read_limit_per_minute, write_limit_per_minute");
   const { data: client } = clientId ? await base.eq("id", clientId).maybeSingle() : key.startsWith("erad_") ? await base.eq("key_hash", await sha256Hex(key)).maybeSingle() : { data: null };
   const expired = client?.expires_at ? new Date(client.expires_at) <= new Date() : false;
   if (!client || client.revoked_at || expired) {
@@ -88,12 +88,15 @@ export async function authenticate(request: Request, needed: Scope): Promise<Sys
   if (!hasScope(client.scopes, needed)) {
     return errorReply(tmfError(403, "scopeMissing", "Forbidden", `This system key does not include '${needed}'.`), requestId);
   }
-  const kind = request.method === "GET" ? "read" : "write";
+  // Each system has its own counter and allowance, so one busy system never uses up another's.
+  const kind = rateKind(request.method);
+  const limit = kind === "read" ? client.read_limit_per_minute : client.write_limit_per_minute;
   const { data: hits } = await admin.rpc("api_hit", { p_client: client.id, p_kind: kind });
-  if (typeof hits === "number" && hits > RATE_LIMITS[kind]) {
+  const decision = decideRate(typeof hits === "number" ? hits : 0, limit, new Date());
+  if (!decision.allowed) {
     await admin.from("integration_clients").update({ last_rate_limited_at: new Date().toISOString() }).eq("id", client.id);
-    const r = errorReply(tmfError(429, "tooManyRequests", "Too Many Requests", `Limit is ${RATE_LIMITS[kind]} ${kind === "read" ? "reads" : "changes"} per minute for this key.`), requestId);
-    r.headers.set("Retry-After", String(60 - new Date().getSeconds()));
+    const r = errorReply(tmfError(429, "tooManyRequests", "Too Many Requests", retryGuidance(kind, decision)), requestId);
+    for (const [k, v] of Object.entries(rateHeaders(decision))) r.headers.set(k, v);
     return r;
   }
   await admin.from("integration_clients").update({ last_used_at: new Date().toISOString() }).eq("id", client.id);
