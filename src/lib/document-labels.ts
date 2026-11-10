@@ -42,6 +42,7 @@ export const PIPELINE_TONE: Record<PipelineState, TagTone> = {
 
 const ACTIVITY: Record<string, string> = {
   upload: "Uploaded",
+  extractionReview: "Detail checked",
   view: "Viewed",
   download: "Downloaded",
   statusChange: "Status changed",
