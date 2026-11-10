@@ -50,6 +50,7 @@ export const api = {
   find: async (input: FindInput) => unwrap(await writes.find({ data: input })),
   get: (id: string) => reads.get({ data: { id } }),
   listVersions: (id: string) => reads.listVersions({ data: { id } }),
+  listActivity: (id: string) => reads.listActivity({ data: { id } }),
   getExtraction: (id: string) => reads.getExtraction({ data: { id } }),
   listSpecifications: () => reads.listSpecifications(),
   getTenantPolicy: () => reads.getTenantPolicy(),
