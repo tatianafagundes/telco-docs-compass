@@ -12,6 +12,7 @@ import { useUpload } from "@/hooks/use-upload";
 import { Tag } from "@/components/erad/tag";
 import { SkeletonRow } from "@/components/erad/misc";
 import { DocumentPanel } from "@/components/documents/document-panel";
+import { ApprovedSummary } from "@/components/documents/approved-summary";
 import { meQuery } from "@/hooks/use-me";
 import { PIPELINE_LABEL, PIPELINE_TONE, STATUS_LABEL, STATUS_TONE } from "@/lib/document-labels";
 import { api } from "@/services/api";
@@ -84,6 +85,7 @@ function RecordPage() {
             {` · ${data.items.length} ${data.items.length === 1 ? "document" : "documents"}`}
           </p>
         </div>
+        <ApprovedSummary items={data.items} onOpen={(id) => void navigate({ search: { doc: id } })} />
         <AddDocuments
           entityId={entityId}
           entityKind={entityKind}
@@ -110,12 +112,12 @@ function RecordPage() {
                   onClick={() => void navigate({ search: { doc: d.id } })}
                   className={cn(
                     "focus-ring flex min-h-12 w-full items-center justify-between gap-4 border-b border-border-subtle px-4 py-2 text-left hover:bg-item-hover",
-                    d.id === doc && "bg-item-selected",
+                    d.id === doc && "bg-cell-selected shadow-[inset_3px_0_0_var(--color-border-selected)] hover:bg-cell-selected",
                   )}
                 >
                   <span className="flex min-w-0 flex-col">
                     <span className="type-label-14 truncate">{d.name}</span>
-                    {toCheck(d) > 0 ? <span className={cn("type-label-12", d.id !== doc && "text-text-secondary")}>{toCheck(d)} to check</span> : null}
+                    {toCheck(d) > 0 ? <span className={cn("type-label-12 text-text-secondary")}>{toCheck(d)} to check</span> : null}
                   </span>
                   <span className="flex shrink-0 gap-2">
                     <Tag tone={STATUS_TONE[d.status]} small>{STATUS_LABEL[d.status]}</Tag>

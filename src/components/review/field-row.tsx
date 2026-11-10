@@ -48,7 +48,7 @@ export function FieldRow({ field, index, selected, canReview, busy, editing, onS
         <span className="flex flex-wrap gap-1">
           {band && Icon ? (
             <Tooltip content={field.confidence !== null ? `Score ${Math.round(field.confidence * 100)} %` : "No score"}>
-              <span tabIndex={-1}><Tag tone={band.tone} small icon={<Icon aria-hidden="true" className="size-4" />}>{band.label}</Tag></span>
+              <span tabIndex={-1}><Tag tone={band.tone} icon={<Icon aria-hidden="true" className="size-4" />}>{band.label}</Tag></span>
             </Tooltip>
           ) : null}
           <span className="type-label-12 text-text-secondary">{STATUS_WORD[field.status]}</span>
