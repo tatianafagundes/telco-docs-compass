@@ -16,6 +16,9 @@ import { ManageAccessDialog } from "@/components/access/manage-access-dialog";
 import { WhyCanISee } from "@/components/access/why-can-i-see";
 import { useReviewState } from "@/hooks/use-review";
 import { bannerText, toCheckCount } from "@/services/review-rules";
+import { isOwnDocument, journeyStep } from "@/services/review-flow-rules";
+import { ReviewJourney } from "@/components/review/review-journey";
+import { meQuery } from "@/hooks/use-me";
 
 export const documentQuery = (id: string) =>
   queryOptions({
@@ -36,6 +39,7 @@ export function DocumentPanel({ id, entityId, role }: { id: string; entityId: st
   const [showWhy, setShowWhy] = useState(false);
   const review = useReviewState(id, q.data?.doc?.document_type ?? "", q.data?.doc?.current_version_id ?? null);
   const toCheck = toCheckCount(review.fields);
+  const me = useQuery(meQuery);
   if (q.isPending) return <Spinner label="Opening document" />;
   if (q.isError) {
     return (
@@ -58,6 +62,7 @@ export function DocumentPanel({ id, entityId, role }: { id: string; entityId: st
         {doc.legal_hold ? <Tag tone="major" icon={<Lock aria-hidden="true" className="size-4" />}>On hold</Tag> : null}
       </div>
       {shared ? <p className="type-label-12 text-text-secondary">Part of a record you don't have access to</p> : null}
+      {!shared && journeyStep(doc.status, toCheck) !== null ? <ReviewJourney step={journeyStep(doc.status, toCheck) ?? 0} /> : null}
       {current ? <p className="type-label-12 text-text-secondary">Version {current.label} · {format(new Date(current.created_at), "d MMM yyyy")}</p> : null}
     </>
   );
@@ -74,6 +79,7 @@ export function DocumentPanel({ id, entityId, role }: { id: string; entityId: st
           role={role}
           doc={doc}
           approveGate={review.gate}
+          own={isOwnDocument((doc as { created_by?: string | null }).created_by, me.data?.userId ?? "")}
           header={headerBlock}
           extraMenu={extraMenu}
         />
@@ -87,7 +93,7 @@ export function DocumentPanel({ id, entityId, role }: { id: string; entityId: st
               params={{ entityId: recordId, docId: id }}
               className="focus-ring type-label-14 inline-flex h-8 items-center rounded-control border border-border-btn px-3 hover:bg-btn-default-hover"
             >
-              Review
+              Check details
             </Link>}
           >
             {bannerText(toCheck)}
