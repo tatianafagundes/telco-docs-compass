@@ -1,5 +1,5 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { FileText, Inbox, History, Sparkles, Download, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/erad/button";
@@ -52,7 +52,7 @@ const ROWS = [
   { id: "3", name: "invoice_copy_final.pdf", type: "Order attachment", status: "Quarantined" },
 ];
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2">
       <h2 className="type-label-14-medium text-text-secondary">{title}</h2>
