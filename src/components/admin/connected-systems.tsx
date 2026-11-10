@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { Copy, KeyRound, Plug, RotateCw, Unplug } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/erad/button";
 import { Card } from "@/components/erad/card";
 import { Checkbox } from "@/components/erad/checkbox";
@@ -41,6 +42,8 @@ const DEFAULT_SCOPES: Record<SystemKind, Scope[]> = {
   cpq: ["read", "register", "transition", "subscribe"],
   other: ["read"],
 };
+
+const expiresSoon = (iso: string) => new Date(iso).getTime() - Date.now() < 30 * 86_400_000;
 
 const systemsKey = ["integrationClients", "list"] as const;
 
@@ -124,6 +127,18 @@ export function ConnectedSystems() {
                     Key starting <code className="type-code-14">{s.keyPrefix}…</code> ·{" "}
                     {s.lastUsedAt ? `last used ${format(new Date(s.lastUsedAt), "d MMM yyyy, HH:mm")}` : "not used yet"}
                   </p>
+                  {!s.revokedAt && s.expiresAt ? (
+                    <p className={cn("type-paragraph-14", expiresSoon(s.expiresAt) ? "text-status-major" : "text-text-secondary")}>
+                      {new Date(s.expiresAt) <= new Date()
+                        ? "This key has expired. You can issue a new key to reconnect."
+                        : expiresSoon(s.expiresAt)
+                          ? `Key expires ${format(new Date(s.expiresAt), "d MMM yyyy")}. How about issuing a new key now?`
+                          : `Key valid until ${format(new Date(s.expiresAt), "d MMM yyyy")}`}
+                    </p>
+                  ) : null}
+                  {s.lastRateLimitedAt ? (
+                    <p className="type-paragraph-14 text-text-secondary">Last slowed down for sending too many requests: {format(new Date(s.lastRateLimitedAt), "d MMM yyyy, HH:mm")}</p>
+                  ) : null}
                   <p className="type-paragraph-14 text-text-secondary">Can: {s.scopes.map((x) => (SCOPE_LABEL[x as Scope]?.split(" (")[0] ?? x).toLowerCase()).join(" · ")}</p>
                 </div>
               </Card>
