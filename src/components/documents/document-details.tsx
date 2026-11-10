@@ -57,7 +57,7 @@ export function DocumentDetails({ entityId, role, doc }: Props) {
           <Button unavailable={!edit.available} onClick={() => setEditing(true)} className="self-start">Edit details</Button>
           {edit.reason ? <p className="type-label-12 text-text-secondary">{edit.reason}</p> : null}
         </div>
-      </section>
+      </div>
     );
   }
 
