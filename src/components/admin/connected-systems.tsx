@@ -123,7 +123,7 @@ export function ConnectedSystems() {
                     Key starting <code className="type-code-14">{s.keyPrefix}…</code> ·{" "}
                     {s.lastUsedAt ? `last used ${format(new Date(s.lastUsedAt), "d MMM yyyy, HH:mm")}` : "not used yet"}
                   </p>
-                  <p className="type-paragraph-14 text-text-secondary">Can: {s.scopes.map((x) => SCOPE_LABEL[x as Scope]?.split(" (")[0].toLowerCase() ?? x).join(" · ")}</p>
+                  <p className="type-paragraph-14 text-text-secondary">Can: {s.scopes.map((x) => (SCOPE_LABEL[x as Scope]?.split(" (")[0] ?? x).toLowerCase()).join(" · ")}</p>
                 </div>
               </Card>
             </li>
@@ -227,7 +227,7 @@ function AddSystemDialog({ open, onOpenChange, onCreated }: { open: boolean; onO
             const k = v as SystemKind;
             setKind(k);
             setScopes(DEFAULT_SCOPES[k]);
-            setName(KIND_LABEL[k].split(" (")[0]);
+            setName(KIND_LABEL[k].split(" (")[0] ?? KIND_LABEL[k]);
           }}
           groups={[{ options: SYSTEM_KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] })) }]}
         />

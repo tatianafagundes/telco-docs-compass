@@ -256,7 +256,7 @@ export function eventMatches(query: string | null, eventType: string): boolean {
   if (!query) return true;
   const m = /eventType=([A-Za-z,]+)/.exec(query);
   if (!m) return true;
-  return m[1].split(",").includes(eventType);
+  return (m[1] ?? "").split(",").includes(eventType);
 }
 
 export const RETRY_LIMIT = 5;
@@ -275,7 +275,7 @@ export async function hmacHex(secret: string, body: string): Promise<string> {
 export function readBearer(header: string | null): string | null {
   if (!header) return null;
   const m = /^Bearer\s+(erad_[A-Za-z0-9_-]{20,120})$/.exec(header.trim());
-  return m ? m[1] : null;
+  return m?.[1] ?? null;
 }
 
 /** Callback addresses must be https and not point at internal hosts. */
