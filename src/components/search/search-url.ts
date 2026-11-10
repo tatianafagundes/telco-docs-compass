@@ -4,6 +4,8 @@ import type { DocStatus } from "@/schemas/document";
 
 export interface DocumentsSearch extends SearchFilters {
   doc?: string;
+  /** Record of the open document, when the person can open that record. */
+  rec?: string;
   /** Shows the results list even without filters ("See all"). */
   all?: boolean;
 }
@@ -35,12 +37,13 @@ export function parseDocumentsSearch(raw: Record<string, unknown>): DocumentsSea
   if (exp) out.expiringBefore = exp;
   if (typeof raw["sort"] === "string" && (SORTS as readonly string[]).includes(raw["sort"])) out.sort = raw["sort"] as SortKey;
   if (typeof raw["doc"] === "string" && /^[0-9a-f-]{36}$/i.test(raw["doc"])) out.doc = raw["doc"];
+  if (typeof raw["rec"] === "string" && raw["rec"].length <= 64 && raw["rec"]) out.rec = raw["rec"];
   if (bool(raw["all"])) out.all = true;
   return out;
 }
 
 export function filtersOf(s: DocumentsSearch): SearchFilters {
-  const { doc: _doc, all: _all, ...f } = s;
+  const { doc: _doc, rec: _rec, all: _all, ...f } = s;
   return normaliseFilters(f);
 }
 

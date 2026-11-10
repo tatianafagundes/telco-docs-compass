@@ -50,9 +50,10 @@ function DocumentsPage() {
   const showResults = hasAnyFilter(filters) || Boolean(search.all);
 
   const setFilters = (f: SearchFilters, all = search.all) =>
-    void navigate({ search: { ...filtersOf(f), ...(all ? { all: true } : {}), ...(search.doc ? { doc: search.doc } : {}) } });
-  const open = (id: string) => void navigate({ search: (prev) => ({ ...prev, doc: id }) });
-  const close = () => void navigate({ search: (prev) => { const { doc: _d, ...rest } = prev; return rest; } });
+    void navigate({ search: { ...filtersOf(f), ...(all ? { all: true } : {}), ...(search.doc ? { doc: search.doc } : {}), ...(search.rec ? { rec: search.rec } : {}) } });
+  const open = (id: string, entityId: string | null) =>
+    void navigate({ search: (prev) => { const { rec: _r, ...rest } = prev; return { ...rest, doc: id, ...(entityId ? { rec: entityId } : {}) }; } });
+  const close = () => void navigate({ search: (prev) => { const { doc: _d, rec: _r, ...rest } = prev; return rest; } });
 
   return (
     <div className="flex min-h-0 flex-1 gap-4">
@@ -69,7 +70,7 @@ function DocumentsPage() {
       </div>
       {search.doc ? (
         <SidePanel title="Document" collapsed={false} onCollapsedChange={close}>
-          <DocumentPanel id={search.doc} entityId={null} role={role} />
+          <DocumentPanel key={search.doc} id={search.doc} entityId={search.rec ?? null} role={role} />
         </SidePanel>
       ) : null}
     </div>
@@ -122,7 +123,7 @@ function RecordMatches({ q }: { q: string }) {
   );
 }
 
-function Results(p: { filters: SearchFilters; role: AppRole; activeId: string | undefined; onOpen: (id: string) => void; onChange: (f: SearchFilters) => void; onClearAll: () => void }) {
+function Results(p: { filters: SearchFilters; role: AppRole; activeId: string | undefined; onOpen: (id: string, entityId: string | null) => void; onChange: (f: SearchFilters) => void; onClearAll: () => void }) {
   const pages = useSearchPages(p.filters);
   const count = useDocumentCount(p.filters);
   const rows = useMemo(() => pages.data?.pages.flatMap((pg) => pg.items) ?? [], [pages.data]);

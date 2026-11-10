@@ -13,7 +13,7 @@ const OVERSCAN = 8;
 export interface ResultsTableProps {
   rows: SearchRow[];
   activeId: string | undefined;
-  onOpen: (id: string) => void;
+  onOpen: (id: string, entityId: string | null) => void;
   selected: Set<string>;
   onToggle: (id: string) => void;
   onToggleAll: () => void;
@@ -66,7 +66,7 @@ export function ResultsTable(p: ResultsTableProps) {
     else if (e.key === "ArrowUp") { e.preventDefault(); moveTo(focus - 1); }
     else if (e.key === "Home") { e.preventDefault(); moveTo(0); }
     else if (e.key === "End") { e.preventDefault(); moveTo(p.rows.length - 1); }
-    else if (e.key === "Enter" && row) { e.preventDefault(); p.onOpen(row.id); }
+    else if (e.key === "Enter" && row) { e.preventDefault(); p.onOpen(row.id, row.entity_name ? row.entity_id : null); }
     else if (e.key === " " && row && (e.target as HTMLElement).dataset["row"] !== undefined) { e.preventDefault(); p.onToggle(row.id); }
   };
 
@@ -75,9 +75,9 @@ export function ResultsTable(p: ResultsTableProps) {
       <div className="type-label-12 flex h-9 items-center gap-3 border-b border-border-subtle px-3 text-text-secondary" role="presentation">
         <Checkbox aria-label="Select all loaded documents" checked={p.allSelected} onCheckedChange={p.onToggleAll} />
         <span className="flex-1">Name</span>
-        <span className="hidden w-48 lg:block">Record</span>
+        <span className="hidden w-40 xl:block">Record</span>
         <span className="w-28">Status</span>
-        <span className="hidden w-28 md:block">Changed</span>
+        <span className="hidden w-24 lg:block">Changed</span>
       </div>
       <div
         ref={scroller}
@@ -101,7 +101,7 @@ export function ResultsTable(p: ResultsTableProps) {
                 data-row={i}
                 tabIndex={i === focus ? 0 : -1}
                 onFocus={() => setFocus(i)}
-                onClick={() => p.onOpen(r.id)}
+                onClick={() => p.onOpen(r.id, r.entity_name ? r.entity_id : null)}
                 style={{ top: i * ROW_H, height: ROW_H }}
                 className={cn(
                   "focus-ring absolute inset-x-0 flex cursor-pointer items-center gap-3 border-b border-border-subtle px-3 hover:bg-item-hover",
@@ -118,14 +118,14 @@ export function ResultsTable(p: ResultsTableProps) {
                     {r.pending > 0 ? ` · ${r.pending} to check` : ""}
                   </span>
                 </span>
-                <span role="gridcell" className={cn("type-label-12 hidden w-48 truncate lg:block", !active && "text-text-secondary")}>
+                <span role="gridcell" className={cn("type-label-12 hidden w-40 truncate xl:block", !active && "text-text-secondary")}>
                   {r.entity_name ?? (r.entity_id ? "Record you can't open" : "—")}
                 </span>
                 <span role="gridcell" className="flex w-28 items-center gap-1">
                   <Tag tone={STATUS_TONE[r.status]} small>{STATUS_LABEL[r.status]}</Tag>
                   {r.legal_hold ? <Lock aria-label="On legal hold" className="size-4 shrink-0" /> : null}
                 </span>
-                <span role="gridcell" className={cn("type-label-12 hidden w-28 md:block", !active && "text-text-secondary")}>
+                <span role="gridcell" className={cn("type-label-12 hidden w-24 lg:block", !active && "text-text-secondary")}>
                   {format(new Date(r.updated_at), "d MMM yyyy")}
                 </span>
               </div>
