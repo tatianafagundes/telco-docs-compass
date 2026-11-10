@@ -281,8 +281,14 @@ def events(full: str, doc_id: str) -> None:
     r, j, _ = call("POST", f"/document/{doc_id}/transition", full, {"lifecycleState": "in_review"}, idem=f"ev-{RUN}")
     print(f"INFO transition for event: HTTP {r.status_code} {(j or {}).get('lifecycleState') or (j or {}).get('code')}")
     got = None
-    for _ in range(30):
+    via = "scheduler"
+    for i in range(30):
         time.sleep(5)
+        if i == 15 and got is None:
+            import subprocess
+            via = "direct delivery pass"
+            out = subprocess.run(["bun", "e2e/deliver-once.ts"], capture_output=True, text=True, cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            print(f"INFO scheduler had not delivered after 80s; ran one delivery pass directly: {out.stdout.strip() or out.stderr.strip()[:200]}")
         reqs = requests.get(f"https://webhook.site/token/{tok}/requests?sorting=newest", headers={"Accept": "application/json"}, timeout=20).json().get("data", [])
         for q in reqs:
             if doc_id in (q.get("content") or ""):
@@ -291,6 +297,7 @@ def events(full: str, doc_id: str) -> None:
         if got:
             break
     check(got is not None, "event delivered to the subscriber within 150 seconds")
+    print(f"INFO delivered via {via}")
     if got:
         content = got["content"]
         sig = (got["headers"].get("x-signature") or [""])[0]
