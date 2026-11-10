@@ -1,3 +1,4 @@
+import { fieldLabel } from "@/services/review-rules";
 import type { TagTone } from "@/components/erad/tag";
 import type { DocStatus, PipelineState } from "@/schemas/document";
 
@@ -41,6 +42,7 @@ export const PIPELINE_TONE: Record<PipelineState, TagTone> = {
 
 const ACTIVITY: Record<string, string> = {
   upload: "Uploaded",
+  extractionReview: "Detail checked",
   view: "Viewed",
   download: "Downloaded",
   statusChange: "Status changed",
@@ -91,5 +93,7 @@ export function friendlyError(code: string | undefined): string {
 
 /** Replaces status codes in an activity note with their labels ("draft to in_review" -> "Draft to In review"). */
 export function activityDetail(detail: string): string {
-  return detail.replace(/\b(draft|in_review|approved|effective|superseded|expired|archived)\b/g, (m) => STATUS_LABEL[m as DocStatus]);
+  return detail
+    .replace(/^Field (\w+)/, (_m, code: string) => `Field ${fieldLabel(code)}`)
+    .replace(/\b(draft|in_review|approved|effective|superseded|expired|archived)\b/g, (m) => STATUS_LABEL[m as DocStatus]);
 }

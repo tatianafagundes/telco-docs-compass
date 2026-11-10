@@ -150,3 +150,22 @@ export const listActivity = createServerFn({ method: "POST" })
     if (error) throw new Error("activity.loadFailed");
     return rows;
   });
+
+const searchInput = z.object({ query: z.string().trim().max(80) });
+
+/** People in the caller's own organisation only (profiles RLS: same tenant). At most 20. */
+export const searchPeople = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { query: string }) => searchInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const like = data.query.replace(/[%_,()]/g, " ");
+    const { data: rows, error } = await context.supabase
+      .from("profiles")
+      .select("user_id, display_name")
+      .neq("user_id", context.userId)
+      .ilike("display_name", `%${like}%`)
+      .order("display_name")
+      .limit(20);
+    if (error) throw new Error("people.loadFailed");
+    return rows.map((r) => ({ id: r.user_id, name: r.display_name }));
+  });

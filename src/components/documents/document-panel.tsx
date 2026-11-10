@@ -8,7 +8,14 @@ import { DocumentActionsBar } from "@/components/documents/document-actions-bar"
 import { DocumentDetails } from "@/components/documents/document-details";
 import { activityDetail, activityLabel, PIPELINE_LABEL, PIPELINE_TONE, STATUS_LABEL, STATUS_TONE } from "@/lib/document-labels";
 import { api } from "@/services/api";
-import type { AppRole } from "@/services/document-rules";
+import { can, type AppRole } from "@/services/document-rules";
+import { useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { Banner } from "@/components/erad/banner";
+import { ManageAccessDialog } from "@/components/access/manage-access-dialog";
+import { WhyCanISee } from "@/components/access/why-can-i-see";
+import { useReviewState } from "@/hooks/use-review";
+import { bannerText, toCheckCount } from "@/services/review-rules";
 
 export const documentQuery = (id: string) =>
   queryOptions({
@@ -21,6 +28,9 @@ export const documentQuery = (id: string) =>
 
 export function DocumentPanel({ id, entityId, role }: { id: string; entityId: string; role: AppRole }) {
   const q = useQuery(documentQuery(id));
+  const [sharing, setSharing] = useState(false);
+  const review = useReviewState(id, q.data?.doc?.document_type ?? "", q.data?.doc?.current_version_id ?? null);
+  const toCheck = toCheckCount(review.fields);
   if (q.isPending) return <Spinner label="Opening document" />;
   if (q.isError) {
     return (
@@ -46,7 +56,32 @@ export function DocumentPanel({ id, entityId, role }: { id: string; entityId: st
         {current ? <p className="type-label-12 text-text-secondary">Version {current.label} · {format(new Date(current.created_at), "d MMM yyyy")}</p> : null}
       </header>
 
-      <DocumentActionsBar entityId={entityId} role={role} doc={doc} />
+      {toCheck > 0 ? (
+        <Banner
+          tone="indeterminate"
+          status={`${toCheck} to check`}
+          action={<Link
+            id={`review-${id}`}
+            to="/records/$entityId/review/$docId"
+            params={{ entityId, docId: id }}
+            className="focus-ring type-label-14 inline-flex h-8 items-center rounded-control border border-border-btn px-3 hover:bg-btn-default-hover"
+          >
+            Review
+          </Link>}
+        >
+          {bannerText(toCheck)}
+        </Banner>
+      ) : review.fields.length > 0 ? (
+        <p className="type-label-12 text-text-secondary">All details read from this document are checked.</p>
+      ) : null}
+
+      <DocumentActionsBar entityId={entityId} role={role} doc={doc} approveGate={review.gate} />
+
+      <div className="flex flex-col items-start gap-2">
+        {can(role, "manage") ? <Button onClick={() => setSharing(true)}>Manage access</Button> : null}
+        <WhyCanISee docId={id} />
+      </div>
+      <ManageAccessDialog docId={id} open={sharing} onOpenChange={setSharing} />
       <DocumentDetails key={doc.updated_at} entityId={entityId} role={role} doc={doc} />
 
       <section aria-label="Activity" className="flex flex-col gap-2">

@@ -82,7 +82,7 @@ export const find = createServerFn({ method: "POST" })
       await expireDue(await adminClient(), tenantId);
       const pageSize = data.pageSize ?? 50;
       const offset = data.pageToken ? Number(data.pageToken) : 0;
-      const select = `${DOC_COLUMNS}, document_relations${data.entityId ? "!inner" : ""}(entity_id, role)`;
+      const select = `${DOC_COLUMNS}, extraction_fields(status, version_id), document_relations${data.entityId ? "!inner" : ""}(entity_id, role)`;
 
       const base = () => {
         let q = caller.from("documents").select(select, { count: "exact" }).is("deleted_at", null);
@@ -597,7 +597,7 @@ export const reviewExtraction = createServerFn({ method: "POST" })
       if (isFrozen(doc.status)) return fail("doc.edit.frozen", "rejected");
       const { data: field } = await env.admin
         .from("extraction_fields")
-        .select("id, value, original_value")
+        .select("id, name, value, original_value")
         .eq("id", data.fieldId)
         .eq("document_id", data.id)
         .maybeSingle();
@@ -613,6 +613,14 @@ export const reviewExtraction = createServerFn({ method: "POST" })
         .from("extraction_fields")
         .update({ ...update, reviewed_by: env.userId, reviewed_at: now })
         .eq("id", data.fieldId);
+      // Accepted or edited values become document details; rejected ones are taken off. The audit names the field, never its value.
+      const finalValue = data.decision === "edit" ? (data.value as Json) : data.decision === "accept" ? field.value : null;
+      const current = (Array.isArray(doc.characteristic) ? doc.characteristic : []) as { name: string; value: Json }[];
+      const rest = current.filter((c) => c.name !== field.name);
+      const characteristic = finalValue === null ? rest : [...rest, { name: field.name, value: finalValue }];
+      await env.admin.from("documents").update({ characteristic: characteristic as Json, updated_at: now }).eq("id", data.id);
+      const verb = data.decision === "accept" ? "accepted" : data.decision === "edit" ? "edited" : "rejected";
+      await audit(env, "extractionReview", data.id, `Field ${field.name} ${verb}`);
       const { data: updated } = await env.admin
         .from("extraction_fields")
         .select("id, name, value, original_value, confidence, band, source, status, spot_check, reviewed_at")

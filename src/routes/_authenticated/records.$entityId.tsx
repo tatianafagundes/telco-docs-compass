@@ -19,7 +19,9 @@ import { cn } from "@/lib/utils";
 import type { DocStatus, PipelineState } from "@/schemas/document";
 
 // find() builds its select string dynamically, so its row type is narrowed here.
-interface DocListItem { id: string; name: string; status: DocStatus; pipeline_state: PipelineState; legal_hold: boolean }
+interface DocListItem { id: string; name: string; status: DocStatus; pipeline_state: PipelineState; legal_hold: boolean; current_version_id: string | null; extraction_fields?: { status: string; version_id: string }[] }
+
+const toCheck = (d: DocListItem) => (d.extraction_fields ?? []).filter((f) => f.status === "pending" && f.version_id === d.current_version_id).length;
 
 const recordQuery = (entityId: string) =>
   queryOptions({
@@ -102,7 +104,10 @@ function RecordPage() {
                     d.id === doc && "bg-item-selected",
                   )}
                 >
-                  <span className="type-label-14 truncate">{d.name}</span>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="type-label-14 truncate">{d.name}</span>
+                    {toCheck(d) > 0 ? <span className={cn("type-label-12", d.id !== doc && "text-text-secondary")}>{toCheck(d)} to check</span> : null}
+                  </span>
                   <span className="flex shrink-0 gap-2">
                     <Tag tone={STATUS_TONE[d.status]} small>{STATUS_LABEL[d.status]}</Tag>
                     {d.legal_hold ? <Tag tone="major" icon={<Lock aria-hidden="true" className="size-4" />}>On hold</Tag> : null}

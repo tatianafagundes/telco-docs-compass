@@ -5,12 +5,16 @@ import { useDocumentActions } from "@/hooks/use-document-actions";
 import { deleteState, manageState, nextStep, purgeState, sendBackState } from "@/services/document-actions";
 import { TextField } from "@/components/erad/text-field";
 import type { AppRole } from "@/services/document-rules";
+import type { ApproveGate } from "@/services/review-rules";
+import { Link } from "@tanstack/react-router";
 import type { DocStatus } from "@/schemas/document";
 
 interface Props {
   entityId: string;
   doc: { id: string; status: DocStatus; legal_hold: boolean; retain_until: string | null; name: string };
   role: AppRole;
+  /** Required details still to check before Approve. */
+  approveGate?: ApproveGate;
 }
 
 type Open = null | "sendBack" | "report" | "hold" | "release" | "delete" | "purge";
@@ -22,14 +26,16 @@ function Reason({ text }: { text?: string | undefined }) {
   return text ? <p className="type-label-12 text-text-secondary">{text}</p> : null;
 }
 
-export function DocumentActionsBar({ entityId, doc, role }: Props) {
+export function DocumentActionsBar({ entityId, doc, role, approveGate }: Props) {
   const a = useDocumentActions(entityId, doc.id);
   const [open, setOpen] = useState<Open>(null);
   const [note, setNote] = useState("");
   const [reference, setReference] = useState("");
   const close = () => { setOpen(null); setNote(""); setReference(""); };
 
-  const next = nextStep(role, doc.status);
+  const step = nextStep(role, doc.status);
+  const gated = step?.to === "approved" && step.available && approveGate?.reason;
+  const next = step && gated ? { ...step, available: false, reason: approveGate?.reason } : step;
   const back = sendBackState(role, doc.status);
   const manage = manageState(role);
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -46,6 +52,9 @@ export function DocumentActionsBar({ entityId, doc, role }: Props) {
             {next.label}
           </Button>
           <Reason text={next.reason} />
+          {gated ? (
+            <Link to="/records/$entityId/review/$docId" params={{ entityId, docId: doc.id }} className="focus-ring type-label-12 underline">Review details</Link>
+          ) : null}
         </div>
       ) : null}
       <div className="flex flex-wrap gap-2">
