@@ -565,6 +565,63 @@ export type Database = {
           },
         ]
       }
+      event_deliveries: {
+        Row: {
+          attempts: number
+          created_at: string
+          delivered_at: string | null
+          event_id: number
+          gave_up_at: string | null
+          last_error: string | null
+          last_status: number | null
+          locked_until: string | null
+          next_attempt_at: string
+          subscription_id: string
+          tenant_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          delivered_at?: string | null
+          event_id: number
+          gave_up_at?: string | null
+          last_error?: string | null
+          last_status?: number | null
+          locked_until?: string | null
+          next_attempt_at?: string
+          subscription_id: string
+          tenant_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          delivered_at?: string | null
+          event_id?: number
+          gave_up_at?: string | null
+          last_error?: string | null
+          last_status?: number | null
+          locked_until?: string | null
+          next_attempt_at?: string
+          subscription_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_deliveries_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_outbox"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_deliveries_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "event_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_outbox: {
         Row: {
           attempts: number
@@ -1033,6 +1090,28 @@ export type Database = {
       _doc_search_where: { Args: { p: Json }; Returns: string }
       api_hit: { Args: { p_client: string; p_kind: string }; Returns: number }
       can_see_document: { Args: { _doc: string }; Returns: boolean }
+      claim_event_deliveries: {
+        Args: { p_limit: number; p_lock_seconds?: number }
+        Returns: {
+          attempts: number
+          created_at: string
+          delivered_at: string | null
+          event_id: number
+          gave_up_at: string | null
+          last_error: string | null
+          last_status: number | null
+          locked_until: string | null
+          next_attempt_at: string
+          subscription_id: string
+          tenant_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "event_deliveries"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       count_documents: { Args: { p: Json }; Returns: number }
       effective_specifications: {
         Args: { p_tenant?: string }
