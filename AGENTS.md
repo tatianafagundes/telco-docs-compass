@@ -36,3 +36,6 @@ use the editor.
 - Clients may record only `view` and `download` audit actions. Why: all other events are written by the operation itself.
 - Seam operations return `SeamResult` (`{ok,data}` or `{ok:false,error:SeamError}`) instead of throwing; `src/services/api.ts` unwraps into `SeamFailure` and is the only backend entry for screens. Why: typed customer-facing errors cross the RPC boundary intact.
 - Pure document rules (status path, approve gate, delete blockers, idempotency) live in `src/services/document-rules.ts` with tests in `src/services/__tests__/`. Why: rules are testable without a database.
+
+- Which document actions a person sees, and the reason text for unavailable ones, comes from `src/services/document-actions.ts` (pure, tested). Why: UI gating stays consistent with server role rules.
+- Access checks against the real backend live in `src/services/__tests__/access.integration.test.ts` and run only with RUN_ACCESS_TESTS=1. Why: normal test runs stay offline.
