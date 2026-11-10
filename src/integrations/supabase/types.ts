@@ -14,6 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
+      bulk_jobs: {
+        Row: {
+          action: string
+          actor_role: Database["public"]["Enums"]["app_role"]
+          changed: number
+          created_at: string
+          created_by: string
+          doc_ids: string[]
+          done: number
+          finished_at: string | null
+          id: string
+          params: Json
+          skipped: Json
+          status: string
+          tenant_id: string
+          total: number
+        }
+        Insert: {
+          action: string
+          actor_role: Database["public"]["Enums"]["app_role"]
+          changed?: number
+          created_at?: string
+          created_by: string
+          doc_ids: string[]
+          done?: number
+          finished_at?: string | null
+          id?: string
+          params?: Json
+          skipped?: Json
+          status?: string
+          tenant_id: string
+          total: number
+        }
+        Update: {
+          action?: string
+          actor_role?: Database["public"]["Enums"]["app_role"]
+          changed?: number
+          created_at?: string
+          created_by?: string
+          doc_ids?: string[]
+          done?: number
+          finished_at?: string | null
+          id?: string
+          params?: Json
+          skipped?: Json
+          status?: string
+          tenant_id?: string
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bulk_jobs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_entities: {
         Row: {
           display_name: string
@@ -348,6 +407,7 @@ export type Database = {
           purged_at: string | null
           retain_until: string | null
           retention_policy_id: string | null
+          search_tsv: unknown
           sensitivity: Database["public"]["Enums"]["sensitivity"]
           signature_level: Database["public"]["Enums"]["signature_level"]
           status: Database["public"]["Enums"]["doc_status"]
@@ -381,6 +441,7 @@ export type Database = {
           purged_at?: string | null
           retain_until?: string | null
           retention_policy_id?: string | null
+          search_tsv?: unknown
           sensitivity?: Database["public"]["Enums"]["sensitivity"]
           signature_level?: Database["public"]["Enums"]["signature_level"]
           status?: Database["public"]["Enums"]["doc_status"]
@@ -414,6 +475,7 @@ export type Database = {
           purged_at?: string | null
           retain_until?: string | null
           retention_policy_id?: string | null
+          search_tsv?: unknown
           sensitivity?: Database["public"]["Enums"]["sensitivity"]
           signature_level?: Database["public"]["Enums"]["signature_level"]
           status?: Database["public"]["Enums"]["doc_status"]
@@ -759,6 +821,44 @@ export type Database = {
           },
         ]
       }
+      saved_views: {
+        Row: {
+          created_at: string
+          filters: Json
+          id: string
+          name: string
+          owner: string
+          shared: boolean
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          filters?: Json
+          id?: string
+          name: string
+          owner: string
+          shared?: boolean
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          filters?: Json
+          id?: string
+          name?: string
+          owner?: string
+          shared?: boolean
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_views_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
           cross_tenant_share: string
@@ -854,7 +954,9 @@ export type Database = {
       }
     }
     Functions: {
+      _doc_search_where: { Args: { p: Json }; Returns: string }
       can_see_document: { Args: { _doc: string }; Returns: boolean }
+      count_documents: { Args: { p: Json }; Returns: number }
       effective_specifications: {
         Args: { p_tenant?: string }
         Returns: {
@@ -872,6 +974,14 @@ export type Database = {
         }[]
       }
       entity_in_my_tenant: { Args: { _entity_id: string }; Returns: boolean }
+      facet_documents: {
+        Args: { p: Json }
+        Returns: {
+          facet: string
+          n: number
+          value: string
+        }[]
+      }
       has_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
@@ -891,6 +1001,27 @@ export type Database = {
       sample_pages_for: {
         Args: { _lines: string[]; _title: string }
         Returns: Json
+      }
+      search_document_ids: {
+        Args: { p: Json; p_cap?: number }
+        Returns: string[]
+      }
+      search_documents: {
+        Args: { p: Json }
+        Returns: {
+          document_type: string
+          entity_id: string
+          entity_name: string
+          entity_type: string
+          expiry_date: string
+          id: string
+          legal_hold: boolean
+          name: string
+          pending: number
+          sensitivity: Database["public"]["Enums"]["sensitivity"]
+          status: Database["public"]["Enums"]["doc_status"]
+          updated_at: string
+        }[]
       }
       user_tenant: { Args: never; Returns: string }
     }

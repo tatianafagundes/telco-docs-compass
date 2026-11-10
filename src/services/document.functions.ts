@@ -54,7 +54,8 @@ export const get = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: doc, error } = await context.supabase
       .from("documents")
-      .select("*")
+      // Explicit columns: the search index column is not for the screen.
+      .select("id, tenant_id, name, description, document_type, status, pipeline_state, pipeline_detail, sensitivity, signature_level, effective_date, valid_to, expiry_date, origin, generated_from_spec, bundle_id, bundle_role, retention_policy_id, retain_until, legal_hold, hold_reason, hold_set_by, hold_reference, hold_since, characteristic, current_version_id, created_by, created_at, updated_at, deleted_at, purged_at")
       .eq("id", data.id)
       .maybeSingle();
     if (error) throw new Error("documents.loadFailed");
