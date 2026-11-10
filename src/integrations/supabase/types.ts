@@ -435,6 +435,7 @@ export type Database = {
           pipeline_detail: Json | null
           pipeline_state: Database["public"]["Enums"]["pipeline_state"]
           purged_at: string | null
+          registered_by_client: string | null
           retain_until: string | null
           retention_policy_id: string | null
           search_tsv: unknown
@@ -470,6 +471,7 @@ export type Database = {
           pipeline_detail?: Json | null
           pipeline_state?: Database["public"]["Enums"]["pipeline_state"]
           purged_at?: string | null
+          registered_by_client?: string | null
           retain_until?: string | null
           retention_policy_id?: string | null
           search_tsv?: unknown
@@ -505,6 +507,7 @@ export type Database = {
           pipeline_detail?: Json | null
           pipeline_state?: Database["public"]["Enums"]["pipeline_state"]
           purged_at?: string | null
+          registered_by_client?: string | null
           retain_until?: string | null
           retention_policy_id?: string | null
           search_tsv?: unknown
