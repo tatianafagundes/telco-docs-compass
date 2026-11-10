@@ -45,7 +45,7 @@ export const listHolds = createServerFn({ method: "POST" })
       const from = data.page * PAGE;
       const { data: rows, count } = await env.caller
         .from("documents")
-        .select("id, name, hold_reason, hold_reference, hold_since, hold_set_by, deleted_at, document_versions(count)", { count: "exact" })
+        .select("id, name, hold_reason, hold_reference, hold_since, hold_set_by, deleted_at, document_versions!document_versions_document_id_fkey(count)", { count: "exact" })
         .eq("legal_hold", true)
         .order("hold_since", { ascending: false, nullsFirst: false })
         .range(from, from + PAGE - 1);
@@ -158,7 +158,7 @@ export const verifyHolds = createServerFn({ method: "POST" })
       if (!can(env.role, "manage")) return forbidden();
       const { data } = await env.caller
         .from("documents")
-        .select("id, name, hold_reference, document_versions(id, label, content_hash, created_at)")
+        .select("id, name, hold_reference, document_versions!document_versions_document_id_fkey(id, label, content_hash, created_at)")
         .eq("legal_hold", true)
         .order("name");
       return {
