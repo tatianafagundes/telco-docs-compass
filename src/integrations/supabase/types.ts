@@ -753,10 +753,12 @@ export type Database = {
           last_rate_limited_at: string | null
           last_used_at: string | null
           name: string
+          read_limit_per_minute: number
           revoked_at: string | null
           scopes: string[]
           system_kind: string
           tenant_id: string
+          write_limit_per_minute: number
         }
         Insert: {
           created_at?: string
@@ -768,10 +770,12 @@ export type Database = {
           last_rate_limited_at?: string | null
           last_used_at?: string | null
           name: string
+          read_limit_per_minute?: number
           revoked_at?: string | null
           scopes?: string[]
           system_kind?: string
           tenant_id: string
+          write_limit_per_minute?: number
         }
         Update: {
           created_at?: string
@@ -783,10 +787,12 @@ export type Database = {
           last_rate_limited_at?: string | null
           last_used_at?: string | null
           name?: string
+          read_limit_per_minute?: number
           revoked_at?: string | null
           scopes?: string[]
           system_kind?: string
           tenant_id?: string
+          write_limit_per_minute?: number
         }
         Relationships: [
           {
