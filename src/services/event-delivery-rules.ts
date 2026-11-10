@@ -30,7 +30,7 @@ export type Outcome = { kind: "delivered" } | { kind: "retry"; waitSeconds: numb
 export function outcomeAfter(attempts: number, status: number | null, retryAfterSeconds: number | null): Outcome {
   if (status !== null && isDelivered(status)) return { kind: "delivered" };
   if (attempts >= MAX_ATTEMPTS) return { kind: "gaveUp" };
-  const base = BACKOFF_SECONDS[Math.min(attempts, BACKOFF_SECONDS.length) - 1] ?? BACKOFF_SECONDS[BACKOFF_SECONDS.length - 1];
+  const base: number = BACKOFF_SECONDS[Math.min(attempts, BACKOFF_SECONDS.length) - 1] ?? 7200;
   const asked = retryAfterSeconds === null ? 0 : Math.min(retryAfterSeconds, MAX_RETRY_AFTER_SECONDS);
   return { kind: "retry", waitSeconds: Math.max(base, asked) };
 }
