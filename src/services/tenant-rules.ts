@@ -26,9 +26,8 @@ export interface EffectiveSpecFacts {
 export function settingSource(row: EffectiveSpecFacts, field?: string): SettingSource {
   if (row.isGroupTenant) return "own";
   if (row.locked) return "locked";
-  if (row.definedIn === "tenant" && !(row.overriddenFields && row.overriddenFields.length >= 0 && row.definedIn === "tenant" && row.overriddenFields.length > 0)) {
-    return "own";
-  }
+  // A country-only type has no group original: nothing is inherited.
+  if (row.definedIn === "tenant" && (row.overriddenFields ?? []).length === 0) return "own";
   if (field === undefined) return row.overriddenFields && row.overriddenFields.length > 0 ? "changed" : "inherited";
   return row.overriddenFields?.includes(field) ? "changed" : "inherited";
 }
