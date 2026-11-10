@@ -46,25 +46,6 @@ export const listEntities = createServerFn({ method: "POST" })
     return data;
   });
 
-const findInput = z.object({ entityId: z.string().min(1).max(64).optional() });
-
-export const find = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => findInput.parse(input))
-  .handler(async ({ data, context }) => {
-    let q = context.supabase
-      .from("documents")
-      .select(
-        "id, name, document_type, status, pipeline_state, signature_level, valid_to, expiry_date, legal_hold, hold_reason, updated_at, characteristic, current_version_id, document_relations!inner(entity_id, role)",
-      )
-      .is("deleted_at", null)
-      .order("updated_at", { ascending: false });
-    if (data.entityId) q = q.eq("document_relations.entity_id", data.entityId);
-    const { data: rows, error } = await q;
-    if (error) throw new Error("documents.loadFailed");
-    return rows;
-  });
-
 const idInput = z.object({ id: z.string().uuid() });
 
 export const get = createServerFn({ method: "POST" })
