@@ -56,3 +56,24 @@ describe("sharedOnlyRole", () => {
     expect(sharedOnlyRole("viewer", "edit")).toBe("viewer");
   });
 });
+
+import { approvedSummary } from "@/services/document-actions";
+
+describe("approvedSummary", () => {
+  const d = (id: string, status: "draft" | "in_review" | "approved" | "effective" | "expired") => ({ id, status });
+  it("should show only approved and effective documents when a record has mixed statuses", () => {
+    const s = approvedSummary([d("a", "draft"), d("b", "effective"), d("c", "approved"), d("e", "expired")]);
+    expect(s.shown.map((x) => x.id)).toEqual(["b", "c"]);
+    expect(s.more).toBe(0);
+  });
+  it("should cap at 3 and count the rest when there are more", () => {
+    const s = approvedSummary(["1", "2", "3", "4", "5"].map((i) => d(i, "approved")));
+    expect(s.shown).toHaveLength(3);
+    expect(s.more).toBe(2);
+  });
+  it("should list documents in review when none is approved", () => {
+    const s = approvedSummary([d("a", "in_review"), d("b", "draft")]);
+    expect(s.shown).toEqual([]);
+    expect(s.inReview.map((x) => x.id)).toEqual(["a"]);
+  });
+});
