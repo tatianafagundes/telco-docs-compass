@@ -58,7 +58,7 @@ function RecordPage() {
   const { data: me } = useSuspenseQuery(meQuery);
   const role = me.access?.role ?? "viewer";
   const entityKind = data.entity?.referred_type === "Account" ? "account" : "order";
-  const upload = useUpload(entityId, entityKind === "account" ? "subject" : "attachment");
+  const upload = useUpload(entityId);
   const [attentionOnly, setAttentionOnly] = useState(false);
   // "Ready" stays visible on rows added in this visit.
   const addedHere = new Map(upload.rows.filter((r) => r.docId).map((r) => [r.docId as string, r.state]));

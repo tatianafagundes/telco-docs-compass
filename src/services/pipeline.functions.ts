@@ -51,10 +51,10 @@ export const advancePipeline = createServerFn({ method: "POST" })
       let text = "";
       if (current === "uploading") {
         // The file must be in storage before checking starts.
-        const { data: file } = version ? await env.admin.storage.from(BUCKET).download(version.storage_path) : { data: null };
+        const { data: file } = version?.storage_path ? await env.admin.storage.from(BUCKET).download(version.storage_path) : { data: null };
         if (!file) return { ok: false, error: seamError("pipeline.notUploaded", "unavailable", "retry") };
       } else if (current === "scanning" || current === "reading") {
-        const { data: file } = version ? await env.admin.storage.from(BUCKET).download(version.storage_path) : { data: null };
+        const { data: file } = version?.storage_path ? await env.admin.storage.from(BUCKET).download(version.storage_path) : { data: null };
         text = file ? new TextDecoder("latin1").decode(await file.arrayBuffer()) : "";
       }
       const next = nextPipelineState(current, simulatedOutcome(doc.name, text));
@@ -83,8 +83,8 @@ export const resetTestData = createServerFn({ method: "POST" })
     const ids = (added ?? []).map((d) => d.id);
     const { data: versions } = ids.length
       ? await admin.from("document_versions").select("storage_path").in("document_id", ids)
-      : { data: [] as { storage_path: string }[] };
-    const paths = (versions ?? []).map((v) => v.storage_path).filter((p) => !p.startsWith("sample/"));
+      : { data: [] as { storage_path: string | null }[] };
+    const paths = (versions ?? []).map((v) => v.storage_path).filter((p): p is string => Boolean(p) && !String(p).startsWith("sample/"));
     if (paths.length) await admin.storage.from(BUCKET).remove(paths);
     if (ids.length) {
       await admin.from("document_events").delete().in("document_id", ids);

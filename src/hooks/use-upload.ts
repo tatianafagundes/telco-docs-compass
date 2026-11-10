@@ -38,7 +38,7 @@ export function batchState(row: UploadRow): BatchFileState {
 }
 
 /** Adds files to one record: register, upload with the ticket, then walk the simulated pipeline. */
-export function useUpload(entityId: string, entityRole: string) {
+export function useUpload(entityId: string) {
   const qc = useQueryClient();
   const [rows, setRows] = useState<UploadRow[]>([]);
   const cancelled = useRef(new Set<string>());
@@ -69,7 +69,7 @@ export function useUpload(entityId: string, entityRole: string) {
             const reg = await api.register({
               name: row.file.name,
               documentType: row.documentType,
-              relatedEntity: { id: entityId, role: entityRole },
+              relatedEntity: { id: entityId, role: row.documentType },
               mimeType: row.file.type || "application/octet-stream",
               size: row.file.size,
               contentHash: await sha256(row.file),
@@ -101,7 +101,7 @@ export function useUpload(entityId: string, entityRole: string) {
         refresh();
       }
     },
-    [entityId, entityRole, refresh, walk],
+    [entityId, refresh, walk],
   );
 
   const start = useCallback(
