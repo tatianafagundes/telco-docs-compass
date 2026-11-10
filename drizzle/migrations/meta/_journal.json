@@ -29,6 +29,13 @@
       "when": 1794305731115,
       "tag": "0003_drop_seed_demo_access",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794306314366,
+      "tag": "0004_master_stats_and_hold_fields",
+      "breakpoints": true
     }
   ]
 }

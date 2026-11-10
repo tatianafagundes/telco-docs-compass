@@ -336,7 +336,9 @@ export type Database = {
           expiry_date: string | null
           generated_from_spec: string | null
           hold_reason: string | null
+          hold_reference: string | null
           hold_set_by: string | null
+          hold_since: string | null
           id: string
           legal_hold: boolean
           name: string
@@ -366,7 +368,9 @@ export type Database = {
           expiry_date?: string | null
           generated_from_spec?: string | null
           hold_reason?: string | null
+          hold_reference?: string | null
           hold_set_by?: string | null
+          hold_since?: string | null
           id?: string
           legal_hold?: boolean
           name: string
@@ -396,7 +400,9 @@ export type Database = {
           expiry_date?: string | null
           generated_from_spec?: string | null
           hold_reason?: string | null
+          hold_reference?: string | null
           hold_set_by?: string | null
+          hold_since?: string | null
           id?: string
           legal_hold?: boolean
           name?: string
@@ -742,6 +748,16 @@ export type Database = {
       has_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
+      }
+      master_document_stats: {
+        Args: { p_tenant: string }
+        Returns: {
+          document_type: string
+          legal_hold: boolean
+          n: number
+          pipeline_state: Database["public"]["Enums"]["pipeline_state"]
+          status: Database["public"]["Enums"]["doc_status"]
+        }[]
       }
       sample_pages_for: {
         Args: { _lines: string[]; _title: string }
