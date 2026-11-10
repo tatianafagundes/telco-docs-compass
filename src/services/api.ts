@@ -6,6 +6,8 @@ import * as config from "@/services/tenant-config.functions";
 import * as retention from "@/services/retention.functions";
 import * as pipeline from "@/services/pipeline.functions";
 import * as systems from "@/services/integration-clients.functions";
+import * as search from "@/services/search.functions";
+import type { SearchFilters } from "@/services/search-rules";
 import { supabase } from "@/integrations/supabase/client";
 
 export class SeamFailure extends Error {
@@ -103,6 +105,16 @@ export const api = {
     if (error) throw new SeamFailure({ code: "upload.failed", category: "unavailable", retryable: true });
   },
   resetTestData: async () => unwrap(await pipeline.resetTestData()),
+  // search at scale, saved views, bulk jobs
+  searchDocuments: async (i: Parameters<typeof search.searchDocuments>[0]["data"]) => unwrap(await search.searchDocuments({ data: i })),
+  countDocuments: async (filters: SearchFilters) => unwrap(await search.countDocuments({ data: { filters } })),
+  facetDocuments: async (filters: SearchFilters) => unwrap(await search.facetDocuments({ data: { filters } })),
+  findRecord: async (q: string) => unwrap(await search.findRecord({ data: { q } })),
+  listSavedViews: async () => unwrap(await search.listSavedViews()),
+  saveView: async (i: Parameters<typeof search.saveView>[0]["data"]) => unwrap(await search.saveView({ data: i })),
+  deleteView: async (id: string) => unwrap(await search.deleteView({ data: { id } })),
+  startBulkJob: async (i: Parameters<typeof search.startBulkJob>[0]["data"]) => unwrap(await search.startBulkJob({ data: i })),
+  getBulkJob: async (id: string) => unwrap(await search.getBulkJob({ data: { id } })),
   // connected systems (TMF667 API keys)
   listSystems: async () => unwrap(await systems.listSystems()),
   createSystem: async (i: Parameters<typeof systems.createSystem>[0]["data"]) => unwrap(await systems.createSystem({ data: i })),
