@@ -13,6 +13,6 @@
 - [x] Prompt 05 – Add documents: button, drop, paste, dialog, simulated pipeline, error actions; site surveys tested on O-7731
 - [x] Manage access: people search in own organisation, inherited + exceptions, remove, Why can I see this?
 - [x] Check details (prompt 07): banner, n to check, review screen, approve gate with reason
-- [ ] Open a document shared with you on a record you can't see (needs a "Shared with me" list) (done)
+- [x] "Shared with me" list for documents shared directly
 - [ ] Share with another organisation, full Activity page (rest of prompt 08)
 - [ ] Phases 3–9 remainder – entity documents, preview, upload, versions, review, access/activity, search
