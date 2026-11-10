@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deleteState, editState, nextStep, sendBackState } from "@/services/document-actions";
+import { deleteState, editState, nextStep, purgeState, sendBackState } from "@/services/document-actions";
 
 describe("document actions", () => {
   it("should offer approve to a manager when the document is in review", () => {
@@ -31,7 +31,6 @@ describe("document actions", () => {
   });
 });
 
-import { purgeState } from "@/services/document-actions";
 describe("purgeState", () => {
   it("should block permanent deletion under legal hold", () => {
     expect(purgeState("tenant_admin", true, null, "2026-11-10").available).toBe(false);
