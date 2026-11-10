@@ -35,7 +35,7 @@ export interface EffectiveSpec {
   definedIn: string | null;
   overridden: boolean;
   overriddenFields: string[];
-  definition: Record<string, unknown>;
+  definition: { [k: string]: Json | undefined };
 }
 
 export interface RetentionPolicy {
@@ -94,7 +94,7 @@ async function loadView(db: Db, tenantId: string): Promise<ConfigView | null> {
       definedIn: s.defined_in,
       overridden: s.overridden,
       overriddenFields: s.overridden_fields ?? [],
-      definition: (s.definition ?? {}) as Record<string, unknown>,
+      definition: (s.definition ?? {}) as { [k: string]: Json | undefined },
     })),
     retention: (ret ?? []).map((r) => ({
       id: r.id,
@@ -227,7 +227,7 @@ const saveSchema = z.object({
   locked: z.boolean().optional(),
 });
 
-function describe(v: unknown): string {
+function describe(v: Json | undefined): string {
   return v === undefined || v === null ? "unset" : String(v);
 }
 
@@ -266,7 +266,7 @@ export const saveSpecification = createServerFn({ method: "POST" })
         .eq("tenant_id", env.tenantId)
         .eq("code", data.code)
         .maybeSingle();
-      const before = (own?.definition ?? {}) as Record<string, unknown>;
+      const before = (own?.definition ?? {}) as { [k: string]: Json | undefined };
       const after = { ...before, ...data.changes };
       if (own) {
         await env.admin

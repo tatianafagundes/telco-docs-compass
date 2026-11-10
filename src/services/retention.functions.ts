@@ -167,7 +167,7 @@ export const verifyHolds = createServerFn({ method: "POST" })
           id: d.id,
           name: d.name,
           reference: d.hold_reference,
-          versions: (d.document_versions ?? []).map((v) => ({ id: v.id, label: v.label, hash: v.content_hash, createdAt: v.created_at })),
+          versions: ((d.document_versions ?? []) as unknown as { id: string; label: string; content_hash: string; created_at: string }[]).map((v) => ({ id: v.id, label: v.label, hash: v.content_hash, createdAt: v.created_at })),
         })),
       };
     }),
