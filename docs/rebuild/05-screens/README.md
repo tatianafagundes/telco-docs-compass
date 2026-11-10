@@ -17,3 +17,5 @@ Screenshots were taken from the current app in light theme at 1280 px and 792 px
 | [Connected systems](admin-systems.md) | `/admin/systems` |
 | [Tenants (group)](admin-tenants.md) | `/admin/tenants and /admin/tenants/{tenantId}` |
 | [Design review (developer only)](design.md) | `/design` |
+
+Note: the screenshots include leftover automated-test items ("TMF test …"). Reset test data removes them.
