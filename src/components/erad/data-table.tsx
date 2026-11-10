@@ -68,7 +68,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
               className={cn(
                 "group h-12 border-b border-border-cell",
                 p.striped && i % 2 === 1 && "bg-cell-striped",
-                isSel ? "bg-cell-selected" : "hover:bg-cell-hover",
+                isSel ? "bg-cell-selected shadow-[inset_3px_0_0_var(--color-border-selected)]" : "hover:bg-cell-hover",
                 p.onActivate && "cursor-pointer",
               )}
             >

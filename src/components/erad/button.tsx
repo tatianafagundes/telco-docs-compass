@@ -10,7 +10,7 @@ const buttonVariants = cva(
         default:
           "border border-border-btn text-text-main hover:bg-btn-default-hover hover:text-text-contrast active:bg-btn-default-press aria-disabled:border-border-subtle aria-disabled:text-text-disabled aria-disabled:hover:bg-transparent aria-disabled:hover:text-text-disabled",
         primary:
-          "bg-btn-primary text-text-on-primary hover:bg-btn-primary-hover active:bg-btn-primary-press aria-disabled:bg-input-disabled aria-disabled:text-text-disabled",
+          "bg-btn-primary text-text-on-primary hover:bg-btn-primary-hover active:bg-btn-primary-press aria-disabled:border aria-disabled:border-border-btn aria-disabled:bg-transparent aria-disabled:text-text-secondary aria-disabled:hover:bg-transparent",
         destructive:
           "bg-status-critical text-text-on-primary hover:brightness-90 active:brightness-80 aria-disabled:bg-input-disabled aria-disabled:text-text-disabled aria-disabled:hover:brightness-100",
         ghost:

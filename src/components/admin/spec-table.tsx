@@ -15,8 +15,19 @@ export function specFacts(view: ConfigView, s: EffectiveSpec) {
   return { locked: s.locked, definedIn: s.definedIn, overriddenFields: s.overriddenFields, isGroupTenant: view.tenant.isGroup };
 }
 
-function yesNo(v: unknown): string {
-  return v === true ? "Yes" : "No";
+/** Business process (GB921/eTOM) for one type; shown in the side panel. */
+export function BusinessProcess({ spec }: { spec: EffectiveSpec }) {
+  const p = ((spec.definition["businessProcess"] ?? []) as Process[])[0];
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="type-label-12 text-text-secondary">Business process</span>
+      {p?.id ? (
+        <Tooltip content={`${p.framework ?? "GB921"} ${p.release ?? ""}`.trim()}>
+          <span tabIndex={0} className="focus-ring type-paragraph-14 self-start">{`${p.id} ${p.name ?? ""}`}</span>
+        </Tooltip>
+      ) : <span className="type-paragraph-14">Not set</span>}
+    </div>
+  );
 }
 
 export function SpecTable({ view, activeCode, onOpen }: { view: ConfigView; activeCode?: string; onOpen: (code: string) => void }) {
@@ -27,25 +38,8 @@ export function SpecTable({ view, activeCode, onOpen }: { view: ConfigView; acti
           {s.name}
         </button>
       ) },
-    { key: "code", header: "Code", cell: (s) => <code className="type-label-12">{s.code}</code> },
     { key: "where", header: "Where defined", cell: (s) => <SourceTag source={settingSource(specFacts(view, s))} groupName={view.tenant.groupName} /> },
-    { key: "retention", header: "Retention policy", cell: (s) => retention.get(String(s.definition["retentionPolicyRef"] ?? "")) ?? "Not set" },
-    { key: "signature", header: "Signature required", cell: (s) => (s.definition["signatureRequired"] ? String(s.definition["signatureRequired"]).replace(/^./, (c) => c.toUpperCase()) : "No") },
-    { key: "review", header: "Review required", cell: (s) => yesNo(s.definition["requiresReview"]) },
-    { key: "pd", header: "Contains personal data", cell: (s) => yesNo(s.definition["containsPersonalData"]) },
-    {
-      key: "process",
-      header: "Business process",
-      cell: (s) => {
-        const p = ((s.definition["businessProcess"] ?? []) as Process[])[0];
-        if (!p?.id) return "Not set";
-        return (
-          <Tooltip content={`${p.framework ?? "GB921"} ${p.release ?? ""}`.trim()}>
-            <span tabIndex={0} className="focus-ring">{`${p.id} ${p.name ?? ""}`}</span>
-          </Tooltip>
-        );
-      },
-    },
+    { key: "retention", header: "Retention", cell: (s) => retention.get(String(s.definition["retentionPolicyRef"] ?? "")) ?? "Not set" },
   ];
   return (
     <div className="overflow-x-auto">

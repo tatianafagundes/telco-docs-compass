@@ -75,3 +75,10 @@ export function sharedOnlyRole(role: AppRole, level: "view" | "edit" | "manage")
   if (level === "view") return "viewer";
   return can(role, "edit") ? "contributor" : "viewer";
 }
+
+/** Record page summary: which documents count as the current approved version. List order is kept (newest first). */
+export function approvedSummary<T extends { status: DocStatus }>(items: T[], max = 3) {
+  const approved = items.filter((d) => d.status === "approved" || d.status === "effective");
+  const inReview = items.filter((d) => d.status === "in_review");
+  return { shown: approved.slice(0, max), more: Math.max(0, approved.length - max), inReview };
+}
