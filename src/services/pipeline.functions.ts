@@ -79,7 +79,7 @@ export const resetTestData = createServerFn({ method: "POST" })
     const { count: synthetic } = await admin.from("tenants").select("id", { count: "exact", head: true }).like("id", "aurora-%");
     if (!synthetic) return { ok: false as const, error: seamError("reset.notTestData", "rejected", "none") };
 
-    const { data: added } = await admin.from("documents").select("id").not("created_by", "is", null);
+    const { data: added } = await admin.from("documents").select("id").not("created_by", "is", null).is("purged_at", null);
     const ids = (added ?? []).map((d) => d.id);
     const { data: versions } = ids.length
       ? await admin.from("document_versions").select("storage_path").in("document_id", ids)
@@ -87,12 +87,12 @@ export const resetTestData = createServerFn({ method: "POST" })
     const paths = (versions ?? []).map((v) => v.storage_path).filter((p): p is string => Boolean(p) && !String(p).startsWith("sample/"));
     if (paths.length) await admin.storage.from(BUCKET).remove(paths);
     if (ids.length) {
-      // Break the document ↔ current version link first so both can go.
+      // The activity log is append-only, so added documents become purged tombstones (same as permanent deletion)
+      // and are unlinked from their records; their files are already gone.
+      const now = new Date().toISOString();
       const steps = [
-        () => admin.from("documents").update({ current_version_id: null }).in("id", ids),
-        () => admin.from("document_events").delete().in("document_id", ids),
-        () => admin.from("document_versions").delete().in("document_id", ids),
-        () => admin.from("documents").delete().in("id", ids),
+        () => admin.from("document_relations").delete().in("document_id", ids),
+        () => admin.from("documents").update({ deleted_at: now, purged_at: now }).in("id", ids),
       ];
       for (const step of steps) {
         const { error } = await step();
@@ -103,6 +103,6 @@ export const resetTestData = createServerFn({ method: "POST" })
       }
     }
     await admin.from("idempotency_keys").delete().neq("key", "");
-    const { count: remaining } = await admin.from("documents").select("id", { count: "exact", head: true });
+    const { count: remaining } = await admin.from("documents").select("id", { count: "exact", head: true }).is("purged_at", null);
     return { ok: true as const, data: { documentsRemoved: ids.length, filesRemoved: paths.length, documentsRemaining: remaining ?? 0 } };
   });
