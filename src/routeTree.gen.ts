@@ -19,6 +19,7 @@ import { Route as AuthenticatedHoldsRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedAdminHoldsRouteImport } from './routes/_authenticated/admin.holds'
 import { Route as AuthenticatedAdminPoliciesRouteImport } from './routes/_authenticated/admin.policies'
+import { Route as AuthenticatedAdminSystemsRouteImport } from './routes/_authenticated/admin.systems'
 import { Route as AuthenticatedAdminTenantsRouteImport } from './routes/_authenticated/admin.tenants'
 import { Route as AuthenticatedAdminTypesRouteImport } from './routes/_authenticated/admin.types'
 import { Route as AuthenticatedRecordsEntityIdRouteImport } from './routes/_authenticated/records.$entityId'
@@ -85,6 +86,12 @@ const AuthenticatedAdminPoliciesRoute =
   AuthenticatedAdminPoliciesRouteImport.update({
     id: '/policies',
     path: '/policies',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminSystemsRoute =
+  AuthenticatedAdminSystemsRouteImport.update({
+    id: '/systems',
+    path: '/systems',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedAdminTenantsRoute =
@@ -201,6 +208,7 @@ export interface FileRoutesByFullPath {
   '/holds': typeof AuthenticatedHoldsRoute
   '/admin/holds': typeof AuthenticatedAdminHoldsRoute
   '/admin/policies': typeof AuthenticatedAdminPoliciesRoute
+  '/admin/systems': typeof AuthenticatedAdminSystemsRoute
   '/admin/tenants': typeof AuthenticatedAdminTenantsRouteWithChildren
   '/admin/types': typeof AuthenticatedAdminTypesRoute
   '/records/$entityId': typeof AuthenticatedRecordsEntityIdRoute
@@ -228,6 +236,7 @@ export interface FileRoutesByTo {
   '/holds': typeof AuthenticatedHoldsRoute
   '/admin/holds': typeof AuthenticatedAdminHoldsRoute
   '/admin/policies': typeof AuthenticatedAdminPoliciesRoute
+  '/admin/systems': typeof AuthenticatedAdminSystemsRoute
   '/admin/tenants': typeof AuthenticatedAdminTenantsRouteWithChildren
   '/admin/types': typeof AuthenticatedAdminTypesRoute
   '/records/$entityId': typeof AuthenticatedRecordsEntityIdRoute
@@ -258,6 +267,7 @@ export interface FileRoutesById {
   '/_authenticated/holds': typeof AuthenticatedHoldsRoute
   '/_authenticated/admin/holds': typeof AuthenticatedAdminHoldsRoute
   '/_authenticated/admin/policies': typeof AuthenticatedAdminPoliciesRoute
+  '/_authenticated/admin/systems': typeof AuthenticatedAdminSystemsRoute
   '/_authenticated/admin/tenants': typeof AuthenticatedAdminTenantsRouteWithChildren
   '/_authenticated/admin/types': typeof AuthenticatedAdminTypesRoute
   '/_authenticated/records/$entityId': typeof AuthenticatedRecordsEntityIdRoute
@@ -288,6 +298,7 @@ export interface FileRouteTypes {
     | '/holds'
     | '/admin/holds'
     | '/admin/policies'
+    | '/admin/systems'
     | '/admin/tenants'
     | '/admin/types'
     | '/records/$entityId'
@@ -315,6 +326,7 @@ export interface FileRouteTypes {
     | '/holds'
     | '/admin/holds'
     | '/admin/policies'
+    | '/admin/systems'
     | '/admin/tenants'
     | '/admin/types'
     | '/records/$entityId'
@@ -344,6 +356,7 @@ export interface FileRouteTypes {
     | '/_authenticated/holds'
     | '/_authenticated/admin/holds'
     | '/_authenticated/admin/policies'
+    | '/_authenticated/admin/systems'
     | '/_authenticated/admin/tenants'
     | '/_authenticated/admin/types'
     | '/_authenticated/records/$entityId'
@@ -445,6 +458,13 @@ declare module '@tanstack/react-router' {
       path: '/policies'
       fullPath: '/admin/policies'
       preLoaderRoute: typeof AuthenticatedAdminPoliciesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/systems': {
+      id: '/_authenticated/admin/systems'
+      path: '/systems'
+      fullPath: '/admin/systems'
+      preLoaderRoute: typeof AuthenticatedAdminSystemsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/tenants': {
@@ -587,6 +607,7 @@ const AuthenticatedAdminTenantsRouteWithChildren =
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminHoldsRoute: typeof AuthenticatedAdminHoldsRoute
   AuthenticatedAdminPoliciesRoute: typeof AuthenticatedAdminPoliciesRoute
+  AuthenticatedAdminSystemsRoute: typeof AuthenticatedAdminSystemsRoute
   AuthenticatedAdminTenantsRoute: typeof AuthenticatedAdminTenantsRouteWithChildren
   AuthenticatedAdminTypesRoute: typeof AuthenticatedAdminTypesRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
@@ -595,6 +616,7 @@ interface AuthenticatedAdminRouteChildren {
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminHoldsRoute: AuthenticatedAdminHoldsRoute,
   AuthenticatedAdminPoliciesRoute: AuthenticatedAdminPoliciesRoute,
+  AuthenticatedAdminSystemsRoute: AuthenticatedAdminSystemsRoute,
   AuthenticatedAdminTenantsRoute: AuthenticatedAdminTenantsRouteWithChildren,
   AuthenticatedAdminTypesRoute: AuthenticatedAdminTypesRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
