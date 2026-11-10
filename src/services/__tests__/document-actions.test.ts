@@ -43,3 +43,16 @@ describe("purgeState", () => {
     expect(purgeState("tenant_admin", false, "2020-01-01", "2026-11-10").available).toBe(true);
   });
 });
+
+import { sharedOnlyRole } from "@/services/document-actions";
+describe("sharedOnlyRole", () => {
+  it("should cap a manager at viewer when the share is view only", () => {
+    expect(sharedOnlyRole("manager", "view")).toBe("viewer");
+  });
+  it("should cap a manager at contributor when the share allows editing", () => {
+    expect(sharedOnlyRole("manager", "edit")).toBe("contributor");
+  });
+  it("should keep a viewer as viewer even with an edit share", () => {
+    expect(sharedOnlyRole("viewer", "edit")).toBe("viewer");
+  });
+});

@@ -65,3 +65,13 @@ export function deleteState(role: AppRole, legalHold: boolean, retainUntil: stri
   if (retainUntil && retainUntil > today) return { available: false, reason: `This document must be kept until ${retainUntil}.` };
   return { available: true };
 }
+
+/**
+ * Role used when a person reaches a document only through a direct share.
+ * A "view" share caps them at viewer; an "edit" share caps them at contributor.
+ * Record-scoped work (reviewing, approving, managing access) needs record access.
+ */
+export function sharedOnlyRole(role: AppRole, level: "view" | "edit" | "manage"): AppRole {
+  if (level === "view") return "viewer";
+  return can(role, "edit") ? "contributor" : "viewer";
+}

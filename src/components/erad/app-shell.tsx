@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Share2, Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Building2, FileText, Lock, LogOut, Moon, Settings, Sun } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -23,6 +23,7 @@ function navFor(role: string) {
   const admin = role === "tenant_admin" || role === "master_admin";
   return [
     { to: "/documents", label: "Documents", icon: FileText },
+    { to: "/shared", label: "Shared with me", icon: Share2 },
     ...(role === "manager" ? [{ to: "/holds", label: "Holds and retention", icon: Lock }] : []),
     ...(admin ? [{ to: "/admin", label: "Admin", icon: Settings }] : []),
   ] as const;
