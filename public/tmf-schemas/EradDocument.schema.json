@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "EradDocument.schema.json",
+  "title": "EradDocument",
+  "description": "Extension of TMF667 v4 Document (@baseType Document). Adds the fields below; every standard Document field keeps its TMF meaning.",
+  "allOf": [{ "$ref": "https://raw.githubusercontent.com/tmforum-apis/TMF667_Document/master/TMF667_Document_Management_API_v4.0.0_swagger.json#/definitions/Document" }],
+  "properties": {
+    "lifecycleState": {
+      "type": "string",
+      "enum": ["draft", "in_review", "approved", "effective", "superseded", "expired", "archived"],
+      "description": "Detailed state. status is derived from it: draft=created, in_review=reviewed, approved=approved, effective=published, superseded/expired/archived=archived."
+    },
+    "validFor": {
+      "type": "object",
+      "properties": { "startDateTime": { "type": "string" }, "endDateTime": { "type": "string" } },
+      "description": "When the document is in force (effective and expiry date)."
+    },
+    "sensitivity": { "type": "string", "enum": ["public", "internal", "confidential", "restricted"] },
+    "legalHold": { "type": "boolean", "description": "True while a legal hold blocks deletion." },
+    "attachment": {
+      "type": "array",
+      "items": {
+        "properties": {
+          "contentHash": { "type": "string", "pattern": "^[a-f0-9]{64}$", "description": "SHA-256 of the file." },
+          "isCurrent": { "type": "boolean", "description": "True for the current version." }
+        }
+      }
+    }
+  }
+}

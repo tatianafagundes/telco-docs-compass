@@ -30,14 +30,24 @@ import { Route as ApiPublicJobsBulkDocumentsRouteImport } from './routes/api/pub
 import { Route as ApiPublicTmfApiSplatRouteImport } from './routes/api/public/tmf-api/$'
 import { Route as ApiPublicTmfEventsDeliverRouteImport } from './routes/api/public/tmf-events/deliver'
 import { Route as AuthenticatedRecordsEntityIdReviewDocIdRouteImport } from './routes/_authenticated/records.$entityId_.review.$docId'
+import { Route as ApiPublicTmfApiOauthTokenRouteImport } from './routes/api/public/tmf-api/oauth/token'
+import { Route as ApiPublicTmfApiDocumentV4DocumentRouteImport } from './routes/api/public/tmf-api/document/v4/document'
+import { Route as ApiPublicTmfApiDocumentV4DocumentSpecificationRouteImport } from './routes/api/public/tmf-api/document/v4/documentSpecification'
+import { Route as ApiPublicTmfApiDocumentV4HubRouteImport } from './routes/api/public/tmf-api/document/v4/hub'
 import { Route as ApiPublicTmfApiDocumentManagementV4DocumentRouteImport } from './routes/api/public/tmf-api/documentManagement/v4/document'
 import { Route as ApiPublicTmfApiDocumentManagementV4DocumentSpecificationRouteImport } from './routes/api/public/tmf-api/documentManagement/v4/documentSpecification'
 import { Route as ApiPublicTmfApiDocumentManagementV4HubRouteImport } from './routes/api/public/tmf-api/documentManagement/v4/hub'
+import { Route as ApiPublicTmfApiDocumentV4DocumentIdRouteImport } from './routes/api/public/tmf-api/document/v4/document.$id'
+import { Route as ApiPublicTmfApiDocumentV4DocumentSpecificationIdRouteImport } from './routes/api/public/tmf-api/document/v4/documentSpecification.$id'
+import { Route as ApiPublicTmfApiDocumentV4HubIdRouteImport } from './routes/api/public/tmf-api/document/v4/hub.$id'
 import { Route as ApiPublicTmfApiDocumentManagementV4DocumentIdRouteImport } from './routes/api/public/tmf-api/documentManagement/v4/document.$id'
 import { Route as ApiPublicTmfApiDocumentManagementV4DocumentSpecificationIdRouteImport } from './routes/api/public/tmf-api/documentManagement/v4/documentSpecification.$id'
 import { Route as ApiPublicTmfApiDocumentManagementV4HubIdRouteImport } from './routes/api/public/tmf-api/documentManagement/v4/hub.$id'
+import { Route as ApiPublicTmfApiDocumentV4DocumentIdLegalHoldRouteImport } from './routes/api/public/tmf-api/document/v4/document.$id.legalHold'
+import { Route as ApiPublicTmfApiDocumentV4DocumentIdTransitionRouteImport } from './routes/api/public/tmf-api/document/v4/document.$id.transition'
 import { Route as ApiPublicTmfApiDocumentManagementV4DocumentIdLegalHoldRouteImport } from './routes/api/public/tmf-api/documentManagement/v4/document.$id.legalHold'
 import { Route as ApiPublicTmfApiDocumentManagementV4DocumentIdTransitionRouteImport } from './routes/api/public/tmf-api/documentManagement/v4/document.$id.transition'
+import { Route as ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRouteImport } from './routes/api/public/tmf-api/document/v4/document.$id.attachment.$attachmentId.content'
 import { Route as ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdContentRouteImport } from './routes/api/public/tmf-api/documentManagement/v4/document.$id.attachment.$attachmentId.content'
 
 const IndexRoute = IndexRouteImport.update({
@@ -154,6 +164,30 @@ const AuthenticatedRecordsEntityIdReviewDocIdRoute =
     path: '/records/$entityId/review/$docId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicTmfApiOauthTokenRoute =
+  ApiPublicTmfApiOauthTokenRouteImport.update({
+    id: '/api/public/tmf-api/oauth/token',
+    path: '/api/public/tmf-api/oauth/token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicTmfApiDocumentV4DocumentRoute =
+  ApiPublicTmfApiDocumentV4DocumentRouteImport.update({
+    id: '/api/public/tmf-api/document/v4/document',
+    path: '/api/public/tmf-api/document/v4/document',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicTmfApiDocumentV4DocumentSpecificationRoute =
+  ApiPublicTmfApiDocumentV4DocumentSpecificationRouteImport.update({
+    id: '/api/public/tmf-api/document/v4/documentSpecification',
+    path: '/api/public/tmf-api/document/v4/documentSpecification',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicTmfApiDocumentV4HubRoute =
+  ApiPublicTmfApiDocumentV4HubRouteImport.update({
+    id: '/api/public/tmf-api/document/v4/hub',
+    path: '/api/public/tmf-api/document/v4/hub',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicTmfApiDocumentManagementV4DocumentRoute =
   ApiPublicTmfApiDocumentManagementV4DocumentRouteImport.update({
     id: '/api/public/tmf-api/documentManagement/v4/document',
@@ -171,6 +205,24 @@ const ApiPublicTmfApiDocumentManagementV4HubRoute =
     id: '/api/public/tmf-api/documentManagement/v4/hub',
     path: '/api/public/tmf-api/documentManagement/v4/hub',
     getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicTmfApiDocumentV4DocumentIdRoute =
+  ApiPublicTmfApiDocumentV4DocumentIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => ApiPublicTmfApiDocumentV4DocumentRoute,
+  } as any)
+const ApiPublicTmfApiDocumentV4DocumentSpecificationIdRoute =
+  ApiPublicTmfApiDocumentV4DocumentSpecificationIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => ApiPublicTmfApiDocumentV4DocumentSpecificationRoute,
+  } as any)
+const ApiPublicTmfApiDocumentV4HubIdRoute =
+  ApiPublicTmfApiDocumentV4HubIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => ApiPublicTmfApiDocumentV4HubRoute,
   } as any)
 const ApiPublicTmfApiDocumentManagementV4DocumentIdRoute =
   ApiPublicTmfApiDocumentManagementV4DocumentIdRouteImport.update({
@@ -191,6 +243,18 @@ const ApiPublicTmfApiDocumentManagementV4HubIdRoute =
     path: '/$id',
     getParentRoute: () => ApiPublicTmfApiDocumentManagementV4HubRoute,
   } as any)
+const ApiPublicTmfApiDocumentV4DocumentIdLegalHoldRoute =
+  ApiPublicTmfApiDocumentV4DocumentIdLegalHoldRouteImport.update({
+    id: '/legalHold',
+    path: '/legalHold',
+    getParentRoute: () => ApiPublicTmfApiDocumentV4DocumentIdRoute,
+  } as any)
+const ApiPublicTmfApiDocumentV4DocumentIdTransitionRoute =
+  ApiPublicTmfApiDocumentV4DocumentIdTransitionRouteImport.update({
+    id: '/transition',
+    path: '/transition',
+    getParentRoute: () => ApiPublicTmfApiDocumentV4DocumentIdRoute,
+  } as any)
 const ApiPublicTmfApiDocumentManagementV4DocumentIdLegalHoldRoute =
   ApiPublicTmfApiDocumentManagementV4DocumentIdLegalHoldRouteImport.update({
     id: '/legalHold',
@@ -203,6 +267,14 @@ const ApiPublicTmfApiDocumentManagementV4DocumentIdTransitionRoute =
     path: '/transition',
     getParentRoute: () => ApiPublicTmfApiDocumentManagementV4DocumentIdRoute,
   } as any)
+const ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRoute =
+  ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRouteImport.update(
+    {
+      id: '/attachment/$attachmentId/content',
+      path: '/attachment/$attachmentId/content',
+      getParentRoute: () => ApiPublicTmfApiDocumentV4DocumentIdRoute,
+    } as any,
+  )
 const ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdContentRoute =
   ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdContentRouteImport.update(
     {
@@ -233,14 +305,24 @@ export interface FileRoutesByFullPath {
   '/api/public/tmf-api/$': typeof ApiPublicTmfApiSplatRoute
   '/api/public/tmf-events/deliver': typeof ApiPublicTmfEventsDeliverRoute
   '/records/$entityId/review/$docId': typeof AuthenticatedRecordsEntityIdReviewDocIdRoute
+  '/api/public/tmf-api/oauth/token': typeof ApiPublicTmfApiOauthTokenRoute
+  '/api/public/tmf-api/document/v4/document': typeof ApiPublicTmfApiDocumentV4DocumentRouteWithChildren
+  '/api/public/tmf-api/document/v4/documentSpecification': typeof ApiPublicTmfApiDocumentV4DocumentSpecificationRouteWithChildren
+  '/api/public/tmf-api/document/v4/hub': typeof ApiPublicTmfApiDocumentV4HubRouteWithChildren
   '/api/public/tmf-api/documentManagement/v4/document': typeof ApiPublicTmfApiDocumentManagementV4DocumentRouteWithChildren
   '/api/public/tmf-api/documentManagement/v4/documentSpecification': typeof ApiPublicTmfApiDocumentManagementV4DocumentSpecificationRouteWithChildren
   '/api/public/tmf-api/documentManagement/v4/hub': typeof ApiPublicTmfApiDocumentManagementV4HubRouteWithChildren
+  '/api/public/tmf-api/document/v4/document/$id': typeof ApiPublicTmfApiDocumentV4DocumentIdRouteWithChildren
+  '/api/public/tmf-api/document/v4/documentSpecification/$id': typeof ApiPublicTmfApiDocumentV4DocumentSpecificationIdRoute
+  '/api/public/tmf-api/document/v4/hub/$id': typeof ApiPublicTmfApiDocumentV4HubIdRoute
   '/api/public/tmf-api/documentManagement/v4/document/$id': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdRouteWithChildren
   '/api/public/tmf-api/documentManagement/v4/documentSpecification/$id': typeof ApiPublicTmfApiDocumentManagementV4DocumentSpecificationIdRoute
   '/api/public/tmf-api/documentManagement/v4/hub/$id': typeof ApiPublicTmfApiDocumentManagementV4HubIdRoute
+  '/api/public/tmf-api/document/v4/document/$id/legalHold': typeof ApiPublicTmfApiDocumentV4DocumentIdLegalHoldRoute
+  '/api/public/tmf-api/document/v4/document/$id/transition': typeof ApiPublicTmfApiDocumentV4DocumentIdTransitionRoute
   '/api/public/tmf-api/documentManagement/v4/document/$id/legalHold': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdLegalHoldRoute
   '/api/public/tmf-api/documentManagement/v4/document/$id/transition': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdTransitionRoute
+  '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/content': typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRoute
   '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/content': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdContentRoute
 }
 export interface FileRoutesByTo {
@@ -263,14 +345,24 @@ export interface FileRoutesByTo {
   '/api/public/tmf-api/$': typeof ApiPublicTmfApiSplatRoute
   '/api/public/tmf-events/deliver': typeof ApiPublicTmfEventsDeliverRoute
   '/records/$entityId/review/$docId': typeof AuthenticatedRecordsEntityIdReviewDocIdRoute
+  '/api/public/tmf-api/oauth/token': typeof ApiPublicTmfApiOauthTokenRoute
+  '/api/public/tmf-api/document/v4/document': typeof ApiPublicTmfApiDocumentV4DocumentRouteWithChildren
+  '/api/public/tmf-api/document/v4/documentSpecification': typeof ApiPublicTmfApiDocumentV4DocumentSpecificationRouteWithChildren
+  '/api/public/tmf-api/document/v4/hub': typeof ApiPublicTmfApiDocumentV4HubRouteWithChildren
   '/api/public/tmf-api/documentManagement/v4/document': typeof ApiPublicTmfApiDocumentManagementV4DocumentRouteWithChildren
   '/api/public/tmf-api/documentManagement/v4/documentSpecification': typeof ApiPublicTmfApiDocumentManagementV4DocumentSpecificationRouteWithChildren
   '/api/public/tmf-api/documentManagement/v4/hub': typeof ApiPublicTmfApiDocumentManagementV4HubRouteWithChildren
+  '/api/public/tmf-api/document/v4/document/$id': typeof ApiPublicTmfApiDocumentV4DocumentIdRouteWithChildren
+  '/api/public/tmf-api/document/v4/documentSpecification/$id': typeof ApiPublicTmfApiDocumentV4DocumentSpecificationIdRoute
+  '/api/public/tmf-api/document/v4/hub/$id': typeof ApiPublicTmfApiDocumentV4HubIdRoute
   '/api/public/tmf-api/documentManagement/v4/document/$id': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdRouteWithChildren
   '/api/public/tmf-api/documentManagement/v4/documentSpecification/$id': typeof ApiPublicTmfApiDocumentManagementV4DocumentSpecificationIdRoute
   '/api/public/tmf-api/documentManagement/v4/hub/$id': typeof ApiPublicTmfApiDocumentManagementV4HubIdRoute
+  '/api/public/tmf-api/document/v4/document/$id/legalHold': typeof ApiPublicTmfApiDocumentV4DocumentIdLegalHoldRoute
+  '/api/public/tmf-api/document/v4/document/$id/transition': typeof ApiPublicTmfApiDocumentV4DocumentIdTransitionRoute
   '/api/public/tmf-api/documentManagement/v4/document/$id/legalHold': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdLegalHoldRoute
   '/api/public/tmf-api/documentManagement/v4/document/$id/transition': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdTransitionRoute
+  '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/content': typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRoute
   '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/content': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdContentRoute
 }
 export interface FileRoutesById {
@@ -296,14 +388,24 @@ export interface FileRoutesById {
   '/api/public/tmf-api/$': typeof ApiPublicTmfApiSplatRoute
   '/api/public/tmf-events/deliver': typeof ApiPublicTmfEventsDeliverRoute
   '/_authenticated/records/$entityId_/review/$docId': typeof AuthenticatedRecordsEntityIdReviewDocIdRoute
+  '/api/public/tmf-api/oauth/token': typeof ApiPublicTmfApiOauthTokenRoute
+  '/api/public/tmf-api/document/v4/document': typeof ApiPublicTmfApiDocumentV4DocumentRouteWithChildren
+  '/api/public/tmf-api/document/v4/documentSpecification': typeof ApiPublicTmfApiDocumentV4DocumentSpecificationRouteWithChildren
+  '/api/public/tmf-api/document/v4/hub': typeof ApiPublicTmfApiDocumentV4HubRouteWithChildren
   '/api/public/tmf-api/documentManagement/v4/document': typeof ApiPublicTmfApiDocumentManagementV4DocumentRouteWithChildren
   '/api/public/tmf-api/documentManagement/v4/documentSpecification': typeof ApiPublicTmfApiDocumentManagementV4DocumentSpecificationRouteWithChildren
   '/api/public/tmf-api/documentManagement/v4/hub': typeof ApiPublicTmfApiDocumentManagementV4HubRouteWithChildren
+  '/api/public/tmf-api/document/v4/document/$id': typeof ApiPublicTmfApiDocumentV4DocumentIdRouteWithChildren
+  '/api/public/tmf-api/document/v4/documentSpecification/$id': typeof ApiPublicTmfApiDocumentV4DocumentSpecificationIdRoute
+  '/api/public/tmf-api/document/v4/hub/$id': typeof ApiPublicTmfApiDocumentV4HubIdRoute
   '/api/public/tmf-api/documentManagement/v4/document/$id': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdRouteWithChildren
   '/api/public/tmf-api/documentManagement/v4/documentSpecification/$id': typeof ApiPublicTmfApiDocumentManagementV4DocumentSpecificationIdRoute
   '/api/public/tmf-api/documentManagement/v4/hub/$id': typeof ApiPublicTmfApiDocumentManagementV4HubIdRoute
+  '/api/public/tmf-api/document/v4/document/$id/legalHold': typeof ApiPublicTmfApiDocumentV4DocumentIdLegalHoldRoute
+  '/api/public/tmf-api/document/v4/document/$id/transition': typeof ApiPublicTmfApiDocumentV4DocumentIdTransitionRoute
   '/api/public/tmf-api/documentManagement/v4/document/$id/legalHold': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdLegalHoldRoute
   '/api/public/tmf-api/documentManagement/v4/document/$id/transition': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdTransitionRoute
+  '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/content': typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRoute
   '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/content': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdContentRoute
 }
 export interface FileRouteTypes {
@@ -329,14 +431,24 @@ export interface FileRouteTypes {
     | '/api/public/tmf-api/$'
     | '/api/public/tmf-events/deliver'
     | '/records/$entityId/review/$docId'
+    | '/api/public/tmf-api/oauth/token'
+    | '/api/public/tmf-api/document/v4/document'
+    | '/api/public/tmf-api/document/v4/documentSpecification'
+    | '/api/public/tmf-api/document/v4/hub'
     | '/api/public/tmf-api/documentManagement/v4/document'
     | '/api/public/tmf-api/documentManagement/v4/documentSpecification'
     | '/api/public/tmf-api/documentManagement/v4/hub'
+    | '/api/public/tmf-api/document/v4/document/$id'
+    | '/api/public/tmf-api/document/v4/documentSpecification/$id'
+    | '/api/public/tmf-api/document/v4/hub/$id'
     | '/api/public/tmf-api/documentManagement/v4/document/$id'
     | '/api/public/tmf-api/documentManagement/v4/documentSpecification/$id'
     | '/api/public/tmf-api/documentManagement/v4/hub/$id'
+    | '/api/public/tmf-api/document/v4/document/$id/legalHold'
+    | '/api/public/tmf-api/document/v4/document/$id/transition'
     | '/api/public/tmf-api/documentManagement/v4/document/$id/legalHold'
     | '/api/public/tmf-api/documentManagement/v4/document/$id/transition'
+    | '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/content'
     | '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/content'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -359,14 +471,24 @@ export interface FileRouteTypes {
     | '/api/public/tmf-api/$'
     | '/api/public/tmf-events/deliver'
     | '/records/$entityId/review/$docId'
+    | '/api/public/tmf-api/oauth/token'
+    | '/api/public/tmf-api/document/v4/document'
+    | '/api/public/tmf-api/document/v4/documentSpecification'
+    | '/api/public/tmf-api/document/v4/hub'
     | '/api/public/tmf-api/documentManagement/v4/document'
     | '/api/public/tmf-api/documentManagement/v4/documentSpecification'
     | '/api/public/tmf-api/documentManagement/v4/hub'
+    | '/api/public/tmf-api/document/v4/document/$id'
+    | '/api/public/tmf-api/document/v4/documentSpecification/$id'
+    | '/api/public/tmf-api/document/v4/hub/$id'
     | '/api/public/tmf-api/documentManagement/v4/document/$id'
     | '/api/public/tmf-api/documentManagement/v4/documentSpecification/$id'
     | '/api/public/tmf-api/documentManagement/v4/hub/$id'
+    | '/api/public/tmf-api/document/v4/document/$id/legalHold'
+    | '/api/public/tmf-api/document/v4/document/$id/transition'
     | '/api/public/tmf-api/documentManagement/v4/document/$id/legalHold'
     | '/api/public/tmf-api/documentManagement/v4/document/$id/transition'
+    | '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/content'
     | '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/content'
   id:
     | '__root__'
@@ -391,14 +513,24 @@ export interface FileRouteTypes {
     | '/api/public/tmf-api/$'
     | '/api/public/tmf-events/deliver'
     | '/_authenticated/records/$entityId_/review/$docId'
+    | '/api/public/tmf-api/oauth/token'
+    | '/api/public/tmf-api/document/v4/document'
+    | '/api/public/tmf-api/document/v4/documentSpecification'
+    | '/api/public/tmf-api/document/v4/hub'
     | '/api/public/tmf-api/documentManagement/v4/document'
     | '/api/public/tmf-api/documentManagement/v4/documentSpecification'
     | '/api/public/tmf-api/documentManagement/v4/hub'
+    | '/api/public/tmf-api/document/v4/document/$id'
+    | '/api/public/tmf-api/document/v4/documentSpecification/$id'
+    | '/api/public/tmf-api/document/v4/hub/$id'
     | '/api/public/tmf-api/documentManagement/v4/document/$id'
     | '/api/public/tmf-api/documentManagement/v4/documentSpecification/$id'
     | '/api/public/tmf-api/documentManagement/v4/hub/$id'
+    | '/api/public/tmf-api/document/v4/document/$id/legalHold'
+    | '/api/public/tmf-api/document/v4/document/$id/transition'
     | '/api/public/tmf-api/documentManagement/v4/document/$id/legalHold'
     | '/api/public/tmf-api/documentManagement/v4/document/$id/transition'
+    | '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/content'
     | '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/content'
   fileRoutesById: FileRoutesById
 }
@@ -410,6 +542,10 @@ export interface RootRouteChildren {
   ApiPublicJobsBulkDocumentsRoute: typeof ApiPublicJobsBulkDocumentsRoute
   ApiPublicTmfApiSplatRoute: typeof ApiPublicTmfApiSplatRoute
   ApiPublicTmfEventsDeliverRoute: typeof ApiPublicTmfEventsDeliverRoute
+  ApiPublicTmfApiOauthTokenRoute: typeof ApiPublicTmfApiOauthTokenRoute
+  ApiPublicTmfApiDocumentV4DocumentRoute: typeof ApiPublicTmfApiDocumentV4DocumentRouteWithChildren
+  ApiPublicTmfApiDocumentV4DocumentSpecificationRoute: typeof ApiPublicTmfApiDocumentV4DocumentSpecificationRouteWithChildren
+  ApiPublicTmfApiDocumentV4HubRoute: typeof ApiPublicTmfApiDocumentV4HubRouteWithChildren
   ApiPublicTmfApiDocumentManagementV4DocumentRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentRouteWithChildren
   ApiPublicTmfApiDocumentManagementV4DocumentSpecificationRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentSpecificationRouteWithChildren
   ApiPublicTmfApiDocumentManagementV4HubRoute: typeof ApiPublicTmfApiDocumentManagementV4HubRouteWithChildren
@@ -564,6 +700,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRecordsEntityIdReviewDocIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/tmf-api/oauth/token': {
+      id: '/api/public/tmf-api/oauth/token'
+      path: '/api/public/tmf-api/oauth/token'
+      fullPath: '/api/public/tmf-api/oauth/token'
+      preLoaderRoute: typeof ApiPublicTmfApiOauthTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/tmf-api/document/v4/document': {
+      id: '/api/public/tmf-api/document/v4/document'
+      path: '/api/public/tmf-api/document/v4/document'
+      fullPath: '/api/public/tmf-api/document/v4/document'
+      preLoaderRoute: typeof ApiPublicTmfApiDocumentV4DocumentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/tmf-api/document/v4/documentSpecification': {
+      id: '/api/public/tmf-api/document/v4/documentSpecification'
+      path: '/api/public/tmf-api/document/v4/documentSpecification'
+      fullPath: '/api/public/tmf-api/document/v4/documentSpecification'
+      preLoaderRoute: typeof ApiPublicTmfApiDocumentV4DocumentSpecificationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/tmf-api/document/v4/hub': {
+      id: '/api/public/tmf-api/document/v4/hub'
+      path: '/api/public/tmf-api/document/v4/hub'
+      fullPath: '/api/public/tmf-api/document/v4/hub'
+      preLoaderRoute: typeof ApiPublicTmfApiDocumentV4HubRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/tmf-api/documentManagement/v4/document': {
       id: '/api/public/tmf-api/documentManagement/v4/document'
       path: '/api/public/tmf-api/documentManagement/v4/document'
@@ -584,6 +748,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/public/tmf-api/documentManagement/v4/hub'
       preLoaderRoute: typeof ApiPublicTmfApiDocumentManagementV4HubRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/public/tmf-api/document/v4/document/$id': {
+      id: '/api/public/tmf-api/document/v4/document/$id'
+      path: '/$id'
+      fullPath: '/api/public/tmf-api/document/v4/document/$id'
+      preLoaderRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdRouteImport
+      parentRoute: typeof ApiPublicTmfApiDocumentV4DocumentRoute
+    }
+    '/api/public/tmf-api/document/v4/documentSpecification/$id': {
+      id: '/api/public/tmf-api/document/v4/documentSpecification/$id'
+      path: '/$id'
+      fullPath: '/api/public/tmf-api/document/v4/documentSpecification/$id'
+      preLoaderRoute: typeof ApiPublicTmfApiDocumentV4DocumentSpecificationIdRouteImport
+      parentRoute: typeof ApiPublicTmfApiDocumentV4DocumentSpecificationRoute
+    }
+    '/api/public/tmf-api/document/v4/hub/$id': {
+      id: '/api/public/tmf-api/document/v4/hub/$id'
+      path: '/$id'
+      fullPath: '/api/public/tmf-api/document/v4/hub/$id'
+      preLoaderRoute: typeof ApiPublicTmfApiDocumentV4HubIdRouteImport
+      parentRoute: typeof ApiPublicTmfApiDocumentV4HubRoute
     }
     '/api/public/tmf-api/documentManagement/v4/document/$id': {
       id: '/api/public/tmf-api/documentManagement/v4/document/$id'
@@ -606,6 +791,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicTmfApiDocumentManagementV4HubIdRouteImport
       parentRoute: typeof ApiPublicTmfApiDocumentManagementV4HubRoute
     }
+    '/api/public/tmf-api/document/v4/document/$id/legalHold': {
+      id: '/api/public/tmf-api/document/v4/document/$id/legalHold'
+      path: '/legalHold'
+      fullPath: '/api/public/tmf-api/document/v4/document/$id/legalHold'
+      preLoaderRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdLegalHoldRouteImport
+      parentRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdRoute
+    }
+    '/api/public/tmf-api/document/v4/document/$id/transition': {
+      id: '/api/public/tmf-api/document/v4/document/$id/transition'
+      path: '/transition'
+      fullPath: '/api/public/tmf-api/document/v4/document/$id/transition'
+      preLoaderRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdTransitionRouteImport
+      parentRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdRoute
+    }
     '/api/public/tmf-api/documentManagement/v4/document/$id/legalHold': {
       id: '/api/public/tmf-api/documentManagement/v4/document/$id/legalHold'
       path: '/legalHold'
@@ -619,6 +818,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/public/tmf-api/documentManagement/v4/document/$id/transition'
       preLoaderRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentIdTransitionRouteImport
       parentRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentIdRoute
+    }
+    '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/content': {
+      id: '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/content'
+      path: '/attachment/$attachmentId/content'
+      fullPath: '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/content'
+      preLoaderRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRouteImport
+      parentRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdRoute
     }
     '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/content': {
       id: '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/content'
@@ -689,6 +895,71 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
+interface ApiPublicTmfApiDocumentV4DocumentIdRouteChildren {
+  ApiPublicTmfApiDocumentV4DocumentIdLegalHoldRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdLegalHoldRoute
+  ApiPublicTmfApiDocumentV4DocumentIdTransitionRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdTransitionRoute
+  ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRoute
+}
+
+const ApiPublicTmfApiDocumentV4DocumentIdRouteChildren: ApiPublicTmfApiDocumentV4DocumentIdRouteChildren =
+  {
+    ApiPublicTmfApiDocumentV4DocumentIdLegalHoldRoute:
+      ApiPublicTmfApiDocumentV4DocumentIdLegalHoldRoute,
+    ApiPublicTmfApiDocumentV4DocumentIdTransitionRoute:
+      ApiPublicTmfApiDocumentV4DocumentIdTransitionRoute,
+    ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRoute:
+      ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRoute,
+  }
+
+const ApiPublicTmfApiDocumentV4DocumentIdRouteWithChildren =
+  ApiPublicTmfApiDocumentV4DocumentIdRoute._addFileChildren(
+    ApiPublicTmfApiDocumentV4DocumentIdRouteChildren,
+  )
+
+interface ApiPublicTmfApiDocumentV4DocumentRouteChildren {
+  ApiPublicTmfApiDocumentV4DocumentIdRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdRouteWithChildren
+}
+
+const ApiPublicTmfApiDocumentV4DocumentRouteChildren: ApiPublicTmfApiDocumentV4DocumentRouteChildren =
+  {
+    ApiPublicTmfApiDocumentV4DocumentIdRoute:
+      ApiPublicTmfApiDocumentV4DocumentIdRouteWithChildren,
+  }
+
+const ApiPublicTmfApiDocumentV4DocumentRouteWithChildren =
+  ApiPublicTmfApiDocumentV4DocumentRoute._addFileChildren(
+    ApiPublicTmfApiDocumentV4DocumentRouteChildren,
+  )
+
+interface ApiPublicTmfApiDocumentV4DocumentSpecificationRouteChildren {
+  ApiPublicTmfApiDocumentV4DocumentSpecificationIdRoute: typeof ApiPublicTmfApiDocumentV4DocumentSpecificationIdRoute
+}
+
+const ApiPublicTmfApiDocumentV4DocumentSpecificationRouteChildren: ApiPublicTmfApiDocumentV4DocumentSpecificationRouteChildren =
+  {
+    ApiPublicTmfApiDocumentV4DocumentSpecificationIdRoute:
+      ApiPublicTmfApiDocumentV4DocumentSpecificationIdRoute,
+  }
+
+const ApiPublicTmfApiDocumentV4DocumentSpecificationRouteWithChildren =
+  ApiPublicTmfApiDocumentV4DocumentSpecificationRoute._addFileChildren(
+    ApiPublicTmfApiDocumentV4DocumentSpecificationRouteChildren,
+  )
+
+interface ApiPublicTmfApiDocumentV4HubRouteChildren {
+  ApiPublicTmfApiDocumentV4HubIdRoute: typeof ApiPublicTmfApiDocumentV4HubIdRoute
+}
+
+const ApiPublicTmfApiDocumentV4HubRouteChildren: ApiPublicTmfApiDocumentV4HubRouteChildren =
+  {
+    ApiPublicTmfApiDocumentV4HubIdRoute: ApiPublicTmfApiDocumentV4HubIdRoute,
+  }
+
+const ApiPublicTmfApiDocumentV4HubRouteWithChildren =
+  ApiPublicTmfApiDocumentV4HubRoute._addFileChildren(
+    ApiPublicTmfApiDocumentV4HubRouteChildren,
+  )
 
 interface ApiPublicTmfApiDocumentManagementV4DocumentIdRouteChildren {
   ApiPublicTmfApiDocumentManagementV4DocumentIdLegalHoldRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentIdLegalHoldRoute
@@ -764,6 +1035,13 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicJobsBulkDocumentsRoute: ApiPublicJobsBulkDocumentsRoute,
   ApiPublicTmfApiSplatRoute: ApiPublicTmfApiSplatRoute,
   ApiPublicTmfEventsDeliverRoute: ApiPublicTmfEventsDeliverRoute,
+  ApiPublicTmfApiOauthTokenRoute: ApiPublicTmfApiOauthTokenRoute,
+  ApiPublicTmfApiDocumentV4DocumentRoute:
+    ApiPublicTmfApiDocumentV4DocumentRouteWithChildren,
+  ApiPublicTmfApiDocumentV4DocumentSpecificationRoute:
+    ApiPublicTmfApiDocumentV4DocumentSpecificationRouteWithChildren,
+  ApiPublicTmfApiDocumentV4HubRoute:
+    ApiPublicTmfApiDocumentV4HubRouteWithChildren,
   ApiPublicTmfApiDocumentManagementV4DocumentRoute:
     ApiPublicTmfApiDocumentManagementV4DocumentRouteWithChildren,
   ApiPublicTmfApiDocumentManagementV4DocumentSpecificationRoute:

@@ -19,7 +19,13 @@ export interface ConnectedSystem {
   createdAt: string;
   lastUsedAt: string | null;
   revokedAt: string | null;
+  expiresAt: string | null;
+  lastRateLimitedAt: string | null;
 }
+
+/** New and rotated keys stop working after 12 months. */
+export const KEY_LIFETIME_DAYS = 365;
+const expiry = () => new Date(Date.now() + KEY_LIFETIME_DAYS * 86_400_000).toISOString();
 
 const isTenantAdmin = (role: string) => role === "tenant_admin";
 
@@ -35,7 +41,7 @@ async function adminClient(): Promise<Db> {
   return supabaseAdmin;
 }
 
-const map = (r: { id: string; name: string; system_kind: string; key_prefix: string; scopes: string[]; created_at: string; last_used_at: string | null; revoked_at: string | null }): ConnectedSystem => ({
+const map = (r: { id: string; name: string; system_kind: string; key_prefix: string; scopes: string[]; created_at: string; last_used_at: string | null; revoked_at: string | null; expires_at: string | null; last_rate_limited_at: string | null }): ConnectedSystem => ({
   id: r.id,
   name: r.name,
   systemKind: r.system_kind,
@@ -44,9 +50,11 @@ const map = (r: { id: string; name: string; system_kind: string; key_prefix: str
   createdAt: r.created_at,
   lastUsedAt: r.last_used_at,
   revokedAt: r.revoked_at,
+  expiresAt: r.expires_at,
+  lastRateLimitedAt: r.last_rate_limited_at,
 });
 
-const COLS = "id, name, system_kind, key_prefix, scopes, created_at, last_used_at, revoked_at";
+const COLS = "id, name, system_kind, key_prefix, scopes, created_at, last_used_at, revoked_at, expires_at, last_rate_limited_at";
 
 export const listSystems = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -74,7 +82,7 @@ export const createSystem = createServerFn({ method: "POST" })
       const admin = await adminClient();
       const { data: row, error } = await admin
         .from("integration_clients")
-        .insert({ tenant_id: env.tenantId, name: data.name, system_kind: data.systemKind, scopes: [...new Set(data.scopes)], key_prefix: prefix, key_hash: await sha256Hex(key), created_by: env.userId })
+        .insert({ tenant_id: env.tenantId, name: data.name, system_kind: data.systemKind, scopes: [...new Set(data.scopes)], key_prefix: prefix, key_hash: await sha256Hex(key), created_by: env.userId, expires_at: expiry() })
         .select(COLS)
         .single();
       if (error || !row) return { ok: false, error: seamError("seam.unavailable", "unavailable", "retry") };
@@ -94,7 +102,7 @@ export const rotateSystemKey = createServerFn({ method: "POST" })
       const admin = await adminClient();
       const { data: rows } = await admin
         .from("integration_clients")
-        .update({ key_hash: await sha256Hex(key), key_prefix: prefix })
+        .update({ key_hash: await sha256Hex(key), key_prefix: prefix, expires_at: expiry() })
         .eq("id", data.id)
         .eq("tenant_id", env.tenantId)
         .is("revoked_at", null)
