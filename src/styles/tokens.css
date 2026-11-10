@@ -147,3 +147,60 @@
   --border-focus: var(--border-focus-dark);
   color-scheme: dark;
 }
+
+/* Scoped dark theme so /design can show light and dark side by side. */
+[data-theme="dark"] {
+  --primary: #0077db;
+  --layer-system: #0c0c0c;
+  --layer-application: #181818;
+  --layer-content: #242424;
+  --text-main: #ffffff;
+  --text-secondary: #8b8b8b;
+  --text-contrast: #242424;
+  --text-link: #008cff;
+  --text-disabled: #767676;
+  --text-on-primary: #ffffff;
+  --fill-btn-primary-idle: #0077db;
+  --fill-btn-primary-hover: #0267bc;
+  --fill-btn-primary-press: #005499;
+  --fill-btn-default-hover: #f2f2f2;
+  --fill-btn-default-press: #adadad;
+  --fill-input-idle: #181818;
+  --fill-input-disabled: #242424;
+  --fill-input-selected: #0077db;
+  --fill-input-selected-hover: #0267bc;
+  --fill-input-prefix: #242424;
+  --fill-item-idle: #181818;
+  --fill-item-hover: #4e4e4e;
+  --fill-item-selected: #0077db;
+  --fill-item-selected-hover: #0267bc;
+  --fill-item-tooltip: #f2f2f2;
+  --fill-cell-hover: #4e4e4e;
+  --fill-cell-selected: #1c364d;
+  --fill-cell-striped: #181818;
+  --border-btn-idle: #f2f2f2;
+  --border-item-idle: #767676;
+  --border-item-hover: #adadad;
+  --border-item-subtle: #4e4e4e;
+  --border-item-selected: #0077db;
+  --border-input-idle: #767676;
+  --border-input-hover: #adadad;
+  --border-input-error: #dc2d37;
+  --border-cell-idle: #767676;
+  --border-focus: #8e45b0;
+  --status-critical: #dc2d37;
+  --status-major: #e66e19;
+  --status-minor: #fad22d;
+  --status-warning: #0077db;
+  --status-cleared: #288964;
+  --status-indeterminate: #adadad;
+  --status-purple: #8e45b0;
+  --gradient-ai-start: #3d95fd;
+  --gradient-ai-end: #a07af3;
+  --shadow-elevation-1: #000000cc;
+  --shadow-elevation-2: #00000099;
+  --shadow-elevation-3: #00000066;
+  --border-focus: var(--border-focus-dark);
+  color: var(--text-main);
+}
+[data-theme="light"] { color: var(--text-main); }
