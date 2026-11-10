@@ -14,6 +14,35 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_rate: {
+        Row: {
+          client_id: string
+          hits: number
+          kind: string
+          window_start: string
+        }
+        Insert: {
+          client_id: string
+          hits?: number
+          kind: string
+          window_start: string
+        }
+        Update: {
+          client_id?: string
+          hits?: number
+          kind?: string
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_rate_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "integration_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bulk_jobs: {
         Row: {
           action: string
@@ -393,6 +422,7 @@ export type Database = {
           document_type: string
           effective_date: string | null
           expiry_date: string | null
+          external_identifier: Json
           generated_from_spec: string | null
           hold_reason: string | null
           hold_reference: string | null
@@ -427,6 +457,7 @@ export type Database = {
           document_type: string
           effective_date?: string | null
           expiry_date?: string | null
+          external_identifier?: Json
           generated_from_spec?: string | null
           hold_reason?: string | null
           hold_reference?: string | null
@@ -461,6 +492,7 @@ export type Database = {
           document_type?: string
           effective_date?: string | null
           expiry_date?: string | null
+          external_identifier?: Json
           generated_from_spec?: string | null
           hold_reason?: string | null
           hold_reference?: string | null
@@ -714,9 +746,11 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          expires_at: string | null
           id: string
           key_hash: string
           key_prefix: string
+          last_rate_limited_at: string | null
           last_used_at: string | null
           name: string
           revoked_at: string | null
@@ -727,9 +761,11 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          expires_at?: string | null
           id?: string
           key_hash: string
           key_prefix: string
+          last_rate_limited_at?: string | null
           last_used_at?: string | null
           name: string
           revoked_at?: string | null
@@ -740,9 +776,11 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          expires_at?: string | null
           id?: string
           key_hash?: string
           key_prefix?: string
+          last_rate_limited_at?: string | null
           last_used_at?: string | null
           name?: string
           revoked_at?: string | null
@@ -756,6 +794,38 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_tokens: {
+        Row: {
+          client_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          token_hash: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          token_hash: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_tokens_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "integration_clients"
             referencedColumns: ["id"]
           },
         ]
@@ -955,6 +1025,7 @@ export type Database = {
     }
     Functions: {
       _doc_search_where: { Args: { p: Json }; Returns: string }
+      api_hit: { Args: { p_client: string; p_kind: string }; Returns: number }
       can_see_document: { Args: { _doc: string }; Returns: boolean }
       count_documents: { Args: { p: Json }; Returns: number }
       effective_specifications: {
