@@ -84,7 +84,14 @@ export function useUpload(entityId: string, entityRole: string) {
               refresh();
               return;
             }
-            await api.uploadContent(`${doc.tenant_id}/${reg.upload.versionId}`, reg.upload.token, row.file);
+            try {
+              await api.uploadContent(`${doc.tenant_id}/${reg.upload.versionId}`, reg.upload.token, row.file);
+            } catch (e) {
+              // "Nothing was added": take the half-registered document back out.
+              await api.delete({ id: docId }).catch(() => undefined);
+              patch(row.key, { docId: null });
+              throw e;
+            }
           }
           patch(row.key, { uploaded: true });
         }
@@ -121,8 +128,8 @@ export function useUpload(entityId: string, entityRole: string) {
   };
 
   const retryUpload = (row: UploadRow) => {
-    patch(row.key, { state: "uploading" });
-    void runOne({ ...row, state: "uploading" });
+    patch(row.key, { state: "uploading", docId: null, uploaded: false });
+    void runOne({ ...row, state: "uploading", docId: null, uploaded: false });
   };
 
   const retryReading = (row: UploadRow) => {
