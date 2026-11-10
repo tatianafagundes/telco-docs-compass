@@ -94,6 +94,20 @@ export function friendlyError(code: string | undefined): string {
 /** Replaces status codes in an activity note with their labels ("draft to in_review" -> "Draft to In review"). */
 export function activityDetail(detail: string): string {
   return detail
+    .replace(/^granted (view|edit|manage) to user$/, (_m, l: string) => `access given (${l === "view" ? "can view" : l === "edit" ? "can edit" : "can manage"})`)
+    .replace(/^revoked user$/, "access removed")
+    .replace(/^granted (view|edit|manage) to tenant$/, "shared with another organisation")
+    .replace(/^revoked tenant$/, "sharing with another organisation ended")
     .replace(/^Field (\w+)/, (_m, code: string) => `Field ${fieldLabel(code)}`)
     .replace(/\b(draft|in_review|approved|effective|superseded|expired|archived)\b/g, (m) => STATUS_LABEL[m as DocStatus]);
+}
+
+const TYPE_LABEL: Record<string, string> = {
+  contract: "Contract", quote: "Quote", orderAttachment: "Order attachment", kycOutcome: "KYC outcome",
+  bill: "Bill copy", technicalDoc: "Technical document", siteSurvey: "Site survey",
+};
+
+/** Plain name for a document type code ("orderAttachment" -> "Order attachment"). */
+export function typeLabel(code: string): string {
+  return TYPE_LABEL[code] ?? code.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
 }

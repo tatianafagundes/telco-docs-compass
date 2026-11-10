@@ -16,7 +16,7 @@ export function WhyCanISee({ docId }: { docId: string }) {
 
   return (
     <div className="flex flex-col gap-1">
-      <button type="button" aria-expanded={open} className="focus-ring type-label-12 self-start underline" onClick={() => setOpen(!open)}>
+      <button type="button" aria-expanded={open} className="focus-ring type-label-12 inline-flex min-h-6 items-center self-start underline" onClick={() => setOpen(!open)}>
         Why can I see this?
       </button>
       {open ? (
