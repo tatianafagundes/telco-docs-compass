@@ -236,8 +236,10 @@ def security(full: str, ro: str) -> None:
     check(r.status_code == 200 and j == [], "injection-style filter returns nothing")
     r, j, _ = call("POST", "/document", full, raw="{not json", idem=f"bad-{RUN}")
     check(r.status_code == 400 and (j or {}).get("code") == "invalidJson", "invalid JSON → 400")
-    r, j, _ = call("POST", "/document", full, raw=json.dumps({"name": "x" * 60000}), idem=f"big-{RUN}")
-    check(r.status_code == 400 and (j or {}).get("code") == "bodyTooLarge", "body over 50,000 characters → 400")
+    r, j, _ = call("PATCH", "/document/00000000-0000-0000-0000-0000000000d3", full, raw=json.dumps({"name": "x" * 60000}), idem=f"big-{RUN}")
+    check(r.status_code == 400 and (j or {}).get("code") == "bodyTooLarge", "change body over 50,000 characters → 400")
+    r, j, _ = call("POST", "/document", full, raw=json.dumps({"name": "x", "attachment": [{"mimeType": "application/pdf", "content": "A" * 7_200_000}]}), idem=f"big2-{RUN}")
+    check(r.status_code == 400 and (j or {}).get("code") == "bodyTooLarge", "registration body over the 5 MB inline limit → 400")
     for cb in ("http://example.com/cb", "https://localhost/cb", "https://127.0.0.1/cb", "https://10.0.0.5/cb", "https://169.254.169.254/latest", "https://[::1]/cb"):
         r, j, _ = call("POST", "/hub", full, {"callback": cb})
         check(r.status_code == 400, f"unsafe callback refused: {cb}")
@@ -254,7 +256,7 @@ def rules(full: str, doc_id: str) -> None:
     check(r.status_code == 409 and (j or {}).get("code") == "frozen", "expired document details can't be edited")
     r, j, _ = call("PATCH", f"/document/{draft}", full, {"name": f"TMF test draft {RUN} (renamed)"}, idem=f"ren-{RUN}")
     check(r.status_code == 200 and (j or {}).get("name", "").endswith("(renamed)"), "draft can be renamed")
-    r, j, _ = call("PATCH", f"/document/{draft}", full, {"status": "approved"}, idem=f"extra-{RUN}")
+    r, j, _ = call("PATCH", f"/document/{draft}", full, {"lifecycleState": "approved"}, idem=f"extra-{RUN}")
     check(r.status_code == 400, "unknown fields in a change are refused")
     r, j, _ = call("POST", f"/document/{draft}/legalHold", full, {"active": True}, idem=f"h0-{RUN}")
     check(r.status_code == 400, "a hold without a reason is refused")
@@ -307,7 +309,7 @@ def events(full: str, doc_id: str) -> None:
         for q in reqs:
             if doc_id in (q.get("content") or "") and "v4=1" not in (q.get("url") or ""):
                 got = q
-            if doc_id in (q.get("content") or "") and "v4=1" in (q.get("url") or ""):
+            if doc_id in (q.get("content") or "") and "v4=1" in (q.get("url") or "") and '"reviewed"' in (q.get("content") or ""):
                 got_v4 = q
         if got and got_v4:
             break
@@ -450,6 +452,8 @@ def standard_client(full: str, ro: str, burst: str) -> None:
     from concurrent.futures import ThreadPoolExecutor
     def hit(_):
         return requests.get(STD + "/document?limit=1&fields=id", headers={"Authorization": f"Bearer {burst}"}, timeout=60)
+    while time.gmtime().tm_sec > 20:  # keep the burst inside one rate window
+        time.sleep(1)
     with ThreadPoolExecutor(max_workers=16) as ex:
         res = list(ex.map(hit, range(135)))
     limited = [x for x in res if x.status_code == 429]

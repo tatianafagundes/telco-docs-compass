@@ -199,7 +199,7 @@ export async function listDocuments(request: Request): Promise<Response> {
   if (docIds) dq = dq.in("id", docIds);
   if (q.documentType) dq = dq.eq("document_type", q.documentType);
   if (q.lifecycleState) dq = dq.in("status", q.lifecycleState.length ? q.lifecycleState : ["__none__" as DocStatus]);
-  if (q.externalId) dq = dq.contains("external_identifier", [{ id: q.externalId }]);
+  if (q.externalId) dq = dq.filter("external_identifier", "cs", JSON.stringify([{ id: q.externalId }]));
   const { data, count } = await dq.order("updated_at", { ascending: false }).range(q.offset, q.offset + q.limit - 1);
   const docs = await loadTmfDocs(ctx, (data ?? []) as DocRow[]);
   const body = docs.map((d) => selectFields(d as unknown as Record<string, unknown>, q.fields));
