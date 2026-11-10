@@ -23,6 +23,7 @@ import {
   tmfError,
   toTmfDocument,
   toTmfSpecification,
+  LEGACY_SUNSET,
   TMF_BASE_PATH,
   type DocRow,
   type RelationRow,
@@ -640,4 +641,58 @@ export function otherMethods(allowed: HttpMethod[]): Partial<Record<HttpMethod, 
 
 export function unknownPath(): Response {
   return errorReply(tmfError(404, "notFound", "Not Found", "No API resource at this address."), crypto.randomUUID());
+}
+
+/** Marks replies from the earlier profile address as deprecated (RFC 9745 / RFC 8594). */
+export function legacy(res: Response): Response {
+  res.headers.set("Deprecation", "true");
+  res.headers.set("Sunset", LEGACY_SUNSET);
+  res.headers.set("Link", `<${TMF_BASE_PATH}>; rel="successor-version"`);
+  return res;
+}
+
+// ---------- OAuth 2.0 client credentials (TMF630 security recommendation) ----------
+
+export const TOKEN_TTL_SECONDS = 900;
+
+function oauthError(status: number, error: string, description: string): Response {
+  return new Response(JSON.stringify({ error, error_description: description }), {
+    status,
+    headers: { "Content-Type": "application/json;charset=utf-8", "Cache-Control": "no-store", Pragma: "no-cache" },
+  });
+}
+
+/**
+ * Swaps a system key (client_secret, or HTTP Basic password) for a 15-minute bearer token with the
+ * same permissions. client_id is the key's prefix shown in Connected systems.
+ */
+export async function issueToken(request: Request): Promise<Response> {
+  const text = await request.text();
+  if (text.length > 4000) return oauthError(400, "invalid_request", "Request too large.");
+  const ctype = request.headers.get("content-type") ?? "";
+  const form = ctype.includes("application/json") ? new URLSearchParams(Object.entries((() => { try { return JSON.parse(text) as Record<string, string>; } catch { return {}; } })())) : new URLSearchParams(text);
+  if (form.get("grant_type") !== "client_credentials") return oauthError(400, "unsupported_grant_type", "Use grant_type=client_credentials.");
+  let secret = form.get("client_secret");
+  const basic = /^Basic\s+(.+)$/.exec(request.headers.get("authorization") ?? "");
+  if (!secret && basic?.[1]) {
+    try {
+      secret = atob(basic[1]).split(":").slice(1).join(":");
+    } catch {
+      secret = null;
+    }
+  }
+  if (!secret || !/^erad_[A-Za-z0-9_-]{20,120}$/.test(secret)) return oauthError(401, "invalid_client", "Send the system key as client_secret.");
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const admin = supabaseAdmin as Db;
+  const { data: client } = await admin.from("integration_clients").select("id, scopes, revoked_at, expires_at").eq("key_hash", await sha256Hex(secret)).maybeSingle();
+  if (!client || client.revoked_at || (client.expires_at && new Date(client.expires_at) <= new Date())) return oauthError(401, "invalid_client", "This system key is not valid.");
+  const raw = crypto.getRandomValues(new Uint8Array(32));
+  const token = `eradt_${Array.from(raw, (b) => b.toString(16).padStart(2, "0")).join("")}`;
+  const expires = new Date(Date.now() + TOKEN_TTL_SECONDS * 1000).toISOString();
+  await admin.from("integration_tokens").delete().lt("expires_at", new Date().toISOString());
+  await admin.from("integration_tokens").insert({ client_id: client.id, token_hash: await sha256Hex(token), expires_at: expires });
+  return new Response(JSON.stringify({ access_token: token, token_type: "Bearer", expires_in: TOKEN_TTL_SECONDS, scope: client.scopes.join(" ") }), {
+    status: 200,
+    headers: { "Content-Type": "application/json;charset=utf-8", "Cache-Control": "no-store", Pragma: "no-cache" },
+  });
 }
