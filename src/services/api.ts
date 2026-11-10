@@ -78,6 +78,7 @@ export const api = {
   retentionOverview: async () => unwrap(await retention.retentionOverview()),
   deletionHistory: async () => unwrap(await retention.deletionHistory()),
   verifyHolds: async () => unwrap(await retention.verifyHolds()),
+  retentionFor: async (id: string) => unwrap(await retention.retentionFor({ data: { id } })),
   purge: (i: WithoutKey<Parameters<typeof retention.purgeDocument>[0]["data"]>) => write(retention.purgeDocument, "purge", i),
   // shared configuration (group and countries)
   getConfig: async () => unwrap(await config.getConfig()),
