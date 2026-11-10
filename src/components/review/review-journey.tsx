@@ -15,7 +15,7 @@ export function ReviewJourney({ step }: { step: 0 | 1 | 2 | 3 }) {
             <span
               className={cn(
                 "type-label-12 inline-flex size-5 items-center justify-center rounded-full border",
-                done ? "border-status-cleared bg-status-cleared text-text-on-color" : current ? "border-focus text-text-main" : "border-border-subtle text-text-secondary",
+                done ? "border-status-cleared bg-status-cleared text-text-on-primary" : current ? "border-focus text-text-main" : "border-border-subtle text-text-secondary",
               )}
             >
               {done ? <Check aria-hidden="true" className="size-3" /> : i + 1}
