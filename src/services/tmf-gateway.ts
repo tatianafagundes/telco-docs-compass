@@ -31,6 +31,7 @@ import {
   type Scope,
   type TmfError,
   type VersionRow,
+  categoryFromDefinition,
 } from "@/services/tmf667-mapper";
 
 export const MAX_BODY_CHARS = 50_000;

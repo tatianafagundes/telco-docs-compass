@@ -167,6 +167,7 @@ export interface DocRow {
   tenant_id?: string;
   external_identifier?: unknown;
   bundle_id?: string | null;
+  registered_by_client?: string | null;
 }
 
 /** Extra read-only context for a document reply. */

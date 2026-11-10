@@ -45,6 +45,7 @@ async function runBatch(admin: Db, job: JobRow) {
 
   const skipped: Record<string, number> = { ...job.skipped };
   let changed = job.changed;
+  const changedIds: string[] = [];
   const now = new Date().toISOString();
   const params: BulkParams = { ...(job.params.to ? { to: job.params.to } : {}), ...(job.params.sensitivity ? { sensitivity: job.params.sensitivity } : {}) };
   for (const id of ids) {
@@ -88,6 +89,16 @@ async function runBatch(admin: Db, job: JobRow) {
       detail: `${detail} · bulk change`.slice(0, 160),
     });
     changed++;
+    changedIds.push(id);
+  }
+  // One TMF667 DocumentBatchEvent per pass, for subscriptions that ask for batch events.
+  if (changedIds.length > 0) {
+    await admin.from("event_outbox").insert({
+      tenant_id: job.tenant_id,
+      event_type: "DocumentBatchEvent",
+      document_id: changedIds[0] as string,
+      payload: { documentIds: changedIds, action: job.action } as unknown as Json,
+    });
   }
   const done = job.done + ids.length;
   await admin
