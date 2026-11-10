@@ -127,3 +127,11 @@
     }
   }
 }
+
+@utility type-label-12 { font: var(--font-label-12); }
+@utility type-label-14 { font: var(--font-label-14); }
+@utility type-label-14-medium { font: var(--font-label-14-medium); }
+@utility type-paragraph-14 { font: var(--font-paragraph-14); }
+@utility type-title-16 { font: var(--font-title-16); }
+@utility type-title-16-medium { font: var(--font-title-16-medium); }
+@utility type-title-18-medium { font: var(--font-title-18-medium); }

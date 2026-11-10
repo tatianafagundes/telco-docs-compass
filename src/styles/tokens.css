@@ -1,4 +1,4 @@
-/* ERAD tokens – the only file allowed to hold hex literals. */
+/* GENERATED from DESIGN.md (ERAD Library 0.1) by the kit. Do not edit by hand; change DESIGN.md and regenerate. */
 :root {
   --primary: #1174e6;
   --layer-system: #0c0c0c;
@@ -50,14 +50,39 @@
   --shadow-elevation-1: #00000033;
   --shadow-elevation-2: #00000026;
   --shadow-elevation-3: #0000001a;
-  --border-focus-dark: #b98ad0;
+  --spacing-none: 0px;
+  --spacing-xxs: 1px;
+  --spacing-xs: 2px;
+  --spacing-s: 4px;
+  --spacing-m: 8px;
+  --spacing-l: 12px;
+  --spacing-xl: 16px;
+  --spacing-xxl: 24px;
+  --spacing-xxxl: 32px;
+  --spacing-overlap: -1px;
+  --radius-none: 0px;
+  --radius-hairline: 1px;
   --radius-control: 3px;
   --radius-control-focus: 5px;
-  --radius-pill: 12px;
   --radius-badge: 8px;
-  --font-erad: "Ericsson Hilda", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --ease-erad: cubic-bezier(0, 0, 0.58, 1);
-  color-scheme: light;
+  --radius-pill: 12px;
+  --font-label-12: 400 12px/14px 'Ericsson Hilda', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --font-label-14: 400 14px/16px 'Ericsson Hilda', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --font-label-14-medium: 500 14px/16px 'Ericsson Hilda', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --font-label-14-bold: 700 14px/16px 'Ericsson Hilda', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --font-paragraph-14: 400 14px/21px 'Ericsson Hilda', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --font-title-14: 400 14px/24px 'Ericsson Hilda', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --font-title-16: 400 16px/18px 'Ericsson Hilda', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --font-title-16-medium: 500 16px/18px 'Ericsson Hilda', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --font-title-18: 400 18px/20px 'Ericsson Hilda', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --font-title-18-medium: 500 18px/20px 'Ericsson Hilda', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --width-side-panel: 356px;
+  --width-side-panel-collapsed: 80px;
+  --width-dialog: 572px;
+  --width-card-min: 324px;
+  --control-height: 32px;
+  --row-height: 48px;
+  --focus-ring: 1px solid var(--border-focus);
 }
 
 :root[data-theme="dark"] {
@@ -111,6 +136,14 @@
   --shadow-elevation-1: #000000cc;
   --shadow-elevation-2: #00000099;
   --shadow-elevation-3: #00000066;
+}
+
+/* Additions recorded in docs/decisions/01-foundation-gaps.md */
+:root {
+  --font-erad: 'Ericsson Hilda', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --border-focus-dark: #b98ad0;
+}
+:root[data-theme="dark"] {
   --border-focus: var(--border-focus-dark);
   color-scheme: dark;
 }
