@@ -1002,6 +1002,10 @@ export type Database = {
         Args: { _lines: string[]; _title: string }
         Returns: Json
       }
+      search_document_ids: {
+        Args: { p: Json; p_cap?: number }
+        Returns: string[]
+      }
       search_documents: {
         Args: { p: Json }
         Returns: {
