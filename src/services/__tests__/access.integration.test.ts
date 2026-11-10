@@ -70,8 +70,12 @@ describe.runIf(enabled)("access rules", () => {
 
 describe.runIf(enabled)("country isolation for files and counts", () => {
   it("should show the Sweden viewer only documents on order ord-se-7731", async () => {
-    const r = await rows("se.viewer@example.test", "document_relations?select=entity_id");
-    expect(new Set(r.map((x) => x["entity_id"]))).toEqual(new Set(["ord-se-7731"]));
+    // A document may also be linked elsewhere; each visible one must be linked to the viewer's order.
+    const r = await rows("se.viewer@example.test", "document_relations?select=document_id,entity_id");
+    const docs = new Set(r.map((x) => x["document_id"]));
+    const onOrder = new Set(r.filter((x) => x["entity_id"] === "ord-se-7731").map((x) => x["document_id"]));
+    expect(docs.size).toBeGreaterThan(0);
+    expect(onOrder).toEqual(docs);
   });
 
   it("should not let any account list stored files directly", async () => {
