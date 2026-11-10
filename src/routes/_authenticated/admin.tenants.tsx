@@ -46,7 +46,7 @@ function TenantsPage() {
                 {`${k.displayName} overrides ${k.overrides} ${k.overrides === 1 ? "type" : "types"}, adds ${k.adds}. ${k.total} documents.`}
               </p>
               <p className="text-text-secondary">
-                {`Sharing with other organisations: ${k.crossTenantShare === "off" ? "off" : k.crossTenantShare}. Group supervision: ${k.masterSupervision === "none" ? "counts only" : k.masterSupervision}.`}
+                {`Sharing with other organisations: ${k.crossTenantShare === "off" ? "off" : k.crossTenantShare}. Group supervision: ${k.masterSupervision === "none" ? "none" : "counts and settings only"}.`}
               </p>
               <StatCounts rows={k.stats} />
             </div>

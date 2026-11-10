@@ -4,5 +4,9 @@
 - [x] Phase 2b – demo users, access checks (RUN_ACCESS_TESTS=1), setup helper removed
 - [x] Phase 2c – write operations with idempotency, rule tests passing
 - [x] Write actions in UI – record page, document panel: next status step, send back, report problem, edit details, legal hold, delete with undo
+- [x] Prompt 10 – Admin: document types (inherit/change/lock triad, unsaved bar, floors), policies, Tenants (counts only), tenant submenu
+- [x] Prompt 11 – legal hold dialogs with reference, Holds and retention page, delete permanently, expiry on listing
+- [ ] Prompt 12 – hardening pass (full checklist, isolation proofs, reset-test-data, remaining decision notes)
+- [ ] Upload the three site survey PDFs as test files for order O-7731 (needs the upload screen)
 - [ ] Sharing UI (needs a people picker)
 - [ ] Phases 3–9 remainder – entity documents, preview, upload, versions, review, access/activity, search

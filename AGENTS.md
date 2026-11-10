@@ -39,3 +39,6 @@ use the editor.
 
 - Which document actions a person sees, and the reason text for unavailable ones, comes from `src/services/document-actions.ts` (pure, tested). Why: UI gating stays consistent with server role rules.
 - Access checks against the real backend live in `src/services/__tests__/access.integration.test.ts` and run only with RUN_ACCESS_TESTS=1. Why: normal test runs stay offline.
+- Group/country configuration lives in `src/services/tenant-config.functions.ts` with pure checks (locks, inheritance mode, hard floors) in `src/services/tenant-rules.ts`. Why: the same rules run on the server and in the UI, and are tested.
+- Tenant-crossing RLS uses SECURITY DEFINER helpers (`user_tenant`, `my_parent_tenant`, `is_my_child_tenant`), never subqueries on the same table. Why: self-referencing policies recurse.
+- Holds, retention, deletion history and permanent deletion live in `src/services/retention.functions.ts`; permanent deletion leaves a `purged_at` tombstone. Why: versions and events are append-only.

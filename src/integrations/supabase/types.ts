@@ -752,6 +752,7 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
       }
+      is_my_child_tenant: { Args: { _tenant: string }; Returns: boolean }
       master_document_stats: {
         Args: { p_tenant: string }
         Returns: {
@@ -762,6 +763,7 @@ export type Database = {
           status: Database["public"]["Enums"]["doc_status"]
         }[]
       }
+      my_parent_tenant: { Args: never; Returns: string }
       sample_pages_for: {
         Args: { _lines: string[]; _title: string }
         Returns: Json

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deleteState, editState, nextStep, sendBackState } from "@/services/document-actions";
+import { deleteState, editState, nextStep, purgeState, sendBackState } from "@/services/document-actions";
 
 describe("document actions", () => {
   it("should offer approve to a manager when the document is in review", () => {
@@ -28,5 +28,18 @@ describe("document actions", () => {
     expect(deleteState("manager", false, "2030-01-01", "2026-11-10").available).toBe(false);
     expect(deleteState("manager", false, "2020-01-01", "2026-11-10").available).toBe(true);
     expect(deleteState("viewer", false, null, "2026-11-10").available).toBe(false);
+  });
+});
+
+describe("purgeState", () => {
+  it("should block permanent deletion under legal hold", () => {
+    expect(purgeState("tenant_admin", true, null, "2026-11-10").available).toBe(false);
+  });
+  it("should block permanent deletion before the keep-until date", () => {
+    expect(purgeState("tenant_admin", false, "2036-07-01", "2026-11-10").reason).toBe("This document must be kept until 2036-07-01.");
+  });
+  it("should allow only administrators", () => {
+    expect(purgeState("manager", false, null, "2026-11-10").available).toBe(false);
+    expect(purgeState("tenant_admin", false, "2020-01-01", "2026-11-10").available).toBe(true);
   });
 });
