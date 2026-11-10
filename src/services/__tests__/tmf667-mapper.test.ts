@@ -39,7 +39,7 @@ describe("toTmfDocument", () => {
     expect(t.href).toBe("https://x.test/api/public/tmf-api/documentManagement/v4/document/11111111-1111-1111-1111-111111111111");
     expect(t.version).toBe("2");
     expect(t.attachment.filter((a) => a.isCurrent).map((a) => a.id)).toEqual(["v2"]);
-    expect(t.relatedEntity[0]["@referredType"]).toBe("ProductOrder");
+    expect(t.relatedEntity[0]?.["@referredType"]).toBe("ProductOrder");
     expect(t.validFor).toEqual({ startDateTime: "2026-01-01" });
   });
   it("should drop malformed characteristics", () => {
