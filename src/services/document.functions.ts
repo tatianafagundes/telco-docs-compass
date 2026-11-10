@@ -42,7 +42,7 @@ export const listEntities = createServerFn({ method: "POST" })
       .from("business_entities")
       .select("id, referred_type, display_name, status_label")
       .order("display_name");
-    if (error) { console.error("listEntities", error); throw new Error("entities.loadFailed"); }
+    if (error) throw new Error("entities.loadFailed");
     return data;
   });
 
