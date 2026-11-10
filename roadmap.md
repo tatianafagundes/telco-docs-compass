@@ -6,7 +6,10 @@
 - [x] Write actions in UI – record page, document panel: next status step, send back, report problem, edit details, legal hold, delete with undo
 - [x] Prompt 10 – Admin: document types (inherit/change/lock triad, unsaved bar, floors), policies, Tenants (counts only), tenant submenu
 - [x] Prompt 11 – legal hold dialogs with reference, Holds and retention page, delete permanently, expiry on listing
-- [ ] Prompt 12 – hardening pass (full checklist, isolation proofs, reset-test-data, remaining decision notes)
-- [ ] Upload the three site survey PDFs as test files for order O-7731 (needs the upload screen)
+- [x] Prompt 12 – hardening pass: layouts 1440/1920 light+dark, keyboard order, icon names, isolation proofs, quick security scan, banned-phrase check, reset test data, held-delete block
+- [ ] Deep security scan (waits on your go-ahead)
+- [ ] 200% zoom and screen-reader walkthrough by a person
+- [ ] Add as new version from the upload dialog
+- [x] Prompt 05 – Add documents: button, drop, paste, dialog, simulated pipeline, error actions; site surveys tested on O-7731
 - [ ] Sharing UI (needs a people picker)
 - [ ] Phases 3–9 remainder – entity documents, preview, upload, versions, review, access/activity, search
