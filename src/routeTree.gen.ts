@@ -30,6 +30,7 @@ import { Route as ApiPublicJobsBulkDocumentsRouteImport } from './routes/api/pub
 import { Route as ApiPublicTmfApiSplatRouteImport } from './routes/api/public/tmf-api/$'
 import { Route as ApiPublicTmfEventsDeliverRouteImport } from './routes/api/public/tmf-events/deliver'
 import { Route as AuthenticatedRecordsEntityIdReviewDocIdRouteImport } from './routes/_authenticated/records.$entityId_.review.$docId'
+import { Route as ApiPublicTmfApiOauthTokenRouteImport } from './routes/api/public/tmf-api/oauth/token'
 import { Route as ApiPublicTmfApiDocumentV4DocumentRouteImport } from './routes/api/public/tmf-api/document/v4/document'
 import { Route as ApiPublicTmfApiDocumentV4DocumentSpecificationRouteImport } from './routes/api/public/tmf-api/document/v4/documentSpecification'
 import { Route as ApiPublicTmfApiDocumentV4HubRouteImport } from './routes/api/public/tmf-api/document/v4/hub'
@@ -162,6 +163,12 @@ const AuthenticatedRecordsEntityIdReviewDocIdRoute =
     id: '/records/$entityId_/review/$docId',
     path: '/records/$entityId/review/$docId',
     getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const ApiPublicTmfApiOauthTokenRoute =
+  ApiPublicTmfApiOauthTokenRouteImport.update({
+    id: '/api/public/tmf-api/oauth/token',
+    path: '/api/public/tmf-api/oauth/token',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicTmfApiDocumentV4DocumentRoute =
   ApiPublicTmfApiDocumentV4DocumentRouteImport.update({
@@ -298,6 +305,7 @@ export interface FileRoutesByFullPath {
   '/api/public/tmf-api/$': typeof ApiPublicTmfApiSplatRoute
   '/api/public/tmf-events/deliver': typeof ApiPublicTmfEventsDeliverRoute
   '/records/$entityId/review/$docId': typeof AuthenticatedRecordsEntityIdReviewDocIdRoute
+  '/api/public/tmf-api/oauth/token': typeof ApiPublicTmfApiOauthTokenRoute
   '/api/public/tmf-api/document/v4/document': typeof ApiPublicTmfApiDocumentV4DocumentRouteWithChildren
   '/api/public/tmf-api/document/v4/documentSpecification': typeof ApiPublicTmfApiDocumentV4DocumentSpecificationRouteWithChildren
   '/api/public/tmf-api/document/v4/hub': typeof ApiPublicTmfApiDocumentV4HubRouteWithChildren
@@ -337,6 +345,7 @@ export interface FileRoutesByTo {
   '/api/public/tmf-api/$': typeof ApiPublicTmfApiSplatRoute
   '/api/public/tmf-events/deliver': typeof ApiPublicTmfEventsDeliverRoute
   '/records/$entityId/review/$docId': typeof AuthenticatedRecordsEntityIdReviewDocIdRoute
+  '/api/public/tmf-api/oauth/token': typeof ApiPublicTmfApiOauthTokenRoute
   '/api/public/tmf-api/document/v4/document': typeof ApiPublicTmfApiDocumentV4DocumentRouteWithChildren
   '/api/public/tmf-api/document/v4/documentSpecification': typeof ApiPublicTmfApiDocumentV4DocumentSpecificationRouteWithChildren
   '/api/public/tmf-api/document/v4/hub': typeof ApiPublicTmfApiDocumentV4HubRouteWithChildren
@@ -379,6 +388,7 @@ export interface FileRoutesById {
   '/api/public/tmf-api/$': typeof ApiPublicTmfApiSplatRoute
   '/api/public/tmf-events/deliver': typeof ApiPublicTmfEventsDeliverRoute
   '/_authenticated/records/$entityId_/review/$docId': typeof AuthenticatedRecordsEntityIdReviewDocIdRoute
+  '/api/public/tmf-api/oauth/token': typeof ApiPublicTmfApiOauthTokenRoute
   '/api/public/tmf-api/document/v4/document': typeof ApiPublicTmfApiDocumentV4DocumentRouteWithChildren
   '/api/public/tmf-api/document/v4/documentSpecification': typeof ApiPublicTmfApiDocumentV4DocumentSpecificationRouteWithChildren
   '/api/public/tmf-api/document/v4/hub': typeof ApiPublicTmfApiDocumentV4HubRouteWithChildren
@@ -421,6 +431,7 @@ export interface FileRouteTypes {
     | '/api/public/tmf-api/$'
     | '/api/public/tmf-events/deliver'
     | '/records/$entityId/review/$docId'
+    | '/api/public/tmf-api/oauth/token'
     | '/api/public/tmf-api/document/v4/document'
     | '/api/public/tmf-api/document/v4/documentSpecification'
     | '/api/public/tmf-api/document/v4/hub'
@@ -460,6 +471,7 @@ export interface FileRouteTypes {
     | '/api/public/tmf-api/$'
     | '/api/public/tmf-events/deliver'
     | '/records/$entityId/review/$docId'
+    | '/api/public/tmf-api/oauth/token'
     | '/api/public/tmf-api/document/v4/document'
     | '/api/public/tmf-api/document/v4/documentSpecification'
     | '/api/public/tmf-api/document/v4/hub'
@@ -501,6 +513,7 @@ export interface FileRouteTypes {
     | '/api/public/tmf-api/$'
     | '/api/public/tmf-events/deliver'
     | '/_authenticated/records/$entityId_/review/$docId'
+    | '/api/public/tmf-api/oauth/token'
     | '/api/public/tmf-api/document/v4/document'
     | '/api/public/tmf-api/document/v4/documentSpecification'
     | '/api/public/tmf-api/document/v4/hub'
@@ -529,6 +542,7 @@ export interface RootRouteChildren {
   ApiPublicJobsBulkDocumentsRoute: typeof ApiPublicJobsBulkDocumentsRoute
   ApiPublicTmfApiSplatRoute: typeof ApiPublicTmfApiSplatRoute
   ApiPublicTmfEventsDeliverRoute: typeof ApiPublicTmfEventsDeliverRoute
+  ApiPublicTmfApiOauthTokenRoute: typeof ApiPublicTmfApiOauthTokenRoute
   ApiPublicTmfApiDocumentV4DocumentRoute: typeof ApiPublicTmfApiDocumentV4DocumentRouteWithChildren
   ApiPublicTmfApiDocumentV4DocumentSpecificationRoute: typeof ApiPublicTmfApiDocumentV4DocumentSpecificationRouteWithChildren
   ApiPublicTmfApiDocumentV4HubRoute: typeof ApiPublicTmfApiDocumentV4HubRouteWithChildren
@@ -685,6 +699,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/records/$entityId/review/$docId'
       preLoaderRoute: typeof AuthenticatedRecordsEntityIdReviewDocIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/public/tmf-api/oauth/token': {
+      id: '/api/public/tmf-api/oauth/token'
+      path: '/api/public/tmf-api/oauth/token'
+      fullPath: '/api/public/tmf-api/oauth/token'
+      preLoaderRoute: typeof ApiPublicTmfApiOauthTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/tmf-api/document/v4/document': {
       id: '/api/public/tmf-api/document/v4/document'
@@ -1014,6 +1035,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicJobsBulkDocumentsRoute: ApiPublicJobsBulkDocumentsRoute,
   ApiPublicTmfApiSplatRoute: ApiPublicTmfApiSplatRoute,
   ApiPublicTmfEventsDeliverRoute: ApiPublicTmfEventsDeliverRoute,
+  ApiPublicTmfApiOauthTokenRoute: ApiPublicTmfApiOauthTokenRoute,
   ApiPublicTmfApiDocumentV4DocumentRoute:
     ApiPublicTmfApiDocumentV4DocumentRouteWithChildren,
   ApiPublicTmfApiDocumentV4DocumentSpecificationRoute:

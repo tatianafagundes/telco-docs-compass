@@ -30,6 +30,7 @@ const SCOPE_LABEL: Record<Scope, string> = {
   transition: "Move documents along their status path",
   approve: "Approve documents (only when every required detail is confirmed)",
   hold: "Place and release legal holds",
+  delete: "Delete documents (holds and keep-until dates still apply)",
   subscribe: "Receive change notifications",
 };
 
