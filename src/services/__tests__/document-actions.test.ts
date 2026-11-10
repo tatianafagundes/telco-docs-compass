@@ -77,3 +77,19 @@ describe("approvedSummary", () => {
     expect(s.inReview.map((x) => x.id)).toEqual(["a"]);
   });
 });
+
+import { contentEditState } from "@/services/document-actions";
+
+describe("approved content actions", () => {
+  it("should keep Edit details available on an effective document", () => {
+    expect(editState("manager", "effective").available).toBe(true);
+  });
+  it("should make content editing unavailable with a reason on an effective document", () => {
+    const s = contentEditState("manager", "effective");
+    expect(s.available).toBe(false);
+    expect(s.reason).toBeTruthy();
+  });
+  it("should allow content editing on a draft", () => {
+    expect(contentEditState("manager", "draft").available).toBe(true);
+  });
+});

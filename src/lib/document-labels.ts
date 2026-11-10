@@ -78,6 +78,8 @@ export function friendlyError(code: string | undefined): string {
       return "A legal hold keeps this document safe, so it can't be deleted.";
     case "doc.delete.retention":
       return "This document is still within its keep-until period.";
+    case "doc.edit.approvedContent":
+      return "This document is approved, so its content stays as it was approved. You can still rename it or update its description.";
     case "doc.edit.frozen":
       return "This document is closed, so its details are kept as they are.";
     case "config.locked":

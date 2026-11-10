@@ -100,3 +100,32 @@ describe("document-rules", () => {
     expect([...RECORDABLE_ACTIONS]).toEqual(["view", "download"]);
   });
 });
+
+import { contentProtected, metadataPatchAllowed } from "@/services/document-rules";
+
+describe("approved content protection", () => {
+  it("should allow renaming an effective document", () => {
+    expect(metadataPatchAllowed("effective", ["name", "description"])).toEqual({ ok: true });
+  });
+  it("should allow renaming an approved document", () => {
+    expect(metadataPatchAllowed("approved", ["name"])).toEqual({ ok: true });
+  });
+  it("should block changing confirmed details on an effective document", () => {
+    expect(metadataPatchAllowed("effective", ["name", "characteristic"])).toEqual({ ok: false, reason: "approvedContent", blocked: ["characteristic"] });
+  });
+  it("should block changing the expiry date on an approved document", () => {
+    expect(metadataPatchAllowed("approved", ["expiryDate"])).toEqual({ ok: false, reason: "approvedContent", blocked: ["expiryDate"] });
+  });
+  it("should allow content changes while in draft or review", () => {
+    expect(metadataPatchAllowed("draft", ["characteristic", "expiryDate"])).toEqual({ ok: true });
+    expect(metadataPatchAllowed("in_review", ["characteristic"])).toEqual({ ok: true });
+  });
+  it("should keep superseded documents fully closed, even for names", () => {
+    expect(metadataPatchAllowed("superseded", ["name"])).toEqual({ ok: false, reason: "frozen" });
+  });
+  it("should protect file versions only once approved or effective", () => {
+    expect(contentProtected("approved")).toBe(true);
+    expect(contentProtected("effective")).toBe(true);
+    expect(contentProtected("in_review")).toBe(false);
+  });
+});

@@ -16,7 +16,7 @@ import { entitiesQuery } from "@/hooks/use-access";
 import { useReviewField, useReviewState } from "@/hooks/use-review";
 import { useDocumentActions } from "@/hooks/use-document-actions";
 import { api } from "@/services/api";
-import { can, isFrozen } from "@/services/document-rules";
+import { can, contentProtected, isFrozen } from "@/services/document-rules";
 import { toCheckCount } from "@/services/review-rules";
 import {
   confidenceReason,
@@ -55,7 +55,7 @@ function ReviewPage() {
   const docQ = useQuery(documentQuery(docId));
   const entities = useQuery(entitiesQuery);
   const doc = docQ.data?.doc ?? null;
-  const closed = doc ? isFrozen(doc.status) : false;
+  const closed = doc ? isFrozen(doc.status) || contentProtected(doc.status) : false;
   const canReview = can(role, "review") && !closed;
   const review = useReviewState(docId, doc?.document_type ?? "", doc?.current_version_id ?? null);
   const pagesQ = useQuery({ queryKey: ["content", docId, "preview"], queryFn: () => api.getContentUrl(docId, "preview") });
@@ -159,7 +159,7 @@ function ReviewPage() {
             <div className={cn(tab === "document" ? "block" : "hidden", "min-[900px]:block")}>{pagePane}</div>
             <section aria-label="Details" className={cn("min-w-0 flex-col gap-2", tab === "details" ? "flex" : "hidden", "min-[900px]:flex")}>
               {k === 0 ? <p className="type-label-14 text-status-cleared" role="status">{outcomeSummary(fields)}</p> : null}
-              {closed ? <p className="type-label-12 text-text-secondary">This document is closed, so its checked details are kept as they are.</p> : !canReview ? <p className="type-label-12 text-text-secondary">Only reviewers and managers can check details. You can still read them.</p> : null}
+              {closed ? <p className="type-label-12 text-text-secondary">{doc && contentProtected(doc.status) ? "This document is approved, so its checked details stay as they were approved." : "This document is closed, so its checked details are kept as they are."}</p> : !canReview ? <p className="type-label-12 text-text-secondary">Only reviewers and managers can check details. You can still read them.</p> : null}
               <ul
                 role="listbox"
                 aria-label="Details read from the document"

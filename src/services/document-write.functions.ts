@@ -23,6 +23,8 @@ import {
   deleteBlocker,
   DOWNLOAD_URL_SECONDS,
   isFrozen,
+  contentProtected,
+  metadataPatchAllowed,
   isSampleStorage,
   isTransitionAllowed,
   pendingRequiredDetails,
@@ -202,8 +204,16 @@ export const updateMetadata = createServerFn({ method: "POST" })
       if (!can(env.role, "edit")) return forbidden();
       const doc = await loadDoc(env.admin, data.id);
       if (!doc) return fail("doc.notFound", "notFound");
-      if (isFrozen(doc.status)) return fail("doc.edit.frozen", "rejected");
       const p = data.patch;
+      const changed: string[] = [];
+      if (p.name !== undefined && p.name !== doc.name) changed.push("name");
+      if (p.description !== undefined) changed.push("description");
+      if (p.sensitivity !== undefined && p.sensitivity !== doc.sensitivity) changed.push("sensitivity");
+      if (p.expiryDate !== undefined && p.expiryDate !== doc.expiry_date) changed.push("expiryDate");
+      if (p.characteristic !== undefined) changed.push("characteristic");
+      if (p.keepUnread) changed.push("keepUnread");
+      const check = metadataPatchAllowed(doc.status, changed);
+      if (!check.ok) return check.reason === "frozen" ? fail("doc.edit.frozen", "rejected") : fail("doc.edit.approvedContent", "rejected", "none", check.blocked.join(", "));
       const update: Database["public"]["Tables"]["documents"]["Update"] = { updated_at: new Date().toISOString() };
       if (p.name !== undefined) update.name = p.name;
       if (p.description !== undefined) update.description = p.description;
@@ -233,6 +243,7 @@ export const addVersion = createServerFn({ method: "POST" })
       const doc = await loadDoc(env.admin, data.id);
       if (!doc) return fail("doc.notFound", "notFound");
       if (isFrozen(doc.status)) return fail("doc.edit.frozen", "rejected");
+      if (contentProtected(doc.status)) return fail("doc.edit.approvedContent", "rejected");
       const { count } = await env.admin
         .from("document_versions")
         .select("id", { count: "exact", head: true })
@@ -598,6 +609,7 @@ export const reviewExtraction = createServerFn({ method: "POST" })
       const doc = await loadDoc(env.admin, data.id);
       if (!doc) return fail("doc.notFound", "notFound");
       if (isFrozen(doc.status)) return fail("doc.edit.frozen", "rejected");
+      if (contentProtected(doc.status)) return fail("doc.edit.approvedContent", "rejected");
       const { data: field } = await env.admin
         .from("extraction_fields")
         .select("id, name, value, original_value")

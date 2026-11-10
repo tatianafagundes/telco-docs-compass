@@ -6,7 +6,7 @@ import { decideRate, rateHeaders, rateKind, retryGuidance } from "@/services/rat
 import { z } from "zod";
 import type { Json } from "@/integrations/supabase/types";
 import type { DocStatus } from "@/schemas/document";
-import { hashBody, idempotencyOutcome, isFrozen, isTransitionAllowed, systemMayApprove, pendingRequiredDetails, type SpecCharacteristic } from "@/services/document-rules";
+import { hashBody, idempotencyOutcome, isTransitionAllowed, metadataPatchAllowed, systemMayApprove, pendingRequiredDetails, type SpecCharacteristic } from "@/services/document-rules";
 import { deleteState } from "@/services/document-actions";
 import type { Db } from "@/services/seam-runtime";
 import {
@@ -496,7 +496,11 @@ export async function patchDocument(request: Request, id: string): Promise<Respo
     if (!doc) return { status: 404, body: tmfError(404, "notFound", "Not Found", "No document with this id.") };
     const { status: _s, "@type": _t, ...fields } = p;
     const editsFields = Object.keys(fields).length > 0;
-    if (editsFields && isFrozen(doc.status)) return { status: 409, body: tmfError(409, "frozen", "Conflict", "This document can no longer be changed.") };
+    const check = metadataPatchAllowed(doc.status, Object.keys(fields));
+    if (!check.ok && check.reason === "frozen") return { status: 409, body: tmfError(409, "frozen", "Conflict", "This document can no longer be changed.") };
+    if (!check.ok && check.reason === "approvedContent") {
+      return { status: 409, body: tmfError(409, "approvedContentLocked", "Conflict", `This document is approved, so only name, description, externalIdentifier and relatedEntity can change. Not changed: ${check.blocked.join(", ")}.`) };
+    }
     if (p.relatedEntity?.length) {
       const ids = p.relatedEntity.map((r) => r.id);
       const { data: ents } = await ctx.admin.from("business_entities").select("id").in("id", ids).eq("tenant_id", ctx.tenantId);
