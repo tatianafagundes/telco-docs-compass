@@ -5,6 +5,7 @@ import * as writes from "@/services/document-write.functions";
 import * as config from "@/services/tenant-config.functions";
 import * as retention from "@/services/retention.functions";
 import * as pipeline from "@/services/pipeline.functions";
+import * as systems from "@/services/integration-clients.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 export class SeamFailure extends Error {
@@ -102,4 +103,9 @@ export const api = {
     if (error) throw new SeamFailure({ code: "upload.failed", category: "unavailable", retryable: true });
   },
   resetTestData: async () => unwrap(await pipeline.resetTestData()),
+  // connected systems (TMF667 API keys)
+  listSystems: async () => unwrap(await systems.listSystems()),
+  createSystem: async (i: Parameters<typeof systems.createSystem>[0]["data"]) => unwrap(await systems.createSystem({ data: i })),
+  rotateSystemKey: async (id: string) => unwrap(await systems.rotateSystemKey({ data: { id } })),
+  revokeSystem: async (id: string) => unwrap(await systems.revokeSystem({ data: { id } })),
 };
