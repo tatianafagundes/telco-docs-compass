@@ -18,6 +18,7 @@ BASE = os.environ.get("BASE_URL", "http://localhost:8080")
 PASSWORD = "AuroraTest123!"
 RECORD = "quo-se-0412"
 DOC = "00000000-0000-0000-0000-0000000000d2"
+RECORD_NAME = "480 lines, 5G backup"  # record title: "Q-2026-0412 · 480 lines, 5G backup"
 DOC_DETAILS = ["Q-2026-0412", "480 lines", "5G backup"]
 SWEDEN_DETAILS = DOC_DETAILS + ["aurora-se", "Aurora Mobile Sweden", "Fjärrvärme", "O-7731", "ord-se"]
 failures: list[str] = []
@@ -95,7 +96,8 @@ async def main():
         text = await visit(viewer, f"/shared/{DOC}?level=view")
         check("Q-2026-0412" in text, "viewer can open the quote by direct link while shared")
         check("Part of a record you don't have access to" in text, "record line is hidden for the viewer")
-        check(not any("480 lines" in r for r in v_replies), "no reply to the viewer contains the record name")
+        # The quote's own page text may mention "480 lines"; the record's name and id must not appear.
+        check(not any(RECORD_NAME in r or RECORD in r for r in v_replies), "no reply to the viewer contains the record name or id")
 
         # 4. Remove the share
         await dialog.get_by_role("button", name="Remove access").first.click()
