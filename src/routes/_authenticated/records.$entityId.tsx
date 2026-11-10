@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import type { DocStatus, PipelineState } from "@/schemas/document";
 
 // find() builds its select string dynamically, so its row type is narrowed here.
-interface DocListItem { id: string; name: string; status: DocStatus; pipeline_state: PipelineState }
+interface DocListItem { id: string; name: string; status: DocStatus; pipeline_state: PipelineState; legal_hold: boolean }
 
 const recordQuery = (entityId: string) =>
   queryOptions({
