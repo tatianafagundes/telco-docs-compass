@@ -34,6 +34,7 @@ function AdminLayout() {
     { to: "/admin/types", label: "Document types" },
     { to: "/admin/policies", label: "Policies" },
     { to: "/admin/holds", label: "Holds and retention" },
+    ...(role === "tenant_admin" ? [{ to: "/admin/systems", label: "Connected systems" } as const] : []),
     ...(role === "master_admin" ? [{ to: "/admin/tenants", label: "Tenants" } as const] : []),
   ] as const;
   return (
