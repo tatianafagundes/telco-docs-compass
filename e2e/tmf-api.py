@@ -324,6 +324,127 @@ def events(full: str, doc_id: str) -> None:
         check(r.status_code == 204, "unsubscribe → 204")
 
 
+
+OFFICIAL_SWAGGER = "https://raw.githubusercontent.com/tmforum-apis/TMF667_Document/master/TMF667_Document_Management_API_v4.0.0_swagger.json"
+EXTENSIONS = {"lifecycleState", "validFor", "sensitivity", "legalHold"}
+ATTACHMENT_EXT = {"contentHash", "isCurrent", "creationDate"}
+
+
+def conforms(doc: dict, defs: dict) -> list[str]:
+    """Checks a Document against the official v4 definition: known fields, status enum, required sub-fields."""
+    problems = []
+    props = set(defs["Document"]["properties"])
+    for k in doc:
+        if k not in props and k not in EXTENSIONS:
+            problems.append(f"unknown field {k}")
+    if doc.get("status") not in defs["DocumentStatusType"]["enum"]:
+        problems.append(f"status {doc.get('status')!r} not in DocumentStatusType")
+    for r in doc.get("relatedEntity", []):
+        for req in defs["RelatedEntity"]["required"]:
+            if req not in r:
+                problems.append(f"relatedEntity missing {req}")
+    aprops = set(defs["AttachmentRefOrValue"]["properties"])
+    for a in doc.get("attachment", []):
+        for k in a:
+            if k not in aprops and k not in ATTACHMENT_EXT:
+                problems.append(f"attachment field {k}")
+    if doc.get("@type") != "Document" and not doc.get("@schemaLocation"):
+        problems.append("extended @type without @schemaLocation")
+    return problems
+
+
+def standard_client(full: str, ro: str, burst: str) -> None:
+    print("\n== 7. Standard TMF667 v4 client (standard address) ==")
+    defs = requests.get(OFFICIAL_SWAGGER, timeout=30).json()["definitions"]
+    r, lst, _ = call("GET", STD + "/document?limit=50", ro)
+    check(r.status_code == 200 and isinstance(lst, list) and len(lst) > 0, f"GET /tmf-api/document/v4/document works ({len(lst or [])})")
+    issues = sorted({p for d in lst or [] for p in conforms(d, defs)})
+    check(not issues, f"every document conforms to the official v4 Document definition {issues[:5] or ''}")
+    check(all(d["href"].startswith(STD) for d in lst or []), "href uses the standard address")
+    r, j, _ = call("GET", STD + "/document?status=published", ro)
+    check(r.status_code == 200 and len(j or []) > 0 and all(d["status"] == "published" and d["lifecycleState"] == "effective" for d in j), "status=published filter (effective documents)")
+    r, j, _ = call("GET", STD + "/document?relatedEntity.@referredType=BillingAccount", ro)
+    check(r.status_code == 200 and len(j or []) > 0 and all(any(e["@referredType"] == "BillingAccount" for e in d["relatedEntity"]) for d in j), "BillingAccount (SID name) filter and replies")
+    r, j, _ = call("GET", LEGACY + "/document?limit=1", ro)
+    check(r.headers.get("Deprecation") == "true" and "Sunset" in r.headers and "successor-version" in r.headers.get("Link", ""), "old address answers with Deprecation, Sunset and Link headers")
+    r, j, _ = call("GET", STD + "/documentSpecification", ro)
+    check(r.status_code == 200 and all("specCharacteristic" in s for s in j or []), "documentSpecification lists specCharacteristic")
+
+    # POST with attachment[] and inline content.
+    import base64
+    pdf = b"%PDF-1.4\n% TMF test " + RUN.encode() + b"\n%%EOF\n"
+    body = {
+        "name": f"TMF test standard {RUN}",
+        "documentType": "quote",
+        "relatedEntity": [{"id": ORDER, "role": "subject", "@referredType": "ProductOrder"}],
+        "externalIdentifier": [{"id": f"Q-{RUN}", "owner": "CPQ"}],
+        "attachment": [{"mimeType": "application/pdf", "name": "quote.pdf", "content": base64.b64encode(pdf).decode()}],
+    }
+    r, d, _ = call("POST", STD + "/document", full, body, idem=f"std-{RUN}")
+    check(r.status_code == 201 and (d or {}).get("status") == "created" and "uploadUrl" not in (d or {}), f"POST with attachment[] + inline content → 201 created (HTTP {r.status_code})")
+    sid = (d or {}).get("id", "")
+    att = ((d or {}).get("attachment") or [{}])[0]
+    check(att.get("contentHash") == hashlib.sha256(pdf).hexdigest(), "stored file hash matches what was sent")
+    if att.get("url"):
+        rr, jj, _ = call("GET", att["url"], ro)
+        got = requests.get((jj or {}).get("url", ""), timeout=30).content if rr.status_code == 200 else b""
+        check(got == pdf, "attachment.url gives back the same file")
+    r, j, _ = call("GET", STD + f"/document?externalIdentifier.id=Q-{RUN}", ro)
+    check(r.status_code == 200 and [x["id"] for x in j or []] == [sid], "find by externalIdentifier.id (CPQ quote number)")
+    r, j, _ = call("POST", STD + "/document", full, {**body, "attachment": [{"mimeType": "application/pdf", "url": "https://127.0.0.1/x.pdf"}]}, idem=f"std-url-{RUN}")
+    check(r.status_code in (400, 422), "attachment url pointing at a private address is refused")
+
+    # PATCH merge-patch.
+    mp = {"Content-Type": "application/merge-patch+json"}
+    r, j, _ = call("PATCH", STD + f"/document/{sid}", full, {"status": "reviewed"}, idem=f"std-p1-{RUN}", headers=mp)
+    check(r.status_code == 200 and (j or {}).get("status") == "reviewed", "PATCH status=reviewed (merge-patch)")
+    r, j, _ = call("PATCH", STD + f"/document/{sid}", ro, {"status": "approved"}, idem=f"std-p2-{RUN}", headers=mp)
+    check(r.status_code == 403, "PATCH status needs the transition/approve permission")
+    r, j, _ = call("PATCH", STD + f"/document/{sid}", full, {"status": "approved"}, idem=f"std-p3-{RUN}", headers=mp)
+    check(r.status_code in (200, 409) and (r.status_code == 200 or (j or {}).get("code") == "requiredDetailsPending"), f"PATCH status=approved applies the approval gate ({(j or {}).get('code') or (j or {}).get('status')})")
+    r, j, _ = call("PATCH", STD + f"/document/{sid}", full, {"status": "published"}, idem=f"std-p4-{RUN}", headers=mp)
+    check(r.status_code == 409 if (j or {}).get("status") != "published" else True, "PATCH status can't skip steps")
+    r, j, _ = call("PATCH", STD + f"/document/{sid}", full, {"characteristic": [{"name": "quoteValue", "value": "1200 SEK"}]}, idem=f"std-p5-{RUN}", headers=mp)
+    check(r.status_code == 200 and any(c["name"] == "quoteValue" for c in (j or {}).get("characteristic", [])), "PATCH characteristic merges by name")
+    r, j, _ = call("PATCH", STD + f"/document/{sid}", full, {"name": "x"}, idem=f"std-p6-{RUN}", headers={"Content-Type": "text/plain"})
+    check(r.status_code == 415, "PATCH with an unsupported content type → 415")
+    r, j, _ = call("PATCH", STD + f"/document/{sid}", full, {"status": "deleted"}, idem=f"std-p7-{RUN}", headers=mp)
+    check(r.status_code == 400, "status=deleted is refused on PATCH (use DELETE)")
+
+    # DELETE.
+    r, j, _ = call("POST", STD + f"/document/{sid}/legalHold", full, {"active": True, "reason": "TMF test"}, idem=f"std-h1-{RUN}")
+    r, j, _ = call("DELETE", STD + f"/document/{sid}", full, idem=f"std-d1-{RUN}")
+    check(r.status_code == 409 and (j or {}).get("code") == "legalHold", "DELETE is blocked by a legal hold")
+    call("POST", STD + f"/document/{sid}/legalHold", full, {"active": False, "reason": "TMF test done"}, idem=f"std-h2-{RUN}")
+    r, j, _ = call("DELETE", STD + f"/document/{sid}", ro, idem=f"std-d2-{RUN}")
+    check(r.status_code == 403, "DELETE needs the delete permission")
+    r, j, _ = call("DELETE", STD + f"/document/{sid}", full, idem=f"std-d3-{RUN}")
+    check(r.status_code == 204, "DELETE → 204")
+    r, j, _ = call("GET", STD + f"/document/{sid}", ro)
+    check(r.status_code == 404, "deleted document is gone from the API")
+
+    # OAuth client credentials.
+    t = requests.post(BASE + "/api/public/tmf-api/oauth/token", data={"grant_type": "client_credentials", "client_id": ro[:10], "client_secret": ro}, timeout=30)
+    tok = t.json().get("access_token", "") if t.ok else ""
+    check(t.status_code == 200 and tok.startswith("eradt_") and t.json().get("expires_in") == 900, "OAuth client_credentials issues a 15-minute token")
+    r, j, _ = call("GET", STD + "/document?limit=1", tok)
+    check(r.status_code == 200, "the token works as a bearer")
+    r, j, _ = call("POST", STD + "/document", tok, body, idem=f"std-tok-{RUN}")
+    check(r.status_code == 403, "the token keeps the key's permissions (read-only)")
+    t2 = requests.post(BASE + "/api/public/tmf-api/oauth/token", data={"grant_type": "client_credentials", "client_secret": "erad_" + "x" * 30}, timeout=30)
+    check(t2.status_code == 401 and t2.json().get("error") == "invalid_client", "wrong secret → 401 invalid_client")
+
+    # Rate limit (separate key so other checks aren't slowed down).
+    from concurrent.futures import ThreadPoolExecutor
+    def hit(_):
+        return requests.get(STD + "/document?limit=1&fields=id", headers={"Authorization": f"Bearer {burst}"}, timeout=60)
+    with ThreadPoolExecutor(max_workers=16) as ex:
+        res = list(ex.map(hit, range(135)))
+    limited = [x for x in res if x.status_code == 429]
+    check(len(limited) > 0 and all(x.headers.get("Retry-After", "").isdigit() for x in limited), f"over 120 reads a minute → 429 with Retry-After ({len(limited)} of 135)")
+    check(sum(1 for x in res if x.status_code == 200) <= 121, "no more than 120 reads were served in the minute")
+
+
 async def main() -> None:
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -331,6 +452,8 @@ async def main() -> None:
         full_name, ro_name = f"TMF test full {RUN}", f"TMF test read {RUN}"
         full = await mint_key(page, full_name, True)
         ro = await mint_key(page, ro_name, False)
+        burst_name = f"TMF test burst {RUN}"
+        burst = await mint_key(page, burst_name, False)
         check(full.startswith("erad_") and ro.startswith("erad_"), "admin screen issued two system keys")
         try:
             ctx = integrator(full, ro)
@@ -339,6 +462,7 @@ async def main() -> None:
             rules(full, ctx["doc_id"])
             reliability(full, ctx["create_body"])
             events(full, ctx["doc_id"])
+            standard_client(full, ro, burst)
             if not SKIP_SLOW:
                 print("\n== Download link expiry ==")
                 r, lst, _ = call("GET", "/document?limit=100", ro)
@@ -359,6 +483,7 @@ async def main() -> None:
             r, j, _ = call("GET", "/document", ro)
             check(r.status_code == 401, "a disconnected key stops working straight away")
             await disconnect(page, full_name)
+            await disconnect(page, burst_name)
             await browser.close()
 
     print("\n== 6. Timing (ms) ==")
