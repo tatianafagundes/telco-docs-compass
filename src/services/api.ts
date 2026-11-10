@@ -120,4 +120,5 @@ export const api = {
   createSystem: async (i: Parameters<typeof systems.createSystem>[0]["data"]) => unwrap(await systems.createSystem({ data: i })),
   rotateSystemKey: async (id: string) => unwrap(await systems.rotateSystemKey({ data: { id } })),
   revokeSystem: async (id: string) => unwrap(await systems.revokeSystem({ data: { id } })),
+  updateSystemLimits: async (input: { id: string; readLimitPerMinute: number; writeLimitPerMinute: number }) => unwrap(await systems.updateSystemLimits({ data: input })),
 };

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { seamError, type SeamResult } from "@/services/document-rules";
 import { forbidden, runRead, type Db } from "@/services/seam-runtime";
+import { LIMIT_BOUNDS } from "@/services/rate-limit-rules";
 import { SCOPES, sha256Hex, SYSTEM_KINDS } from "@/services/tmf667-mapper";
 
 /**
@@ -21,6 +22,8 @@ export interface ConnectedSystem {
   revokedAt: string | null;
   expiresAt: string | null;
   lastRateLimitedAt: string | null;
+  readLimitPerMinute: number;
+  writeLimitPerMinute: number;
 }
 
 /** New and rotated keys stop working after 12 months. */
@@ -41,7 +44,7 @@ async function adminClient(): Promise<Db> {
   return supabaseAdmin;
 }
 
-const map = (r: { id: string; name: string; system_kind: string; key_prefix: string; scopes: string[]; created_at: string; last_used_at: string | null; revoked_at: string | null; expires_at: string | null; last_rate_limited_at: string | null }): ConnectedSystem => ({
+const map = (r: { id: string; name: string; system_kind: string; key_prefix: string; scopes: string[]; created_at: string; last_used_at: string | null; revoked_at: string | null; expires_at: string | null; last_rate_limited_at: string | null; read_limit_per_minute: number; write_limit_per_minute: number }): ConnectedSystem => ({
   id: r.id,
   name: r.name,
   systemKind: r.system_kind,
@@ -52,9 +55,11 @@ const map = (r: { id: string; name: string; system_kind: string; key_prefix: str
   revokedAt: r.revoked_at,
   expiresAt: r.expires_at,
   lastRateLimitedAt: r.last_rate_limited_at,
+  readLimitPerMinute: r.read_limit_per_minute,
+  writeLimitPerMinute: r.write_limit_per_minute,
 });
 
-const COLS = "id, name, system_kind, key_prefix, scopes, created_at, last_used_at, revoked_at, expires_at, last_rate_limited_at";
+const COLS = "id, name, system_kind, key_prefix, scopes, created_at, last_used_at, revoked_at, expires_at, last_rate_limited_at, read_limit_per_minute, write_limit_per_minute";
 
 export const listSystems = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -128,5 +133,32 @@ export const revokeSystem = createServerFn({ method: "POST" })
       if (!rows || rows.length === 0) return { ok: false, error: seamError("system.notFound", "notFound", "none") };
       await admin.from("event_subscriptions").delete().eq("client_id", data.id);
       return { ok: true, data: { id: data.id } };
+    }),
+  );
+
+const limitsSchema = z.object({
+  id: z.string().uuid(),
+  readLimitPerMinute: z.number().int().min(LIMIT_BOUNDS.read.min).max(LIMIT_BOUNDS.read.max),
+  writeLimitPerMinute: z.number().int().min(LIMIT_BOUNDS.write.min).max(LIMIT_BOUNDS.write.max),
+});
+
+/** Country admins set each system's own allowance; it applies from the next request. */
+export const updateSystemLimits = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: z.input<typeof limitsSchema>) => limitsSchema.parse(input))
+  .handler(async ({ data, context }): Promise<SeamResult<ConnectedSystem>> =>
+    runRead(context, "systems.limits", null, async (env) => {
+      if (!isTenantAdmin(env.role)) return forbidden();
+      const admin = await adminClient();
+      const { data: row } = await admin
+        .from("integration_clients")
+        .update({ read_limit_per_minute: data.readLimitPerMinute, write_limit_per_minute: data.writeLimitPerMinute })
+        .eq("id", data.id)
+        .eq("tenant_id", env.tenantId)
+        .is("revoked_at", null)
+        .select(COLS)
+        .maybeSingle();
+      if (!row) return { ok: false, error: seamError("system.notFound", "notFound", "none") };
+      return { ok: true, data: map(row) };
     }),
   );

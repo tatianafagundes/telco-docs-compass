@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Copy, KeyRound, Plug, RotateCw, Unplug } from "lucide-react";
+import { Copy, Gauge, KeyRound, Plug, RotateCw, Unplug } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/erad/empty-state";
 import { Select } from "@/components/erad/select";
 import { Tag } from "@/components/erad/tag";
 import { TextField } from "@/components/erad/text-field";
+import { SystemLimitsDialog } from "@/components/admin/system-limits-dialog";
 import { failureText } from "@/hooks/use-config";
 import { api } from "@/services/api";
 import type { ConnectedSystem } from "@/services/integration-clients.functions";
@@ -53,6 +54,7 @@ export function ConnectedSystems() {
   const [adding, setAdding] = useState(false);
   const [shownKey, setShownKey] = useState<{ name: string; key: string } | null>(null);
   const [revoking, setRevoking] = useState<ConnectedSystem | null>(null);
+  const [limiting, setLimiting] = useState<ConnectedSystem | null>(null);
 
   const rotate = useMutation({
     mutationFn: (s: ConnectedSystem) => api.rotateSystemKey(s.id).then((r) => ({ ...r, name: s.name })),
@@ -110,6 +112,10 @@ export function ConnectedSystems() {
                         <RotateCw aria-hidden="true" />
                         New key
                       </Button>
+                      <Button onClick={() => setLimiting(s)}>
+                        <Gauge aria-hidden="true" />
+                        Request limits
+                      </Button>
                       <Button variant="ghost" onClick={() => setRevoking(s)}>
                         <Unplug aria-hidden="true" />
                         Disconnect
@@ -136,6 +142,9 @@ export function ConnectedSystems() {
                           : `Key valid until ${format(new Date(s.expiresAt), "d MMM yyyy")}`}
                     </p>
                   ) : null}
+                  <p className="type-paragraph-14 text-text-secondary">
+                    Allowance: {s.readLimitPerMinute} reads and {s.writeLimitPerMinute} changes per minute
+                  </p>
                   {s.lastRateLimitedAt ? (
                     <p className="type-paragraph-14 text-text-secondary">Last slowed down for sending too many requests: {format(new Date(s.lastRateLimitedAt), "d MMM yyyy, HH:mm")}</p>
                   ) : null}
@@ -156,7 +165,7 @@ export function ConnectedSystems() {
             Current approved contract for an order: <code className="type-code-14">GET /document?relatedEntity.id=ORDER_ID&amp;status=approved,published</code>
           </p>
           <p className="type-paragraph-14 text-text-secondary">
-            TM Forum TMF667 v4. Limits: 120 reads and 30 changes per minute per key. Systems that use OAuth can swap the key for a 15-minute token at <code className="type-code-14">/api/public/tmf-api/oauth/token</code>. The earlier address ending in documentManagement/v4 keeps working until 10 May 2027.
+            TM Forum TMF667 v4. Each system has its own request limits (usually 120 reads and 30 changes per minute). Over the limit, it gets 429 with Retry-After and RateLimit headers. Systems that use OAuth can swap the key for a 15-minute token at <code className="type-code-14">/api/public/tmf-api/oauth/token</code>. The earlier address ending in documentManagement/v4 keeps working until 10 May 2027.
           </p>
         </div>
       </Card>
@@ -191,6 +200,15 @@ export function ConnectedSystems() {
           </Button>
         </div>
       </Dialog>
+
+      <SystemLimitsDialog
+        system={limiting}
+        onClose={() => setLimiting(null)}
+        onSaved={() => {
+          setLimiting(null);
+          void qc.invalidateQueries({ queryKey: systemsKey });
+        }}
+      />
 
       <Dialog
         open={revoking !== null}
