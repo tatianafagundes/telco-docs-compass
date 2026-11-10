@@ -500,7 +500,7 @@ export async function patchDocument(request: Request, id: string): Promise<Respo
         .eq("id", doc.id)
         .eq("tenant_id", ctx.tenantId);
       if (p.relatedEntity?.length) {
-        await ctx.admin.from("document_relations").upsert(p.relatedEntity.map((r) => ({ document_id: doc.id, entity_id: r.id, role: r.role })), { onConflict: "document_id,entity_id", ignoreDuplicates: true });
+        await ctx.admin.from("document_relations").upsert(p.relatedEntity.map((r) => ({ document_id: doc.id, entity_id: r.id, role: r.role })), { onConflict: "document_id,entity_id,role", ignoreDuplicates: true });
       }
       // Field names only; values never reach the activity log.
       await audit(ctx, "metadataChange", doc.id, `Changed ${Object.keys(fields).join(", ")}`);
