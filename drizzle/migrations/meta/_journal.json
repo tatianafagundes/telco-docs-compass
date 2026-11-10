@@ -43,6 +43,13 @@
       "when": 1794306622197,
       "tag": "0005_documents_purged_at",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794307150113,
+      "tag": "0006_fix_tenants_policy_recursion",
+      "breakpoints": true
     }
   ]
 }
