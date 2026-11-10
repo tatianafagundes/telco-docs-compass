@@ -1,0 +1,137 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+@import "./styles/tokens.css";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Map ERAD tokens to Tailwind utilities. Hex values live only in tokens.css. */
+@theme inline {
+  --font-sans: var(--font-erad);
+  --radius-control: var(--radius-control);
+  --radius-pill: var(--radius-pill);
+  --radius-badge: var(--radius-badge);
+
+  --color-primary-erad: var(--primary);
+  --color-layer-system: var(--layer-system);
+  --color-layer-application: var(--layer-application);
+  --color-layer-content: var(--layer-content);
+  --color-text-main: var(--text-main);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-contrast: var(--text-contrast);
+  --color-text-link: var(--text-link);
+  --color-text-disabled: var(--text-disabled);
+  --color-text-on-primary: var(--text-on-primary);
+  --color-btn-primary: var(--fill-btn-primary-idle);
+  --color-btn-primary-hover: var(--fill-btn-primary-hover);
+  --color-btn-primary-press: var(--fill-btn-primary-press);
+  --color-btn-default-hover: var(--fill-btn-default-hover);
+  --color-btn-default-press: var(--fill-btn-default-press);
+  --color-input: var(--fill-input-idle);
+  --color-input-disabled: var(--fill-input-disabled);
+  --color-input-selected: var(--fill-input-selected);
+  --color-input-selected-hover: var(--fill-input-selected-hover);
+  --color-input-prefix: var(--fill-input-prefix);
+  --color-item: var(--fill-item-idle);
+  --color-item-hover: var(--fill-item-hover);
+  --color-item-selected: var(--fill-item-selected);
+  --color-item-selected-hover: var(--fill-item-selected-hover);
+  --color-tooltip: var(--fill-item-tooltip);
+  --color-cell-hover: var(--fill-cell-hover);
+  --color-cell-selected: var(--fill-cell-selected);
+  --color-cell-striped: var(--fill-cell-striped);
+  --color-border-btn: var(--border-btn-idle);
+  --color-border-item: var(--border-item-idle);
+  --color-border-item-hover: var(--border-item-hover);
+  --color-border-subtle: var(--border-item-subtle);
+  --color-border-selected: var(--border-item-selected);
+  --color-border-input: var(--border-input-idle);
+  --color-border-input-hover: var(--border-input-hover);
+  --color-border-error: var(--border-input-error);
+  --color-border-cell: var(--border-cell-idle);
+  --color-focus: var(--border-focus);
+  --color-status-critical: var(--status-critical);
+  --color-status-major: var(--status-major);
+  --color-status-minor: var(--status-minor);
+  --color-status-warning: var(--status-warning);
+  --color-status-cleared: var(--status-cleared);
+  --color-status-indeterminate: var(--status-indeterminate);
+  --color-status-purple: var(--status-purple);
+
+  /* shadcn compatibility, bound to ERAD roles */
+  --color-background: var(--layer-content);
+  --color-foreground: var(--text-main);
+  --color-card: var(--fill-item-idle);
+  --color-card-foreground: var(--text-main);
+  --color-popover: var(--fill-item-idle);
+  --color-popover-foreground: var(--text-main);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--text-on-primary);
+  --color-secondary: var(--layer-application);
+  --color-secondary-foreground: var(--text-main);
+  --color-muted: var(--layer-application);
+  --color-muted-foreground: var(--text-secondary);
+  --color-accent: var(--fill-item-hover);
+  --color-accent-foreground: var(--text-main);
+  --color-destructive: var(--status-critical);
+  --color-destructive-foreground: var(--text-on-primary);
+  --color-border: var(--border-item-subtle);
+  --color-ring: var(--border-focus);
+}
+
+@utility focus-ring {
+  &:focus-visible {
+    outline: 1px solid var(--border-focus);
+    outline-offset: 2px;
+  }
+}
+
+@utility shadow-elev-1 {
+  box-shadow: 0 2px 4px var(--shadow-elevation-1);
+}
+@utility shadow-elev-2 {
+  box-shadow: 0 4px 8px var(--shadow-elevation-2);
+}
+
+@utility bg-ai-gradient {
+  background-image: linear-gradient(90deg, var(--gradient-ai-start), var(--gradient-ai-end));
+}
+
+@utility tag-tone {
+  border: 1px solid var(--tone);
+  background-color: color-mix(in srgb, var(--tone) 5%, var(--fill-input-idle));
+  :root[data-theme="dark"] & {
+    background-color: color-mix(in srgb, var(--tone) 10%, var(--fill-input-idle));
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--border-item-subtle);
+    letter-spacing: 0;
+  }
+  html,
+  body {
+    font-family: var(--font-erad);
+    font-size: 14px;
+    line-height: 16px;
+    background-color: var(--layer-content);
+    color: var(--text-main);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0ms !important;
+      animation-duration: 0ms !important;
+    }
+  }
+}
+
+@utility type-label-12 { font: var(--font-label-12); }
+@utility type-label-14 { font: var(--font-label-14); }
+@utility type-label-14-medium { font: var(--font-label-14-medium); }
+@utility type-paragraph-14 { font: var(--font-paragraph-14); }
+@utility type-title-16 { font: var(--font-title-16); }
+@utility type-title-16-medium { font: var(--font-title-16-medium); }
+@utility type-title-18-medium { font: var(--font-title-18-medium); }
