@@ -56,6 +56,7 @@ export const api = {
   listVersions: (id: string) => reads.listVersions({ data: { id } }),
   listActivity: (id: string) => reads.listActivity({ data: { id } }),
   getExtraction: (id: string) => reads.getExtraction({ data: { id } }),
+  searchPeople: (query: string) => reads.searchPeople({ data: { query } }),
   listSpecifications: () => reads.listSpecifications(),
   getTenantPolicy: () => reads.getTenantPolicy(),
   getContentUrl: async (id: string, purpose: "preview" | "download") =>
