@@ -101,8 +101,12 @@ async def main():
 
         # 4. Remove the share
         await dialog.get_by_role("button", name="Remove access").first.click()
-        await mgr.wait_for_timeout(2500)
-        check("No exceptions" in await dialog.inner_text(), "share removed")
+        try:
+            await dialog.get_by_text("No exceptions").wait_for(timeout=10000)
+            removed = True
+        except Exception:
+            removed = False
+        check(removed, "share removed")
 
         # 5. Viewer loses it everywhere
         v_replies.clear()
