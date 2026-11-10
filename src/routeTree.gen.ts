@@ -22,6 +22,8 @@ import { Route as AuthenticatedAdminPoliciesRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminTenantsRouteImport } from './routes/_authenticated/admin.tenants'
 import { Route as AuthenticatedAdminTypesRouteImport } from './routes/_authenticated/admin.types'
 import { Route as AuthenticatedRecordsEntityIdRouteImport } from './routes/_authenticated/records.$entityId'
+import { Route as AuthenticatedSharedIndexRouteImport } from './routes/_authenticated/shared.index'
+import { Route as AuthenticatedSharedDocIdRouteImport } from './routes/_authenticated/shared.$docId'
 import { Route as AuthenticatedAdminTenantsTenantIdRouteImport } from './routes/_authenticated/admin.tenants.$tenantId'
 import { Route as AuthenticatedRecordsEntityIdReviewDocIdRouteImport } from './routes/_authenticated/records.$entityId_.review.$docId'
 
@@ -92,6 +94,18 @@ const AuthenticatedRecordsEntityIdRoute =
     path: '/records/$entityId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedSharedIndexRoute =
+  AuthenticatedSharedIndexRouteImport.update({
+    id: '/shared/',
+    path: '/shared/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedSharedDocIdRoute =
+  AuthenticatedSharedDocIdRouteImport.update({
+    id: '/shared/$docId',
+    path: '/shared/$docId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAdminTenantsTenantIdRoute =
   AuthenticatedAdminTenantsTenantIdRouteImport.update({
     id: '/$tenantId',
@@ -117,7 +131,9 @@ export interface FileRoutesByFullPath {
   '/admin/tenants': typeof AuthenticatedAdminTenantsRouteWithChildren
   '/admin/types': typeof AuthenticatedAdminTypesRoute
   '/records/$entityId': typeof AuthenticatedRecordsEntityIdRoute
+  '/shared/$docId': typeof AuthenticatedSharedDocIdRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/shared/': typeof AuthenticatedSharedIndexRoute
   '/admin/tenants/$tenantId': typeof AuthenticatedAdminTenantsTenantIdRoute
   '/records/$entityId/review/$docId': typeof AuthenticatedRecordsEntityIdReviewDocIdRoute
 }
@@ -132,7 +148,9 @@ export interface FileRoutesByTo {
   '/admin/tenants': typeof AuthenticatedAdminTenantsRouteWithChildren
   '/admin/types': typeof AuthenticatedAdminTypesRoute
   '/records/$entityId': typeof AuthenticatedRecordsEntityIdRoute
+  '/shared/$docId': typeof AuthenticatedSharedDocIdRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/shared': typeof AuthenticatedSharedIndexRoute
   '/admin/tenants/$tenantId': typeof AuthenticatedAdminTenantsTenantIdRoute
   '/records/$entityId/review/$docId': typeof AuthenticatedRecordsEntityIdReviewDocIdRoute
 }
@@ -150,7 +168,9 @@ export interface FileRoutesById {
   '/_authenticated/admin/tenants': typeof AuthenticatedAdminTenantsRouteWithChildren
   '/_authenticated/admin/types': typeof AuthenticatedAdminTypesRoute
   '/_authenticated/records/$entityId': typeof AuthenticatedRecordsEntityIdRoute
+  '/_authenticated/shared/$docId': typeof AuthenticatedSharedDocIdRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/shared/': typeof AuthenticatedSharedIndexRoute
   '/_authenticated/admin/tenants/$tenantId': typeof AuthenticatedAdminTenantsTenantIdRoute
   '/_authenticated/records/$entityId_/review/$docId': typeof AuthenticatedRecordsEntityIdReviewDocIdRoute
 }
@@ -168,7 +188,9 @@ export interface FileRouteTypes {
     | '/admin/tenants'
     | '/admin/types'
     | '/records/$entityId'
+    | '/shared/$docId'
     | '/admin/'
+    | '/shared/'
     | '/admin/tenants/$tenantId'
     | '/records/$entityId/review/$docId'
   fileRoutesByTo: FileRoutesByTo
@@ -183,7 +205,9 @@ export interface FileRouteTypes {
     | '/admin/tenants'
     | '/admin/types'
     | '/records/$entityId'
+    | '/shared/$docId'
     | '/admin'
+    | '/shared'
     | '/admin/tenants/$tenantId'
     | '/records/$entityId/review/$docId'
   id:
@@ -200,7 +224,9 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/tenants'
     | '/_authenticated/admin/types'
     | '/_authenticated/records/$entityId'
+    | '/_authenticated/shared/$docId'
     | '/_authenticated/admin/'
+    | '/_authenticated/shared/'
     | '/_authenticated/admin/tenants/$tenantId'
     | '/_authenticated/records/$entityId_/review/$docId'
   fileRoutesById: FileRoutesById
@@ -305,6 +331,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRecordsEntityIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/shared/': {
+      id: '/_authenticated/shared/'
+      path: '/shared'
+      fullPath: '/shared/'
+      preLoaderRoute: typeof AuthenticatedSharedIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/shared/$docId': {
+      id: '/_authenticated/shared/$docId'
+      path: '/shared/$docId'
+      fullPath: '/shared/$docId'
+      preLoaderRoute: typeof AuthenticatedSharedDocIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin/tenants/$tenantId': {
       id: '/_authenticated/admin/tenants/$tenantId'
       path: '/$tenantId'
@@ -361,6 +401,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDocumentsRoute: typeof AuthenticatedDocumentsRoute
   AuthenticatedHoldsRoute: typeof AuthenticatedHoldsRoute
   AuthenticatedRecordsEntityIdRoute: typeof AuthenticatedRecordsEntityIdRoute
+  AuthenticatedSharedDocIdRoute: typeof AuthenticatedSharedDocIdRoute
+  AuthenticatedSharedIndexRoute: typeof AuthenticatedSharedIndexRoute
   AuthenticatedRecordsEntityIdReviewDocIdRoute: typeof AuthenticatedRecordsEntityIdReviewDocIdRoute
 }
 
@@ -369,6 +411,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDocumentsRoute: AuthenticatedDocumentsRoute,
   AuthenticatedHoldsRoute: AuthenticatedHoldsRoute,
   AuthenticatedRecordsEntityIdRoute: AuthenticatedRecordsEntityIdRoute,
+  AuthenticatedSharedDocIdRoute: AuthenticatedSharedDocIdRoute,
+  AuthenticatedSharedIndexRoute: AuthenticatedSharedIndexRoute,
   AuthenticatedRecordsEntityIdReviewDocIdRoute:
     AuthenticatedRecordsEntityIdReviewDocIdRoute,
 }

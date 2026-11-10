@@ -26,7 +26,10 @@ export const documentQuery = (id: string) =>
     },
   });
 
-export function DocumentPanel({ id, entityId, role }: { id: string; entityId: string; role: AppRole }) {
+/** entityId null: reached only through a direct share; record details stay hidden. */
+export function DocumentPanel({ id, entityId, role }: { id: string; entityId: string | null; role: AppRole }) {
+  const shared = entityId === null;
+  const recordId = entityId ?? "";
   const q = useQuery(documentQuery(id));
   const [sharing, setSharing] = useState(false);
   const review = useReviewState(id, q.data?.doc?.document_type ?? "", q.data?.doc?.current_version_id ?? null);
@@ -53,6 +56,7 @@ export function DocumentPanel({ id, entityId, role }: { id: string; entityId: st
           <Tag tone={PIPELINE_TONE[doc.pipeline_state]} small>{PIPELINE_LABEL[doc.pipeline_state]}</Tag>
           {doc.legal_hold ? <Tag tone="major" icon={<Lock aria-hidden="true" className="size-4" />}>On hold</Tag> : null}
         </div>
+        {shared ? <p className="type-label-12 text-text-secondary">Part of a record you don't have access to</p> : null}
         {current ? <p className="type-label-12 text-text-secondary">Version {current.label} · {format(new Date(current.created_at), "d MMM yyyy")}</p> : null}
       </header>
 
@@ -60,10 +64,10 @@ export function DocumentPanel({ id, entityId, role }: { id: string; entityId: st
         <Banner
           tone="indeterminate"
           status={`${toCheck} to check`}
-          action={<Link
+          action={shared ? undefined : <Link
             id={`review-${id}`}
             to="/records/$entityId/review/$docId"
-            params={{ entityId, docId: id }}
+            params={{ entityId: recordId, docId: id }}
             className="focus-ring type-label-14 inline-flex h-8 items-center rounded-control border border-border-btn px-3 hover:bg-btn-default-hover"
           >
             Review
@@ -75,14 +79,14 @@ export function DocumentPanel({ id, entityId, role }: { id: string; entityId: st
         <p className="type-label-12 text-text-secondary">All details read from this document are checked.</p>
       ) : null}
 
-      <DocumentActionsBar entityId={entityId} role={role} doc={doc} approveGate={review.gate} />
+      <DocumentActionsBar entityId={recordId} role={role} doc={doc} approveGate={review.gate} />
 
       <div className="flex flex-col items-start gap-2">
-        {can(role, "manage") ? <Button onClick={() => setSharing(true)}>Manage access</Button> : null}
+        {!shared && can(role, "manage") ? <Button onClick={() => setSharing(true)}>Manage access</Button> : null}
         <WhyCanISee docId={id} />
       </div>
       <ManageAccessDialog docId={id} open={sharing} onOpenChange={setSharing} />
-      <DocumentDetails key={doc.updated_at} entityId={entityId} role={role} doc={doc} />
+      <DocumentDetails key={doc.updated_at} entityId={recordId} role={role} doc={doc} />
 
       <section aria-label="Activity" className="flex flex-col gap-2">
         <h4 className="type-label-12 text-text-secondary">Recent activity</h4>

@@ -169,3 +169,53 @@ export const searchPeople = createServerFn({ method: "POST" })
     if (error) throw new Error("people.loadFailed");
     return rows.map((r) => ({ id: r.user_id, name: r.display_name }));
   });
+
+const sharedInput = z.object({ page: z.number().int().min(0).max(1000) });
+
+/**
+ * Documents shared directly with the caller (active one-off exceptions), read as the caller (RLS).
+ * The record id is returned only when the caller can see that record; record names are never returned.
+ */
+export const listSharedWithMe = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { page: number }) => sharedInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const nowIso = new Date().toISOString();
+    const size = 20;
+    const { data: rows, error, count } = await supabase
+      .from("document_access_exceptions")
+      .select("document_id, level, granted_by, expires_at, documents!inner(id, name, document_type, status, created_at, updated_at)", { count: "exact" })
+      .eq("user_id", userId)
+      .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+      .order("expires_at", { ascending: false, nullsFirst: true })
+      .range(data.page * size, data.page * size + size - 1);
+    if (error) throw new Error("shared.loadFailed");
+    const docIds = rows.map((r) => r.document_id);
+    const granters = [...new Set(rows.map((r) => r.granted_by).filter((g): g is string => !!g))];
+    const [rel, people] = await Promise.all([
+      docIds.length ? supabase.from("document_relations").select("document_id, entity_id").in("document_id", docIds) : Promise.resolve({ data: [] as { document_id: string; entity_id: string }[] }),
+      granters.length ? supabase.from("profiles").select("user_id, display_name").in("user_id", granters) : Promise.resolve({ data: [] as { user_id: string; display_name: string }[] }),
+    ]);
+    const entityIds = [...new Set((rel.data ?? []).map((r) => r.entity_id))];
+    const visible = entityIds.length
+      ? (await supabase.from("business_entities").select("id").in("id", entityIds)).data ?? []
+      : [];
+    const visibleSet = new Set(visible.map((v) => v.id));
+    const items = rows.map((r) => {
+      const d = r.documents as unknown as { id: string; name: string; document_type: string; status: string; updated_at: string };
+      const entityId = (rel.data ?? []).find((x) => x.document_id === r.document_id && visibleSet.has(x.entity_id))?.entity_id ?? null;
+      return {
+        id: d.id,
+        name: d.name,
+        documentType: d.document_type,
+        status: d.status,
+        level: r.level,
+        sharedBy: (people.data ?? []).find((p) => p.user_id === r.granted_by)?.display_name ?? null,
+        expiresAt: r.expires_at,
+        updatedAt: d.updated_at,
+        entityId,
+      };
+    });
+    return { items, total: count ?? items.length };
+  });
