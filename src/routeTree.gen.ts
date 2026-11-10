@@ -15,7 +15,9 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as DesignRouteImport } from './routes/design'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedDocumentsRouteImport } from './routes/_authenticated/documents'
+import { Route as AuthenticatedHoldsRouteImport } from './routes/_authenticated/holds'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
+import { Route as AuthenticatedAdminHoldsRouteImport } from './routes/_authenticated/admin.holds'
 import { Route as AuthenticatedAdminPoliciesRouteImport } from './routes/_authenticated/admin.policies'
 import { Route as AuthenticatedAdminTenantsRouteImport } from './routes/_authenticated/admin.tenants'
 import { Route as AuthenticatedAdminTypesRouteImport } from './routes/_authenticated/admin.types'
@@ -51,9 +53,19 @@ const AuthenticatedDocumentsRoute = AuthenticatedDocumentsRouteImport.update({
   path: '/documents',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedHoldsRoute = AuthenticatedHoldsRouteImport.update({
+  id: '/holds',
+  path: '/holds',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const AuthenticatedAdminHoldsRoute = AuthenticatedAdminHoldsRouteImport.update({
+  id: '/holds',
+  path: '/holds',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
 const AuthenticatedAdminPoliciesRoute =
@@ -92,6 +104,8 @@ export interface FileRoutesByFullPath {
   '/design': typeof DesignRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/documents': typeof AuthenticatedDocumentsRoute
+  '/holds': typeof AuthenticatedHoldsRoute
+  '/admin/holds': typeof AuthenticatedAdminHoldsRoute
   '/admin/policies': typeof AuthenticatedAdminPoliciesRoute
   '/admin/tenants': typeof AuthenticatedAdminTenantsRouteWithChildren
   '/admin/types': typeof AuthenticatedAdminTypesRoute
@@ -104,6 +118,8 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/design': typeof DesignRoute
   '/documents': typeof AuthenticatedDocumentsRoute
+  '/holds': typeof AuthenticatedHoldsRoute
+  '/admin/holds': typeof AuthenticatedAdminHoldsRoute
   '/admin/policies': typeof AuthenticatedAdminPoliciesRoute
   '/admin/tenants': typeof AuthenticatedAdminTenantsRouteWithChildren
   '/admin/types': typeof AuthenticatedAdminTypesRoute
@@ -119,6 +135,8 @@ export interface FileRoutesById {
   '/design': typeof DesignRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/documents': typeof AuthenticatedDocumentsRoute
+  '/_authenticated/holds': typeof AuthenticatedHoldsRoute
+  '/_authenticated/admin/holds': typeof AuthenticatedAdminHoldsRoute
   '/_authenticated/admin/policies': typeof AuthenticatedAdminPoliciesRoute
   '/_authenticated/admin/tenants': typeof AuthenticatedAdminTenantsRouteWithChildren
   '/_authenticated/admin/types': typeof AuthenticatedAdminTypesRoute
@@ -134,6 +152,8 @@ export interface FileRouteTypes {
     | '/design'
     | '/admin'
     | '/documents'
+    | '/holds'
+    | '/admin/holds'
     | '/admin/policies'
     | '/admin/tenants'
     | '/admin/types'
@@ -146,6 +166,8 @@ export interface FileRouteTypes {
     | '/auth'
     | '/design'
     | '/documents'
+    | '/holds'
+    | '/admin/holds'
     | '/admin/policies'
     | '/admin/tenants'
     | '/admin/types'
@@ -160,6 +182,8 @@ export interface FileRouteTypes {
     | '/design'
     | '/_authenticated/admin'
     | '/_authenticated/documents'
+    | '/_authenticated/holds'
+    | '/_authenticated/admin/holds'
     | '/_authenticated/admin/policies'
     | '/_authenticated/admin/tenants'
     | '/_authenticated/admin/types'
@@ -219,11 +243,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDocumentsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/holds': {
+      id: '/_authenticated/holds'
+      path: '/holds'
+      fullPath: '/holds'
+      preLoaderRoute: typeof AuthenticatedHoldsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin/': {
       id: '/_authenticated/admin/'
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/holds': {
+      id: '/_authenticated/admin/holds'
+      path: '/holds'
+      fullPath: '/admin/holds'
+      preLoaderRoute: typeof AuthenticatedAdminHoldsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/policies': {
@@ -280,6 +318,7 @@ const AuthenticatedAdminTenantsRouteWithChildren =
   )
 
 interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminHoldsRoute: typeof AuthenticatedAdminHoldsRoute
   AuthenticatedAdminPoliciesRoute: typeof AuthenticatedAdminPoliciesRoute
   AuthenticatedAdminTenantsRoute: typeof AuthenticatedAdminTenantsRouteWithChildren
   AuthenticatedAdminTypesRoute: typeof AuthenticatedAdminTypesRoute
@@ -287,6 +326,7 @@ interface AuthenticatedAdminRouteChildren {
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminHoldsRoute: AuthenticatedAdminHoldsRoute,
   AuthenticatedAdminPoliciesRoute: AuthenticatedAdminPoliciesRoute,
   AuthenticatedAdminTenantsRoute: AuthenticatedAdminTenantsRouteWithChildren,
   AuthenticatedAdminTypesRoute: AuthenticatedAdminTypesRoute,
@@ -299,12 +339,14 @@ const AuthenticatedAdminRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedDocumentsRoute: typeof AuthenticatedDocumentsRoute
+  AuthenticatedHoldsRoute: typeof AuthenticatedHoldsRoute
   AuthenticatedRecordsEntityIdRoute: typeof AuthenticatedRecordsEntityIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedDocumentsRoute: AuthenticatedDocumentsRoute,
+  AuthenticatedHoldsRoute: AuthenticatedHoldsRoute,
   AuthenticatedRecordsEntityIdRoute: AuthenticatedRecordsEntityIdRoute,
 }
 
