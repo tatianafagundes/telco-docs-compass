@@ -37,7 +37,7 @@ info:
     Status mapping (status ← lifecycleState): created ← draft · reviewed ← in_review ·
     approved ← approved · published ← effective · archived ← superseded, expired, archived · deleted.
 
-    Limits: 120 reads and 30 changes per minute per key (429 with Retry-After). Keys expire after 12 months.
+    Limits: each system has its own allowance per minute (default 120 reads and 30 changes, set per system by an administrator). Over the limit the reply is 429 tooManyRequests with Retry-After, RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset and RateLimit-Policy headers; one system never uses up another's allowance. Keys expire after 12 months.
     The earlier address /api/public/tmf-api/documentManagement/v4 answers the same, with
     Deprecation, Sunset (10 May 2027) and Link: successor-version headers.
 servers:
