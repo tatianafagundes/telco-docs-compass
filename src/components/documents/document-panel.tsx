@@ -57,15 +57,19 @@ export function DocumentPanel({ id, entityId, role }: { id: string; entityId: st
       </header>
 
       {toCheck > 0 ? (
-        <Banner tone="info" title={bannerText(toCheck)}>
-          <Link
+        <Banner
+          tone="indeterminate"
+          status={`${toCheck} to check`}
+          action={<Link
             id={`review-${id}`}
             to="/records/$entityId/review/$docId"
             params={{ entityId, docId: id }}
             className="focus-ring type-label-14 inline-flex h-8 items-center rounded-control border border-border-btn px-3 hover:bg-btn-default-hover"
           >
             Review
-          </Link>
+          </Link>}
+        >
+          {bannerText(toCheck)}
         </Banner>
       ) : review.fields.length > 0 ? (
         <p className="type-label-12 text-text-secondary">All details read from this document are checked.</p>
