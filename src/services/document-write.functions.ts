@@ -243,6 +243,7 @@ export const addVersion = createServerFn({ method: "POST" })
       const doc = await loadDoc(env.admin, data.id);
       if (!doc) return fail("doc.notFound", "notFound");
       if (isFrozen(doc.status)) return fail("doc.edit.frozen", "rejected");
+      if (contentProtected(doc.status)) return fail("doc.edit.approvedContent", "rejected");
       const { count } = await env.admin
         .from("document_versions")
         .select("id", { count: "exact", head: true })
@@ -608,6 +609,7 @@ export const reviewExtraction = createServerFn({ method: "POST" })
       const doc = await loadDoc(env.admin, data.id);
       if (!doc) return fail("doc.notFound", "notFound");
       if (isFrozen(doc.status)) return fail("doc.edit.frozen", "rejected");
+      if (contentProtected(doc.status)) return fail("doc.edit.approvedContent", "rejected");
       const { data: field } = await env.admin
         .from("extraction_fields")
         .select("id, name, value, original_value")
