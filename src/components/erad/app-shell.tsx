@@ -4,7 +4,6 @@ import { FileText, LogOut, Moon, Settings, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
-import { Tag } from "@/components/erad/tag";
 import { Avatar } from "@/components/erad/misc";
 import { useTheme } from "@/hooks/use-theme";
 
@@ -91,9 +90,6 @@ export function AppShell({ tenantName, userName, children }: AppShellProps) {
         </nav>
         <main className="relative min-w-0 flex-1 px-4 py-4">{children}</main>
       </div>
-      <span className="sr-only">
-        <Tag tone="purple">Prototype</Tag>
-      </span>
     </div>
   );
 }
