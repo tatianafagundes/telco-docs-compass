@@ -67,3 +67,27 @@ describe.runIf(enabled)("access rules", () => {
     expect(Array.isArray(body) ? body.length : 0).toBe(0);
   });
 });
+
+describe.runIf(enabled)("country isolation for files and counts", () => {
+  it("should show the Sweden viewer only documents on order ord-se-7731", async () => {
+    // A document may also be linked elsewhere; each visible one must be linked to the viewer's order.
+    const r = await rows("se.viewer@example.test", "document_relations?select=document_id,entity_id");
+    const docs = new Set(r.map((x) => x["document_id"]));
+    const onOrder = new Set(r.filter((x) => x["entity_id"] === "ord-se-7731").map((x) => x["document_id"]));
+    expect(docs.size).toBeGreaterThan(0);
+    expect(onOrder).toEqual(docs);
+  });
+
+  it("should not let any account list stored files directly", async () => {
+    for (const email of ["no.manager@example.test", "se.viewer@example.test", "master.admin@example.test"]) {
+      const t = await token(email);
+      const res = await fetch(`${URL_}/storage/v1/object/list/documents`, {
+        method: "POST",
+        headers: { apikey: KEY ?? "", Authorization: `Bearer ${t}`, "content-type": "application/json" },
+        body: JSON.stringify({ prefix: "aurora-se", limit: 10 }),
+      });
+      const body: unknown = await res.json();
+      expect(Array.isArray(body) ? body.length : 0).toBe(0);
+    }
+  });
+});

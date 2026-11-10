@@ -8,6 +8,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar } from "@/components/erad/misc";
 import { useTheme } from "@/hooks/use-theme";
+import { useDropGuard } from "@/hooks/use-drop-guard";
 
 const ROLE_LABEL: Record<string, string> = {
   viewer: "Viewer",
@@ -39,6 +40,7 @@ export function AppShell({ tenantName, userName, role, children }: AppShellProps
   const kids = useQuery({ ...childTenantsQuery, enabled: isMaster });
   const NAV = navFor(role);
   const { theme, toggle } = useTheme();
+  useDropGuard();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 

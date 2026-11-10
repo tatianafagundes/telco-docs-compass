@@ -4,6 +4,8 @@ import * as reads from "@/services/document.functions";
 import * as writes from "@/services/document-write.functions";
 import * as config from "@/services/tenant-config.functions";
 import * as retention from "@/services/retention.functions";
+import * as pipeline from "@/services/pipeline.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export class SeamFailure extends Error {
   readonly code: string;
@@ -89,4 +91,13 @@ export const api = {
     write(config.saveSpecification, "config.saveSpecification", i),
   resetSpecification: (i: WithoutKey<Parameters<typeof config.resetSpecification>[0]["data"]>) =>
     write(config.resetSpecification, "config.resetSpecification", i),
+  // adding documents (simulated pipeline) and the usability-test reset
+  advancePipeline: (i: WithoutKey<Parameters<typeof pipeline.advancePipeline>[0]["data"]>) =>
+    write(pipeline.advancePipeline, "advancePipeline", i),
+  /** Sends the file bytes with the one-time ticket from register(). */
+  uploadContent: async (storagePath: string, token: string, file: File) => {
+    const { error } = await supabase.storage.from("documents").uploadToSignedUrl(storagePath, token, file, { contentType: file.type });
+    if (error) throw new SeamFailure({ code: "upload.failed", category: "unavailable", retryable: true });
+  },
+  resetTestData: async () => unwrap(await pipeline.resetTestData()),
 };

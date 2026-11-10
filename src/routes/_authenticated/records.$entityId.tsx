@@ -5,7 +5,10 @@ import { z } from "zod";
 import { PageHeader } from "@/components/erad/page-header";
 import { EmptyState } from "@/components/erad/empty-state";
 import { SidePanel } from "@/components/erad/side-panel";
-import { Lock } from "lucide-react";
+import { Check, Lock } from "lucide-react";
+import { useState } from "react";
+import { AddDocuments } from "@/components/upload/add-documents";
+import { useUpload } from "@/hooks/use-upload";
 import { Tag } from "@/components/erad/tag";
 import { SkeletonRow } from "@/components/erad/misc";
 import { DocumentPanel } from "@/components/documents/document-panel";
@@ -54,6 +57,12 @@ function RecordPage() {
   const { data } = useSuspenseQuery(recordQuery(entityId));
   const { data: me } = useSuspenseQuery(meQuery);
   const role = me.access?.role ?? "viewer";
+  const entityKind = data.entity?.referred_type === "Account" ? "account" : "order";
+  const upload = useUpload(entityId);
+  const [attentionOnly, setAttentionOnly] = useState(false);
+  // "Ready" stays visible on rows added in this visit.
+  const addedHere = new Map(upload.rows.filter((r) => r.docId).map((r) => [r.docId as string, r.state]));
+  const items = attentionOnly ? data.items.filter((d) => d.pipeline_state === "failed" || d.pipeline_state === "quarantined") : data.items;
 
   if (!data.entity) {
     return <EmptyState icon={FileText} title="This record isn't available to you" cause="It may belong to another team, or your access has changed." action={<Link to="/documents" className="type-label-14 underline">Back to documents</Link>} />;
@@ -64,11 +73,25 @@ function RecordPage() {
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <Link to="/documents" className="type-label-12 text-text-secondary hover:underline">Documents</Link>
         <PageHeader title={data.entity.display_name} />
-        {data.items.length === 0 ? (
-          <EmptyState icon={FileText} title="No documents on this record yet" cause="Documents appear here once they're added to this record." />
+        <AddDocuments
+          entityId={entityId}
+          entityKind={entityKind}
+          role={role}
+          existing={data.items.map((d) => ({ id: d.id, name: d.name }))}
+          upload={upload}
+          onShowAttention={() => setAttentionOnly(true)}
+        >
+        {attentionOnly ? (
+          <p className="type-label-14 flex items-center gap-2">
+            Showing files that need attention.
+            <button type="button" className="focus-ring underline" onClick={() => setAttentionOnly(false)}>Show all</button>
+          </p>
+        ) : null}
+        {items.length === 0 ? (
+          <EmptyState icon={FileText} title="No documents on this record yet" cause="You can add files with the button above, or drop them here." />
         ) : (
           <ul className="border-t border-border-subtle">
-            {data.items.map((d) => (
+            {items.map((d) => (
               <li key={d.id}>
                 <button
                   type="button"
@@ -84,12 +107,16 @@ function RecordPage() {
                     <Tag tone={STATUS_TONE[d.status]} small>{STATUS_LABEL[d.status]}</Tag>
                     {d.legal_hold ? <Tag tone="major" icon={<Lock aria-hidden="true" className="size-4" />}>On hold</Tag> : null}
                     {d.pipeline_state !== "ready" ? <Tag tone={PIPELINE_TONE[d.pipeline_state]} small>{PIPELINE_LABEL[d.pipeline_state]}</Tag> : null}
+                    {d.pipeline_state === "ready" && addedHere.has(d.id) ? (
+                      <Tag tone="cleared" small icon={<Check aria-hidden="true" className="size-4" />}>Ready</Tag>
+                    ) : null}
                   </span>
                 </button>
               </li>
             ))}
           </ul>
         )}
+        </AddDocuments>
       </div>
       {doc ? (
         <SidePanel title="Document" collapsed={false} onCollapsedChange={() => void navigate({ search: {} })}>
