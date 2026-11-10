@@ -747,16 +747,6 @@ export type Database = {
         Args: { _lines: string[]; _title: string }
         Returns: Json
       }
-      seed_demo_access: {
-        Args: {
-          _all_entities?: boolean
-          _name: string
-          _role: Database["public"]["Enums"]["app_role"]
-          _tenant: string
-          _user: string
-        }
-        Returns: undefined
-      }
       user_tenant: { Args: never; Returns: string }
     }
     Enums: {
