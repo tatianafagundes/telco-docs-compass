@@ -374,17 +374,23 @@ export const setHold = createServerFn({ method: "POST" })
     const { idempotencyKey, ...body } = data;
     return runWrite(context, await adminClient(), { op: "setHold", idempotencyKey, body, documentId: data.id }, async (env) => {
       if (!can(env.role, "manage")) return forbidden();
+      const now = new Date().toISOString();
       await env.admin
         .from("documents")
         .update({
           legal_hold: data.active,
           hold_reason: data.active ? (data.reason ?? null) : null,
+          hold_reference: data.active ? (data.reference ?? null) : null,
+          hold_since: data.active ? now : null,
           hold_set_by: data.active ? env.userId : null,
-          updated_at: new Date().toISOString(),
+          updated_at: now,
         })
         .eq("id", data.id);
-      await audit(env, "hold", data.id, data.active ? `Hold set: ${data.reason ?? ""}` : "Hold released");
-      return { ok: true, data: await loadDoc(env.admin, data.id) };
+      const { count } = await env.admin.from("document_versions").select("id", { count: "exact", head: true }).eq("document_id", data.id);
+      const ref = data.reference ? ` (${data.reference})` : "";
+      await audit(env, "hold", data.id, data.active ? `Hold placed${ref}: ${data.reason ?? ""}` : `Hold released: ${data.reason ?? ""}`);
+      // metadataOnly: the record and its versions are protected here; the content store itself is not locked.
+      return { ok: true, data: { doc: await loadDoc(env.admin, data.id), versionsCovered: count ?? 0 } };
     });
   });
 

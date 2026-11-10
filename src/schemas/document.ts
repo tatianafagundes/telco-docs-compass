@@ -90,8 +90,18 @@ export const transitionSchema = z.object({
 });
 
 export const setHoldSchema = z
-  .object({ idempotencyKey, id: docId, active: z.boolean(), reason: z.string().trim().max(120).optional() })
-  .refine((v) => !v.active || Boolean(v.reason), { message: "reason is required to set a hold" });
+  .object({
+    idempotencyKey,
+    id: docId,
+    active: z.boolean(),
+    reason: z.string().trim().max(120).optional(),
+    reference: z.string().trim().max(40).optional(),
+  })
+  // Placing and releasing a hold both need a reason.
+  .refine((v) => Boolean(v.reason), { message: "reason is required to place or release a hold" });
+
+export const purgeSchema = z.object({ idempotencyKey, id: docId, reason: z.string().trim().min(1).max(120) });
+export const pageSchema = z.object({ page: z.number().int().min(0).max(1000).default(0) });
 
 export const docWriteSchema = z.object({ idempotencyKey, id: docId });
 
