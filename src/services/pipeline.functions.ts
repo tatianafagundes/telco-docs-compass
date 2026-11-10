@@ -87,8 +87,20 @@ export const resetTestData = createServerFn({ method: "POST" })
     const paths = (versions ?? []).map((v) => v.storage_path).filter((p): p is string => Boolean(p) && !String(p).startsWith("sample/"));
     if (paths.length) await admin.storage.from(BUCKET).remove(paths);
     if (ids.length) {
-      await admin.from("document_events").delete().in("document_id", ids);
-      await admin.from("documents").delete().in("id", ids);
+      // Break the document ↔ current version link first so both can go.
+      const steps = [
+        () => admin.from("documents").update({ current_version_id: null }).in("id", ids),
+        () => admin.from("document_events").delete().in("document_id", ids),
+        () => admin.from("document_versions").delete().in("document_id", ids),
+        () => admin.from("documents").delete().in("id", ids),
+      ];
+      for (const step of steps) {
+        const { error } = await step();
+        if (error) {
+          console.error(JSON.stringify({ op: "resetTestData", error: error.message }));
+          return { ok: false as const, error: seamError("reset.failed", "unavailable", "retry") };
+        }
+      }
     }
     await admin.from("idempotency_keys").delete().neq("key", "");
     const { count: remaining } = await admin.from("documents").select("id", { count: "exact", head: true });
