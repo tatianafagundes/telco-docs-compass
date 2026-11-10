@@ -4,6 +4,7 @@ import { Building2 } from "lucide-react";
 import { Card } from "@/components/erad/card";
 import { EmptyState } from "@/components/erad/empty-state";
 import { StatCounts } from "@/components/admin/stat-counts";
+import { ResetTestData } from "@/components/admin/reset-test-data";
 import { childTenantsQuery } from "@/hooks/use-config";
 
 export const Route = createFileRoute("/_authenticated/admin/tenants")({
@@ -28,6 +29,7 @@ function TenantsPage() {
   return (
     <div className="flex flex-col gap-4">
       <p className="type-paragraph-14">You see counts and settings. Document names and content stay inside each tenant.</p>
+      <ResetTestData />
       {kids.length === 0 ? (
         <EmptyState icon={Building2} title="No organisations yet" cause="When a country joins the group, its counts and settings appear here." />
       ) : (
