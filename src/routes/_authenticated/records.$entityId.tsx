@@ -5,6 +5,7 @@ import { z } from "zod";
 import { PageHeader } from "@/components/erad/page-header";
 import { EmptyState } from "@/components/erad/empty-state";
 import { SidePanel } from "@/components/erad/side-panel";
+import { Lock } from "lucide-react";
 import { Tag } from "@/components/erad/tag";
 import { SkeletonRow } from "@/components/erad/misc";
 import { DocumentPanel } from "@/components/documents/document-panel";
@@ -81,6 +82,7 @@ function RecordPage() {
                   <span className="type-label-14 truncate">{d.name}</span>
                   <span className="flex shrink-0 gap-2">
                     <Tag tone={STATUS_TONE[d.status]} small>{STATUS_LABEL[d.status]}</Tag>
+                    {d.legal_hold ? <Tag tone="major" icon={<Lock aria-hidden="true" className="size-4" />}>On hold</Tag> : null}
                     {d.pipeline_state !== "ready" ? <Tag tone={PIPELINE_TONE[d.pipeline_state]} small>{PIPELINE_LABEL[d.pipeline_state]}</Tag> : null}
                   </span>
                 </button>
