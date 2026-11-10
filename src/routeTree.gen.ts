@@ -23,6 +23,7 @@ import { Route as AuthenticatedAdminTenantsRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminTypesRouteImport } from './routes/_authenticated/admin.types'
 import { Route as AuthenticatedRecordsEntityIdRouteImport } from './routes/_authenticated/records.$entityId'
 import { Route as AuthenticatedAdminTenantsTenantIdRouteImport } from './routes/_authenticated/admin.tenants.$tenantId'
+import { Route as AuthenticatedRecordsEntityIdReviewDocIdRouteImport } from './routes/_authenticated/records.$entityId_.review.$docId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -97,6 +98,12 @@ const AuthenticatedAdminTenantsTenantIdRoute =
     path: '/$tenantId',
     getParentRoute: () => AuthenticatedAdminTenantsRoute,
   } as any)
+const AuthenticatedRecordsEntityIdReviewDocIdRoute =
+  AuthenticatedRecordsEntityIdReviewDocIdRouteImport.update({
+    id: '/records/$entityId_/review/$docId',
+    path: '/records/$entityId/review/$docId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -112,6 +119,7 @@ export interface FileRoutesByFullPath {
   '/records/$entityId': typeof AuthenticatedRecordsEntityIdRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/admin/tenants/$tenantId': typeof AuthenticatedAdminTenantsTenantIdRoute
+  '/records/$entityId/review/$docId': typeof AuthenticatedRecordsEntityIdReviewDocIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -126,6 +134,7 @@ export interface FileRoutesByTo {
   '/records/$entityId': typeof AuthenticatedRecordsEntityIdRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/admin/tenants/$tenantId': typeof AuthenticatedAdminTenantsTenantIdRoute
+  '/records/$entityId/review/$docId': typeof AuthenticatedRecordsEntityIdReviewDocIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -143,6 +152,7 @@ export interface FileRoutesById {
   '/_authenticated/records/$entityId': typeof AuthenticatedRecordsEntityIdRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/admin/tenants/$tenantId': typeof AuthenticatedAdminTenantsTenantIdRoute
+  '/_authenticated/records/$entityId_/review/$docId': typeof AuthenticatedRecordsEntityIdReviewDocIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -160,6 +170,7 @@ export interface FileRouteTypes {
     | '/records/$entityId'
     | '/admin/'
     | '/admin/tenants/$tenantId'
+    | '/records/$entityId/review/$docId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -174,6 +185,7 @@ export interface FileRouteTypes {
     | '/records/$entityId'
     | '/admin'
     | '/admin/tenants/$tenantId'
+    | '/records/$entityId/review/$docId'
   id:
     | '__root__'
     | '/'
@@ -190,6 +202,7 @@ export interface FileRouteTypes {
     | '/_authenticated/records/$entityId'
     | '/_authenticated/admin/'
     | '/_authenticated/admin/tenants/$tenantId'
+    | '/_authenticated/records/$entityId_/review/$docId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -299,6 +312,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminTenantsTenantIdRouteImport
       parentRoute: typeof AuthenticatedAdminTenantsRoute
     }
+    '/_authenticated/records/$entityId_/review/$docId': {
+      id: '/_authenticated/records/$entityId_/review/$docId'
+      path: '/records/$entityId/review/$docId'
+      fullPath: '/records/$entityId/review/$docId'
+      preLoaderRoute: typeof AuthenticatedRecordsEntityIdReviewDocIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -341,6 +361,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDocumentsRoute: typeof AuthenticatedDocumentsRoute
   AuthenticatedHoldsRoute: typeof AuthenticatedHoldsRoute
   AuthenticatedRecordsEntityIdRoute: typeof AuthenticatedRecordsEntityIdRoute
+  AuthenticatedRecordsEntityIdReviewDocIdRoute: typeof AuthenticatedRecordsEntityIdReviewDocIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -348,6 +369,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDocumentsRoute: AuthenticatedDocumentsRoute,
   AuthenticatedHoldsRoute: AuthenticatedHoldsRoute,
   AuthenticatedRecordsEntityIdRoute: AuthenticatedRecordsEntityIdRoute,
+  AuthenticatedRecordsEntityIdReviewDocIdRoute:
+    AuthenticatedRecordsEntityIdReviewDocIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

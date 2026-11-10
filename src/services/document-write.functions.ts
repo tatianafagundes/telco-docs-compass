@@ -82,7 +82,7 @@ export const find = createServerFn({ method: "POST" })
       await expireDue(await adminClient(), tenantId);
       const pageSize = data.pageSize ?? 50;
       const offset = data.pageToken ? Number(data.pageToken) : 0;
-      const select = `${DOC_COLUMNS}, document_relations${data.entityId ? "!inner" : ""}(entity_id, role)`;
+      const select = `${DOC_COLUMNS}, extraction_fields(status, version_id), document_relations${data.entityId ? "!inner" : ""}(entity_id, role)`;
 
       const base = () => {
         let q = caller.from("documents").select(select, { count: "exact" }).is("deleted_at", null);
