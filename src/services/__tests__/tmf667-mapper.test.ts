@@ -35,8 +35,9 @@ const versions = [
 describe("toTmfDocument", () => {
   it("should map versions to attachments and mark the current one", () => {
     const t = toTmfDocument("https://x.test", doc, versions, [{ entity_id: "O-7731", role: "orderAttachment", referred_type: "ProductOrder" }]);
-    expect(t["@type"]).toBe("Document");
-    expect(t.href).toBe("https://x.test/api/public/tmf-api/documentManagement/v4/document/11111111-1111-1111-1111-111111111111");
+    expect(t["@type"]).toBe("EradDocument");
+    expect(t["@baseType"]).toBe("Document");
+    expect(t.href).toBe("https://x.test/api/public/tmf-api/document/v4/document/11111111-1111-1111-1111-111111111111");
     expect(t.version).toBe("2");
     expect(t.attachment.filter((a) => a.isCurrent).map((a) => a.id)).toEqual(["v2"]);
     expect(t.relatedEntity[0]?.["@referredType"]).toBe("ProductOrder");
@@ -100,12 +101,113 @@ describe("events", () => {
   it("should never include characteristic values in the event", () => {
     const e = toTmfEvent("https://x.test", { id: 1, event_type: "DocumentStateChangeEvent", document_id: "d1", created_at: "t", payload: { lifecycleState: "approved", secret: "x" } });
     expect(JSON.stringify(e)).not.toContain("secret");
-    expect(e.event.document.lifecycleState).toBe("approved");
+    expect(e.event.document).toMatchObject({ status: "approved", lifecycleState: "approved" });
   });
   it("should refuse non-https or internal callback addresses", () => {
     expect(isSafeCallback("https://ordercare.example.com/hook")).toBe(true);
     expect(isSafeCallback("http://ordercare.example.com/hook")).toBe(false);
     expect(isSafeCallback("https://127.0.0.1/hook")).toBe(false);
     expect(isSafeCallback("https://localhost/hook")).toBe(false);
+  });
+});
+
+import {
+  eventNameFor,
+  isPrivateIp,
+  signedPayload,
+  statesForTmfStatus,
+  targetForTmfStatus,
+  toStandardReferredType,
+  toTmfStatus,
+  toTmfSpecification,
+} from "@/services/tmf667-mapper";
+
+describe("TMF667 v4 status", () => {
+  it("should map every internal state to the v4 DocumentStatusType", () => {
+    expect(toTmfStatus("draft")).toBe("created");
+    expect(toTmfStatus("in_review")).toBe("reviewed");
+    expect(toTmfStatus("approved")).toBe("approved");
+    expect(toTmfStatus("effective")).toBe("published");
+    expect(toTmfStatus("superseded")).toBe("archived");
+    expect(toTmfStatus("expired")).toBe("archived");
+    expect(toTmfStatus("archived")).toBe("archived");
+    expect(toTmfStatus("effective", true)).toBe("deleted");
+  });
+  it("should expand a status filter to every matching internal state", () => {
+    expect(statesForTmfStatus("archived").sort()).toEqual(["archived", "expired", "superseded"]);
+    expect(statesForTmfStatus("published")).toEqual(["effective"]);
+  });
+  it("should accept status= in list queries and intersect it with lifecycleState", () => {
+    const r = parseListQuery(new URLSearchParams("status=approved,published"));
+    expect(r.ok && r.value.lifecycleState?.sort()).toEqual(["approved", "effective"]);
+    const both = parseListQuery(new URLSearchParams("status=archived&lifecycleState=expired,draft"));
+    expect(both.ok && both.value.lifecycleState).toEqual(["expired"]);
+    expect(parseListQuery(new URLSearchParams("status=bogus")).ok).toBe(false);
+  });
+  it("should map PATCH status targets and refuse deleted", () => {
+    expect(targetForTmfStatus("reviewed")).toBe("in_review");
+    expect(targetForTmfStatus("published")).toBe("effective");
+    expect(targetForTmfStatus("deleted")).toBeNull();
+  });
+  it("should return status and lifecycleState on documents", () => {
+    const t = toTmfDocument("https://x.test", { ...doc, status: "effective" }, versions, []);
+    expect(t.status).toBe("published");
+    expect(t.lifecycleState).toBe("effective");
+  });
+});
+
+describe("TMF667 v4 data model", () => {
+  it("should give each attachment a url, href and attachmentType", () => {
+    const t = toTmfDocument("https://x.test", doc, versions, []);
+    expect(t.attachment[0]?.url).toBe(`https://x.test/api/public/tmf-api/document/v4/document/${doc.id}/attachment/v1/content`);
+    expect(t.attachment[0]?.attachmentType).toBe("contract");
+  });
+  it("should use SID names for referred types", () => {
+    expect(toStandardReferredType("Account")).toBe("BillingAccount");
+    const t = toTmfDocument("https://x.test", doc, versions, [{ entity_id: "acc-1", role: "subject", referred_type: "Account" }]);
+    expect(t.relatedEntity[0]?.["@referredType"]).toBe("BillingAccount");
+    const q = parseListQuery(new URLSearchParams("relatedEntity.@referredType=BillingAccount"));
+    expect(q.ok && q.value.referredType).toBe("Account");
+  });
+  it("should carry the owner and external identifiers", () => {
+    const t = toTmfDocument("https://x.test", { ...doc, tenant_id: "aurora-se", external_identifier: [{ id: "Q-1", owner: "CPQ" }, { nope: 1 }] }, versions, []);
+    expect(t.relatedParty).toEqual([{ id: "aurora-se", role: "owner", "@referredType": "Organization", "@type": "RelatedParty" }]);
+    expect(t.externalIdentifier).toEqual([{ id: "Q-1", owner: "CPQ", "@type": "ExternalIdentifier" }]);
+  });
+  it("should express file rules as specCharacteristic", () => {
+    const s = toTmfSpecification("https://x.test", { id: "1", code: "quote", name: "Quote", version: "1", lifecycle_status: "active", definition: { acceptedMimeTypes: ["application/pdf"], maxSizeMb: 20 } });
+    const names = s.specCharacteristic.map((c) => (c as { name: string }).name);
+    expect(names).toEqual(["acceptedMimeType", "maxSizeMb"]);
+  });
+});
+
+describe("TMF667 v4 events", () => {
+  it("should send v4 event names by default", () => {
+    expect(eventNameFor(null, "DocumentStateChangeEvent")).toBe("DocumentChangeEvent");
+    expect(eventNameFor(null, "DocumentAttributeValueChangeEvent")).toBe("DocumentChangeEvent");
+    expect(eventNameFor(null, "DocumentDeleteEvent")).toBe("DocumentDeleteEvent");
+  });
+  it("should keep the old name for subscriptions that asked for it", () => {
+    expect(eventNameFor("eventType=DocumentStateChangeEvent", "DocumentStateChangeEvent")).toBe("DocumentStateChangeEvent");
+  });
+  it("should match v4 names, status and documentType filters", () => {
+    expect(eventMatches("eventType=DocumentChangeEvent", "DocumentStateChangeEvent")).toBe(true);
+    expect(eventMatches("eventType=DocumentChangeEvent&status=published", "DocumentStateChangeEvent", { status: "effective" })).toBe(true);
+    expect(eventMatches("eventType=DocumentChangeEvent&status=published", "DocumentStateChangeEvent", { status: "draft" })).toBe(false);
+    expect(eventMatches("documentType=quote", "DocumentCreateEvent", { documentType: "contract" })).toBe(false);
+  });
+  it("should fill the v4 envelope fields", () => {
+    const e = toTmfEvent("https://x.test", { id: 7, event_type: "DocumentStateChangeEvent", document_id: "d1", created_at: "2026-11-10T00:00:00Z", payload: { lifecycleState: "effective" } });
+    expect(e).toMatchObject({ eventType: "DocumentChangeEvent", correlationId: "d1", domain: "documentManagement", priority: "normal", timeOcurred: "2026-11-10T00:00:00Z", changedAttributes: ["status"] });
+  });
+  it("should sign timestamp and body together", () => {
+    expect(signedPayload("1700000000", "{}")).toBe("1700000000.{}");
+  });
+});
+
+describe("callback address checks", () => {
+  it("should treat private, loopback, link-local and CGNAT addresses as private", () => {
+    for (const ip of ["10.1.2.3", "127.0.0.1", "192.168.1.1", "172.20.0.1", "169.254.169.254", "100.64.0.1", "::1", "fd00::1", "fe80::1"]) expect(isPrivateIp(ip)).toBe(true);
+    for (const ip of ["8.8.8.8", "2606:4700::1111"]) expect(isPrivateIp(ip)).toBe(false);
   });
 });

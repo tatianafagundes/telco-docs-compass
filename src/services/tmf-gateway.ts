@@ -529,7 +529,7 @@ export async function deleteDocument(request: Request, id: string): Promise<Resp
     const doc = await findDoc(ctx, id);
     if (!doc) return { status: 404, body: tmfError(404, "notFound", "Not Found", "No document with this id.") };
     const today = new Date().toISOString().slice(0, 10);
-    const rule = deleteState("tenant_manager", doc.legal_hold, (doc as DocRow & { retain_until?: string | null }).retain_until ?? null, today);
+    const rule = deleteState("manager", doc.legal_hold, (doc as DocRow & { retain_until?: string | null }).retain_until ?? null, today);
     if (!rule.available) return { status: 409, body: tmfError(409, doc.legal_hold ? "legalHold" : "retention", "Conflict", rule.reason ?? "This document can't be deleted yet.") };
     await ctx.admin.from("documents").update({ deleted_at: new Date().toISOString() }).eq("id", doc.id).eq("tenant_id", ctx.tenantId);
     await audit(ctx, "delete", doc.id, "Deleted");
