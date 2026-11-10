@@ -29,7 +29,7 @@ Error shape for internal operations: `{code, category, retryable, customerFacing
 |---|---|
 | BR-020 | Approve is refused while any spec characteristic with `required && extractable` lacks an accepted or edited field. The error is `doc.approve.requiredPending`, with detail = the count. |
 | BR-021 | Gate reason: "1 required detail needs checking" or "N required details need checking". |
-| BR-022 | Four-eyes: if `documents.created_by == caller`, approval is refused with `doc.approve.ownDocument`. Reason: "Someone other than the person who added it needs to approve it." Documents with a null creator (seeded or system) are exempt. This is enforced on the server and in the UI. |
+| BR-022 | Four-eyes: if `documents.created_by == caller`, approval is refused with `doc.approve.ownDocument`. Reason: "Someone other than the person who added it needs to approve it." Documents with a null creator (seeded or system) are exempt. This is enforced on the server and in the UI. It is not checked in the TMF API (see 04 gap). |
 | BR-023 | The system never auto-accepts extracted details, whatever the confidence. |
 | BR-024 | Journey step: draft or in_review with pending details gives 0 (Check details), otherwise 1 (Approve). approved gives 2; effective gives 3 (done); any other status means no journey. |
 | BR-025 | Footer action: when details are pending and the person can review, show "Next detail". In draft show "Send for approval". In in_review show "Approve document", unavailable for role, gate or four-eyes in that order. Otherwise show "Back to document". |
