@@ -58,19 +58,30 @@ def api(method: str, path: str, key: str | None, body=None, idem: str | None = N
         return r, None
 
 
+def hook(method: str, url: str, **kw):
+    """Calls the test receiver's control API, waiting out its own rate limit."""
+    for _ in range(4):
+        r = requests.request(method, url, timeout=20, **kw)
+        if r.status_code != 429:
+            return r
+        print("INFO receiver control API is rate limiting; waiting 60 s", flush=True)
+        time.sleep(60)
+    return r
+
+
 def receiver(status: int) -> str:
-    return requests.post(f"{HOOK}/token", json={"default_status": status}, timeout=20).json()["uuid"]
+    return hook("POST", f"{HOOK}/token", json={"default_status": status}).json()["uuid"]
 
 
 def set_status(tok: str, status: int) -> None:
-    requests.put(f"{HOOK}/token/{tok}", json={"default_status": status}, timeout=20)
+    hook("PUT", f"{HOOK}/token/{tok}", json={"default_status": status})
 
 
 def received(tok: str) -> list[dict]:
     time.sleep(2)  # receiver's request log is eventually consistent
     out, page = [], 1
     while True:
-        j = requests.get(f"{HOOK}/token/{tok}/requests?sorting=oldest&per_page=100&page={page}", headers={"Accept": "application/json"}, timeout=20).json()
+        j = hook("GET", f"{HOOK}/token/{tok}/requests?sorting=oldest&per_page=100&page={page}", headers={"Accept": "application/json"}).json()
         out += j.get("data", [])
         if j.get("is_last_page", True):
             return out
