@@ -6,7 +6,7 @@ describe("typeLabel", () => {
     expect(typeLabel("orderAttachment")).toBe("Order attachment");
   });
   it("should make an unknown code readable", () => {
-    expect(typeLabel("powerOfAttorney")).toBe("Power Of attorney".replace("Of", "of"));
+    expect(typeLabel("powerOfAttorney")).toBe("Power of attorney");
   });
 });
 

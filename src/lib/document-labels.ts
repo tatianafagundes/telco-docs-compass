@@ -109,5 +109,5 @@ const TYPE_LABEL: Record<string, string> = {
 
 /** Plain name for a document type code ("orderAttachment" -> "Order attachment"). */
 export function typeLabel(code: string): string {
-  return TYPE_LABEL[code] ?? code.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
+  return TYPE_LABEL[code] ?? code.replace(/([a-z])([A-Z])/g, (_m, a: string, b: string) => `${a} ${b.toLowerCase()}`).replace(/^./, (c) => c.toUpperCase());
 }
