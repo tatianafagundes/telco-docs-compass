@@ -2,7 +2,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { seamError, type SeamErr } from "@/services/document-rules";
+import { can, seamError, type SeamErr } from "@/services/document-rules";
 import { audit, forbidden, loadRole, runWrite, type Db } from "@/services/seam-runtime";
 import { nextPipelineState, simulatedOutcome } from "@/services/upload-rules";
 import type { PipelineState } from "@/schemas/document";
@@ -30,10 +30,13 @@ export const advancePipeline = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { idempotencyKey, ...body } = data;
     return runWrite(context, await adminClient(), { op: "advancePipeline", idempotencyKey, body, documentId: data.id }, async (env) => {
+      // Seeing a document (e.g. through a share) is not enough: processing changes need edit rights in its own organisation.
+      if (!can(env.role, "edit")) return forbidden();
       const { data: doc } = await env.admin
         .from("documents")
         .select("id, name, pipeline_state, pipeline_detail, current_version_id, created_by")
         .eq("id", data.id)
+        .eq("tenant_id", env.tenantId)
         .maybeSingle();
       if (!doc) return { ok: false, error: seamError("doc.notFound", "notFound") };
       // Seeded documents never change state on their own.
@@ -62,7 +65,8 @@ export const advancePipeline = createServerFn({ method: "POST" })
       await env.admin
         .from("documents")
         .update({ pipeline_state: next, pipeline_detail: detail, updated_at: new Date().toISOString() })
-        .eq("id", data.id);
+        .eq("id", data.id)
+        .eq("tenant_id", env.tenantId);
       await audit(env, "pipelineStateChange", data.id, `${current} to ${next}`);
       return { ok: true, data: { id: data.id, state: next, retried: Boolean(data.retry) } };
     });
@@ -75,15 +79,21 @@ export const resetTestData = createServerFn({ method: "POST" })
     const r = await loadRole(context.supabase, context.userId);
     if (r?.role !== "master_admin") return forbidden();
     const admin = await adminClient();
-    // Guard: only ever run against the synthetic prototype data.
-    const { count: synthetic } = await admin.from("tenants").select("id", { count: "exact", head: true }).like("id", "aurora-%");
-    if (!synthetic) return { ok: false as const, error: seamError("reset.notTestData", "rejected", "none") };
+    // Scope: only the caller's own group and its countries, and only synthetic prototype organisations.
+    const { data: groupTenants } = await admin
+      .from("tenants")
+      .select("id")
+      .or(`id.eq.${r.tenantId},parent_tenant_id.eq.${r.tenantId}`);
+    const tenantIds = (groupTenants ?? []).map((t) => t.id);
+    if (!tenantIds.length || tenantIds.some((t) => !t.startsWith("aurora-"))) {
+      return { ok: false as const, error: seamError("reset.notTestData", "rejected", "none") };
+    }
 
     // Added = created by a person, or by a connected system (no creator, but not one of the fixed seed ids).
-    const { data: added } = await admin.from("documents").select("id, created_by").is("purged_at", null);
+    const { data: added } = await admin.from("documents").select("id, created_by").in("tenant_id", tenantIds).is("purged_at", null);
     const ids = (added ?? []).filter((d) => d.created_by !== null || !d.id.startsWith("00000000-0000-0000-0000-")).map((d) => d.id);
     const { data: versions } = ids.length
-      ? await admin.from("document_versions").select("storage_path").in("document_id", ids)
+      ? await admin.from("document_versions").select("storage_path").in("document_id", ids).in("tenant_id", tenantIds)
       : { data: [] as { storage_path: string | null }[] };
     const paths = (versions ?? []).map((v) => v.storage_path).filter((p): p is string => Boolean(p) && !String(p).startsWith("sample/"));
     if (paths.length) await admin.storage.from(BUCKET).remove(paths);
@@ -93,7 +103,7 @@ export const resetTestData = createServerFn({ method: "POST" })
       const now = new Date().toISOString();
       const steps = [
         () => admin.from("document_relations").delete().in("document_id", ids),
-        () => admin.from("documents").update({ deleted_at: now, purged_at: now }).in("id", ids),
+        () => admin.from("documents").update({ deleted_at: now, purged_at: now }).in("id", ids).in("tenant_id", tenantIds),
       ];
       for (const step of steps) {
         const { error } = await step();
@@ -103,7 +113,7 @@ export const resetTestData = createServerFn({ method: "POST" })
         }
       }
     }
-    await admin.from("idempotency_keys").delete().neq("key", "");
-    const { count: remaining } = await admin.from("documents").select("id", { count: "exact", head: true }).is("purged_at", null);
+    await admin.from("idempotency_keys").delete().in("tenant_id", tenantIds);
+    const { count: remaining } = await admin.from("documents").select("id", { count: "exact", head: true }).in("tenant_id", tenantIds).is("purged_at", null);
     return { ok: true as const, data: { documentsRemoved: ids.length, filesRemoved: paths.length, documentsRemaining: remaining ?? 0 } };
   });
