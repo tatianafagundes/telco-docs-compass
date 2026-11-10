@@ -34,6 +34,17 @@ import {
 import { audit, forbidden, runRead, runWrite, type Db } from "@/services/seam-runtime";
 
 const BUCKET = "documents";
+
+interface UploadTicket {
+  versionId: string;
+  method: "signedUrl";
+  url: string;
+  token: string;
+  expiresAt: string;
+}
+type ContentResult =
+  | { kind: "sample"; mimeType: string; pages: Json; previewable: boolean }
+  | { kind: "signed"; url: string; expiresAt: string; mimeType: string; previewable: boolean };
 const DOC_COLUMNS =
   "id, tenant_id, name, document_type, status, pipeline_state, pipeline_detail, sensitivity, signature_level, effective_date, valid_to, expiry_date, legal_hold, hold_reason, retain_until, characteristic, current_version_id, created_at, updated_at";
 
@@ -251,7 +262,7 @@ export const addVersion = createServerFn({ method: "POST" })
         });
         await env.admin.from("documents").update({ current_version_id: versionId, updated_at: new Date().toISOString() }).eq("id", data.id);
         await audit(env, "restore", data.id, `Version ${n} from ${src.label}`.slice(0, 160), versionId);
-        return { ok: true, data: { versionId, label, upload: null } };
+        return { ok: true, data: { versionId: versionId as string, label, upload: null as UploadTicket | null } };
       }
 
       const storagePath = `${env.tenantId}/${versionId}`;
@@ -278,9 +289,9 @@ export const addVersion = createServerFn({ method: "POST" })
       return {
         ok: true,
         data: {
-          versionId,
+          versionId: versionId as string,
           label,
-          upload: {
+          upload: <UploadTicket | null>{
             versionId,
             method: "signedUrl" as const,
             url: signed?.signedUrl ?? "",
@@ -308,7 +319,8 @@ export const getContentUrl = createServerFn({ method: "POST" })
         .maybeSingle();
       if (!v) return fail("doc.version.notFound", "notFound");
       if (isSampleStorage(v.storage_path)) {
-        return { ok: true, data: { kind: "sample" as const, mimeType: v.mime_type, pages: v.sample_pages, previewable: v.sample_pages !== null } };
+        const sample: ContentResult = { kind: "sample", mimeType: v.mime_type, pages: v.sample_pages, previewable: v.sample_pages !== null };
+        return { ok: true, data: sample };
       }
       const seconds = data.purpose === "preview" ? PREVIEW_URL_SECONDS : DOWNLOAD_URL_SECONDS;
       const admin = await adminClient();
@@ -316,16 +328,14 @@ export const getContentUrl = createServerFn({ method: "POST" })
         .from(BUCKET)
         .createSignedUrl(v.storage_path ?? "", seconds, data.purpose === "download" ? { download: doc.name } : undefined);
       if (error || !signed) return fail("doc.content.unavailable", "unavailable", "retry");
-      return {
-        ok: true,
-        data: {
-          kind: "signed" as const,
+      const signedOut: ContentResult = {
+          kind: "signed",
           url: signed.signedUrl,
           expiresAt: new Date(Date.now() + seconds * 1000).toISOString(),
           mimeType: v.mime_type,
           previewable: v.mime_type === "application/pdf" || v.mime_type.startsWith("image/"),
-        },
       };
+      return { ok: true, data: signedOut };
     }),
   );
 

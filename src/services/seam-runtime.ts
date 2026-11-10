@@ -1,7 +1,7 @@
 // Shared write pipeline for the document seam. Receives the caller client (RLS) and the admin
 // client from the server-function handler; never imports server-only modules itself.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/integrations/supabase/types";
+import type { Database, Json } from "@/integrations/supabase/types";
 import {
   hashBody,
   IDEMPOTENCY_TTL_HOURS,
@@ -133,7 +133,7 @@ export async function runWrite<T>(
         key: opts.idempotencyKey,
         operation,
         request_hash: requestHash,
-        response: res as unknown as Database["public"]["Tables"]["idempotency_keys"]["Insert"]["response"],
+        response: res as unknown as Json,
       });
     }
     logOp(opts.op, env.tenantId, opts.documentId, res.ok ? "ok" : res.error.code, started);
