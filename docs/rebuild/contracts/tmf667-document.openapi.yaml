@@ -1,0 +1,261 @@
+openapi: 3.0.3
+info:
+  title: Document Management (TMF667 v4)
+  version: 4.0.0-erad.2
+  description: |
+    TM Forum TMF667 Document Management v4.0.0 for connected systems (Order care TMF622,
+    Ticket management TMF621, CRM TMF629/TMF666, CPQ TMF648). Follows TMF630 REST guidelines.
+
+    ## Conformance profile
+    Standard operations implemented (TMF667 v4.0.0):
+      - GET /document (fields, offset, limit, status, documentType, relatedEntity.id,
+        relatedEntity.@referredType, externalIdentifier.id), X-Total-Count / X-Result-Count
+      - POST /document (attachment as AttachmentRefOrValue[]: contentHash only, url, or base64 content)
+      - GET /document/{id}
+      - PATCH /document/{id} (application/merge-patch+json; name, description, status,
+        characteristic, externalIdentifier, relatedEntity (add only), validFor.endDateTime)
+      - DELETE /document/{id} (soft delete; legal holds and keep-until dates block it)
+      - GET /documentSpecification, GET /documentSpecification/{id}
+      - POST /hub, DELETE /hub/{id}; events DocumentCreateEvent, DocumentChangeEvent, DocumentDeleteEvent,
+        DocumentBatchEvent (one per bulk change pass; sent only to subscriptions with query eventType=DocumentBatchEvent)
+      - Optional Document fields: externalIdentifier, relatedParty, category (business process names, read-only),
+        document (DocumentRef to other documents in the same bundle, read-only)
+      - DocumentSpecification includes isBundle (always false) and targetEntitySchema
+    Optional parts not offered: POST/PATCH/DELETE /documentSpecification (document types are
+    managed by administrators in the app so group locks and country rules stay enforced),
+    PUT /document/{id}, DocumentSpecification* events.
+
+    Four-eyes: a system cannot approve a document it registered itself (409 fourEyesRequired);
+    another system key or a person in the app can.
+
+    Extensions (not in TMF667), with reasons:
+      - POST /document/{id}/transition: explicit status task with our detailed lifecycleState
+        (PATCH status does the same with the same rules)
+      - POST /document/{id}/legalHold: legal holds need a reason and their own permission
+      - GET /document/{id}/attachment/{attachmentId}/content: 60-second download link (attachment.url points here)
+      - @type EradDocument (@baseType Document, @schemaLocation): lifecycleState, validFor,
+        sensitivity, legalHold, attachment.contentHash, attachment.isCurrent
+      - Idempotency-Key header on every change; X-Request-ID on every reply
+      - Signed events: X-Signature-Timestamp and X-Signature = sha256 HMAC of "<timestamp>.<body>";
+        hub reply includes signingSecret once. Receivers should reject events older than 5 minutes.
+      - Events carry a reference (id, href, status) and never document content; fetch with your key.
+      - Delivery: each subscriber is tracked separately. Any 2xx reply counts as received; otherwise the
+        event is retried for that subscriber only after 30 s, 2 min, 10 min, 30 min and 2 h (a longer
+        Retry-After is honoured up to 1 h), then given up after 6 attempts. X-Event-Id (= eventId) stays
+        the same across retries and X-Delivery-Attempt counts tries; receivers should ignore an
+        X-Event-Id they already processed. Only events after the subscription was created are sent.
+      - OAuth 2.0 client credentials at /api/public/tmf-api/oauth/token (15-minute tokens)
+
+    Status mapping (status ← lifecycleState): created ← draft · reviewed ← in_review ·
+    approved ← approved · published ← effective · archived ← superseded, expired, archived · deleted.
+
+    Limits: each system has its own allowance per minute (default 120 reads and 30 changes, set per system by an administrator). Over the limit the reply is 429 tooManyRequests with Retry-After, RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset and RateLimit-Policy headers; one system never uses up another's allowance. Keys expire after 12 months.
+    The earlier address /api/public/tmf-api/documentManagement/v4 answers the same, with
+    Deprecation, Sunset (10 May 2027) and Link: successor-version headers.
+servers:
+  - url: /api/public/tmf-api/document/v4
+security:
+  - systemKey: []
+  - oauth: []
+paths:
+  /document:
+    get:
+      summary: List documents (scope read)
+      parameters:
+        - { name: status, in: query, schema: { type: string }, description: "Comma list of TMF DocumentStatusType" }
+        - { name: lifecycleState, in: query, schema: { type: string }, description: "Extension. Comma list: draft,in_review,approved,effective,superseded,expired,archived" }
+        - { name: relatedEntity.id, in: query, schema: { type: string } }
+        - { name: relatedEntity.@referredType, in: query, schema: { type: string, enum: [ProductOrder, TroubleTicket, Customer, BillingAccount, Quote, Agreement, Site] } }
+        - { name: externalIdentifier.id, in: query, schema: { type: string } }
+        - { name: documentType, in: query, schema: { type: string } }
+        - { name: fields, in: query, schema: { type: string } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200": { description: OK, headers: { X-Total-Count: { schema: { type: integer } }, X-Result-Count: { schema: { type: integer } } }, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Document" } } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+    post:
+      summary: Register a document (scope register)
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, documentType, relatedEntity, attachment]
+              properties:
+                name: { type: string, maxLength: 255 }
+                description: { type: string, maxLength: 2000 }
+                documentType: { type: string }
+                relatedEntity: { type: array, minItems: 1, maxItems: 5, items: { $ref: "#/components/schemas/RelatedEntity" } }
+                externalIdentifier: { type: array, items: { $ref: "#/components/schemas/ExternalIdentifier" } }
+                characteristic: { type: array, items: { $ref: "#/components/schemas/Characteristic" } }
+                attachment:
+                  type: array
+                  minItems: 1
+                  maxItems: 1
+                  items:
+                    type: object
+                    required: [mimeType]
+                    description: "Send one of: contentHash (we return uploadUrl), url (public https, fetched once, max 25 MB), or base64 content (max 5 MB)."
+                    properties:
+                      mimeType: { type: string }
+                      name: { type: string }
+                      size: { $ref: "#/components/schemas/Quantity" }
+                      contentHash: { type: string, pattern: "^[a-f0-9]{64}$" }
+                      url: { type: string, format: uri }
+                      content: { type: string, format: byte }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { allOf: [{ $ref: "#/components/schemas/Document" }, { type: object, properties: { uploadUrl: { type: string } } }] } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /document/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+    get:
+      summary: Get a document (scope read)
+      parameters: [{ name: fields, in: query, schema: { type: string } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Document" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+    patch:
+      summary: Change a document (scope register; a status-only change needs transition, or approve for approved)
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        content:
+          application/merge-patch+json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name: { type: string }
+                description: { type: string }
+                status: { type: string, enum: [created, reviewed, approved, published, archived] }
+                characteristic: { type: array, items: { $ref: "#/components/schemas/Characteristic" } }
+                externalIdentifier: { type: array, items: { $ref: "#/components/schemas/ExternalIdentifier" } }
+                relatedEntity: { type: array, items: { $ref: "#/components/schemas/RelatedEntity" }, description: "Adds links; existing links are kept." }
+                validFor: { type: object, properties: { endDateTime: { type: string } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Document" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+    delete:
+      summary: Delete a document (scope delete). Restorable by an administrator; holds and keep-until dates block it.
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /document/{id}/transition:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+    post:
+      summary: "Extension: move along the status path (scope transition; approved needs approve and every required detail confirmed by a person)"
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody: { content: { application/json: { schema: { type: object, required: [lifecycleState], properties: { lifecycleState: { type: string, enum: [in_review, approved, effective, superseded, expired, archived] } } } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Document" } } } }
+        "409": { $ref: "#/components/responses/Error" }
+  /document/{id}/legalHold:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+    post:
+      summary: "Extension: place or release a legal hold (scope hold)"
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody: { content: { application/json: { schema: { type: object, required: [active, reason], properties: { active: { type: boolean }, reason: { type: string }, reference: { type: string } } } } } }
+      responses: { "200": { description: OK } }
+  /document/{id}/attachment/{attachmentId}/content:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: attachmentId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      summary: "Extension: 60-second download link (scope read)"
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { url: { type: string }, expiresInSeconds: { type: integer } } } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /documentSpecification:
+    get:
+      summary: List document types (scope read)
+      responses: { "200": { description: OK } }
+  /documentSpecification/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    get:
+      summary: Get one document type (scope read)
+      responses: { "200": { description: OK }, "404": { $ref: "#/components/responses/Error" } }
+  /hub:
+    post:
+      summary: Subscribe to events (scope subscribe). callback must be public https (checked by DNS at subscribe and before each delivery).
+      requestBody: { content: { application/json: { schema: { type: object, required: [callback], properties: { callback: { type: string }, query: { type: string, example: "eventType=DocumentChangeEvent&status=published&documentType=contract" } } } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { type: object, properties: { id: { type: string }, callback: { type: string }, query: { type: string }, signingSecret: { type: string } } } } } }
+        "400": { $ref: "#/components/responses/Error" }
+  /hub/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    delete:
+      summary: Unsubscribe
+      responses: { "204": { description: Removed }, "404": { $ref: "#/components/responses/Error" } }
+components:
+  securitySchemes:
+    systemKey: { type: http, scheme: bearer, description: "System key from Admin → Connected systems (erad_…)." }
+    oauth:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: /api/public/tmf-api/oauth/token
+          scopes: { read: Read, register: Register and change, transition: Status path, approve: Approve, hold: Legal holds, delete: Delete, subscribe: Events }
+  parameters:
+    IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, pattern: "^[A-Za-z0-9_-]{8,128}$" } }
+  responses:
+    Error: { description: TMF error, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+  schemas:
+    Quantity: { type: object, properties: { amount: { type: number }, units: { type: string } } }
+    RelatedEntity: { type: object, required: [id, role, "@referredType"], properties: { id: { type: string }, role: { type: string }, "@referredType": { type: string }, "@type": { type: string } } }
+    ExternalIdentifier: { type: object, required: [id], properties: { id: { type: string }, owner: { type: string }, externalIdentifierType: { type: string } } }
+    Characteristic: { type: object, required: [name, value], properties: { name: { type: string }, value: {}, valueType: { type: string } } }
+    Error: { type: object, required: [code, reason], properties: { code: { type: string }, reason: { type: string }, message: { type: string }, status: { type: string }, "@type": { type: string } } }
+    Document:
+      type: object
+      required: [id, href, "@type", name, status]
+      properties:
+        id: { type: string }
+        href: { type: string }
+        "@type": { type: string, enum: [EradDocument] }
+        "@baseType": { type: string, enum: [Document] }
+        "@schemaLocation": { type: string }
+        name: { type: string }
+        description: { type: string }
+        documentType: { type: string }
+        status: { type: string, enum: [created, reviewed, approved, published, archived, deleted] }
+        creationDate: { type: string, format: date-time }
+        lastUpdate: { type: string, format: date-time }
+        version: { type: string }
+        documentSpecification: { type: object, properties: { id: { type: string }, href: { type: string }, "@referredType": { type: string } } }
+        relatedEntity: { type: array, items: { $ref: "#/components/schemas/RelatedEntity" } }
+        relatedParty: { type: array, items: { type: object, properties: { id: { type: string }, role: { type: string }, "@referredType": { type: string } } } }
+        externalIdentifier: { type: array, items: { $ref: "#/components/schemas/ExternalIdentifier" } }
+        characteristic: { type: array, items: { $ref: "#/components/schemas/Characteristic" } }
+        attachment:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              href: { type: string }
+              name: { type: string }
+              attachmentType: { type: string }
+              mimeType: { type: string }
+              url: { type: string }
+              size: { $ref: "#/components/schemas/Quantity" }
+              contentHash: { type: string, description: "Extension" }
+              isCurrent: { type: boolean, description: "Extension" }
+        lifecycleState: { type: string, description: "Extension", enum: [draft, in_review, approved, effective, superseded, expired, archived] }
+        validFor: { type: object, description: "Extension", properties: { startDateTime: { type: string }, endDateTime: { type: string } } }
+        sensitivity: { type: string, description: "Extension" }
+        legalHold: { type: boolean, description: "Extension" }

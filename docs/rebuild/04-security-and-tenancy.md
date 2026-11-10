@@ -44,7 +44,7 @@ visible(doc, caller) :=
 - The client may add only `view` and `download` events.
 
 ### Four-eyes
-`created_by == caller` blocks approval (BR-022) on both the server and the UI. **Known gap:** the TMF API approve path (`tmf-gateway.ts`) does not check the creator. It relies on the separate `approve` scope. The rebuild should decide explicitly: the recommendation is that a system cannot approve a document registered by the same system.
+`created_by == caller` blocks approval (BR-022) on both the server and the UI. Over the TMF API (BR-140), a system key cannot approve a document it registered itself (`documents.registered_by_client`); the reply is 409 `fourEyesRequired`. Another key or a person in the app can approve it.
 
 ## Target mapping (Java / Keycloak / Cassandra / OpenSearch)
 | Concern | Current | Target |
@@ -63,5 +63,5 @@ visible(doc, caller) :=
 2. Response-body leak scan. Sign in as `no.manager`, call every endpoint with Sweden ids, and assert that no Sweden identifier appears in any body.
 3. Master counts-only. Every master endpoint is checked for the absence of document names and ids.
 4. Share removal takes effect immediately, including on cached search results.
-5. Four-eyes is enforced in the UI and the internal API, plus whatever API rule is chosen for the gap above.
+5. Four-eyes is enforced in the UI and the internal API, and in the TMF API (BR-140).
 6. An ArchUnit rule: no controller depends on a repository directly.

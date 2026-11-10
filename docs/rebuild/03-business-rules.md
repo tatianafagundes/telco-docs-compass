@@ -29,7 +29,7 @@ Error shape for internal operations: `{code, category, retryable, customerFacing
 |---|---|
 | BR-020 | Approve is refused while any spec characteristic with `required && extractable` lacks an accepted or edited field. The error is `doc.approve.requiredPending`, with detail = the count. |
 | BR-021 | Gate reason: "1 required detail needs checking" or "N required details need checking". |
-| BR-022 | Four-eyes: if `documents.created_by == caller`, approval is refused with `doc.approve.ownDocument`. Reason: "Someone other than the person who added it needs to approve it." Documents with a null creator (seeded or system) are exempt. This is enforced on the server and in the UI. It is not checked in the TMF API (see 04 gap). |
+| BR-022 | Four-eyes: if `documents.created_by == caller`, approval is refused with `doc.approve.ownDocument`. Reason: "Someone other than the person who added it needs to approve it." Documents with a null creator (seeded or system) are exempt. This is enforced on the server and in the UI. The TMF API equivalent is BR-140. |
 | BR-023 | The system never auto-accepts extracted details, whatever the confidence. |
 | BR-024 | Journey step: draft or in_review with pending details gives 0 (Check details), otherwise 1 (Approve). approved gives 2; effective gives 3 (done); any other status means no journey. |
 | BR-025 | Footer action: when details are pending and the person can review, show "Next detail". In draft show "Send for approval". In in_review show "Approve document", unavailable for role, gate or four-eyes in that order. Otherwise show "Back to document". |
@@ -156,3 +156,6 @@ Error shape for internal operations: `{code, category, retryable, customerFacing
 | BR-137 | Inline attachment ≤ 5 MB; URL attachment fetch ≤ 25 MB, with a DNS check that rejects private addresses. |
 | BR-138 | Unknown paths and methods return TMF error JSON (404/405), never HTML. |
 | BR-139 | The legacy base `/documentManagement/v4` remains an alias until 10 May 2027. |
+| BR-140 | TMF API four-eyes: a system key cannot approve (PATCH status or /transition) a document it registered; 409 `fourEyesRequired`. |
+| BR-141 | Replies carry `category` (document type business-process names) and `document` refs to same-tenant bundle siblings; specifications carry `isBundle: false` and `targetEntitySchema`. |
+| BR-142 | A bulk change pass writes one `DocumentBatchEvent` listing changed ids; it is delivered only to subscriptions whose query names DocumentBatchEvent. |
