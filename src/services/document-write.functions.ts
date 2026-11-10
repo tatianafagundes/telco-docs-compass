@@ -32,6 +32,7 @@ import {
   type SpecCharacteristic,
 } from "@/services/document-rules";
 import { audit, forbidden, runRead, runWrite, type Db } from "@/services/seam-runtime";
+import { expireDue } from "@/services/retention.functions";
 
 const BUCKET = "documents";
 
@@ -76,7 +77,9 @@ export const find = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: z.input<typeof findSchema>) => findSchema.parse(input))
   .handler(async ({ data, context }) =>
-    runRead(context, "find", null, async ({ caller }) => {
+    runRead(context, "find", null, async ({ caller, tenantId }) => {
+      // No scheduler in the prototype: expiry is applied whenever documents are listed.
+      await expireDue(await adminClient(), tenantId);
       const pageSize = data.pageSize ?? 50;
       const offset = data.pageToken ? Number(data.pageToken) : 0;
       const select = `${DOC_COLUMNS}, document_relations${data.entityId ? "!inner" : ""}(entity_id, role)`;
@@ -433,8 +436,8 @@ export const restoreDeleted = createServerFn({ method: "POST" })
     // A deleted row is hidden by RLS, so visibility is checked here: same tenant and entity access.
     return runWrite(context, await adminClient(), { op: "restoreDeleted", idempotencyKey, body, documentId: null }, async (env) => {
       if (!can(env.role, "manage")) return forbidden();
-      const { data: doc } = await env.admin.from("documents").select("id, tenant_id, deleted_at").eq("id", data.id).maybeSingle();
-      if (!doc || doc.tenant_id !== env.tenantId || !doc.deleted_at) return fail("doc.notFound", "notFound");
+      const { data: doc } = await env.admin.from("documents").select("id, tenant_id, deleted_at, purged_at").eq("id", data.id).maybeSingle();
+      if (!doc || doc.tenant_id !== env.tenantId || !doc.deleted_at || doc.purged_at) return fail("doc.notFound", "notFound");
       if (env.role !== "tenant_admin") {
         const { data: rel } = await env.admin.from("document_relations").select("entity_id").eq("document_id", data.id);
         const ids = (rel ?? []).map((r) => r.entity_id);
