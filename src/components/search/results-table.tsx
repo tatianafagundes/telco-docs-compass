@@ -75,7 +75,7 @@ export function ResultsTable(p: ResultsTableProps) {
       <div className="type-label-12 flex h-9 items-center gap-3 border-b border-border-subtle px-3 text-text-secondary" role="presentation">
         <Checkbox aria-label="Select all loaded documents" checked={p.allSelected} onCheckedChange={p.onToggleAll} />
         <span className="flex-1">Name</span>
-        <span className="hidden w-40 xl:block">Record</span>
+        <span className="hidden w-40 2xl:block">Record</span>
         <span className="w-28">Status</span>
         <span className="hidden w-24 lg:block">Changed</span>
       </div>
@@ -118,7 +118,7 @@ export function ResultsTable(p: ResultsTableProps) {
                     {r.pending > 0 ? ` · ${r.pending} to check` : ""}
                   </span>
                 </span>
-                <span role="gridcell" className={cn("type-label-12 hidden w-40 truncate xl:block", !active && "text-text-secondary")}>
+                <span role="gridcell" className={cn("type-label-12 hidden w-40 truncate 2xl:block", !active && "text-text-secondary")}>
                   {r.entity_name ?? (r.entity_id ? "Record you can't open" : "—")}
                 </span>
                 <span role="gridcell" className="flex w-28 items-center gap-1">
