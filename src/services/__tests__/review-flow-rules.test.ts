@@ -11,7 +11,6 @@ import {
   outcomeSummary,
   pageOrder,
   recordMatch,
-  shortcutModifier,
 } from "@/services/review-flow-rules";
 
 const quote = { id: "quo-se-0412", displayName: "Q-2026-0412 · 480 lines, 5G backup" };
@@ -92,9 +91,5 @@ describe("review-flow-rules", () => {
   });
   it("should summarise the outcome", () => {
     expect(outcomeSummary([{ status: "accepted" }, { status: "accepted" }, { status: "edited" }])).toBe("All details checked: 2 confirmed, 1 corrected.");
-  });
-  it("should show ⌘ on a Mac and Ctrl elsewhere", () => {
-    expect(shortcutModifier("MacIntel")).toBe("⌘");
-    expect(shortcutModifier("Win32")).toBe("Ctrl");
   });
 });

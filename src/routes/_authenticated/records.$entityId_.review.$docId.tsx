@@ -29,7 +29,6 @@ import {
   outcomeSummary,
   pageOrder,
   recordMatch,
-  shortcutModifier,
 } from "@/services/review-flow-rules";
 import { cn } from "@/lib/utils";
 
@@ -67,8 +66,6 @@ function ReviewPage() {
   const [editing, setEditing] = useState<string | null>(null);
   const [tab, setTab] = useState<"details" | "document">("details");
   const [showKeys, setShowKeys] = useState(false);
-  const [mod, setMod] = useState<"⌘" | "Ctrl">("Ctrl");
-  useEffect(() => setMod(shortcutModifier(navigator.platform)), []);
 
   const entity = entities.data?.find((e) => e.id === entityId);
   const record = entity ? { id: entity.id, displayName: entity.display_name } : null;
@@ -221,7 +218,6 @@ function ReviewPage() {
             </div>
           ))}
         </dl>
-        <p className="type-label-12 mt-3 text-text-secondary">{mod} is not needed: single keys work while the list is focused.</p>
       </Dialog>
     </div>
   );

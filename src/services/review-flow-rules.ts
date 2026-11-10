@@ -123,7 +123,3 @@ export function mostUrgent(fields: Pick<ReviewField, "status" | "band" | "name">
   });
   return best;
 }
-
-export function shortcutModifier(platform: string): "⌘" | "Ctrl" {
-  return /mac|iphone|ipad/i.test(platform) ? "⌘" : "Ctrl";
-}
