@@ -161,7 +161,7 @@ def run(a: dict, b: dict, n: dict, ro: dict) -> None:
     a_se = for_doc(qa, se_doc)
     se_ids = sorted({hdr(q, "x-event-id") for q in a_se})
     types = sorted(json.loads(q["content"])["eventType"] for q in a_se)
-    check(len(a_se) >= 2 and "DocumentStateChangeEvent" in types and "DocumentCreateEvent" in types, f"A received the Sweden document's events ({types})")
+    check(len(a_se) >= 2 and "DocumentCreateEvent" in types and any(json.loads(q["content"])["event"]["document"].get("status") == "reviewed" for q in a_se), f"A received the create and the move-to-review events ({types})")
     check(len(se_ids) == len(a_se), "each event arrived once, with its own X-Event-Id")
     check(all(verify(sa["signingSecret"], q) for q in a_se), "A's events carry a valid, recent signature for A's secret")
     check(not any(verify(sb["signingSecret"], q) for q in a_se), "A's events do not verify with B's secret")
