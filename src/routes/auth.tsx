@@ -61,7 +61,7 @@ function AuthPage() {
       >
         <div className="flex flex-col gap-2">
           <h1 id="auth-title" className="type-title-18-medium">Documents</h1>
-          <Tag tone="purple" icon={false}>Prototype · synthetic data only</Tag>
+          <Tag tone="purple" icon={false} className="self-start">Prototype · synthetic data only</Tag>
         </div>
         <TextField label="Email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
         <TextField
