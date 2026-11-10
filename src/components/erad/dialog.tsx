@@ -1,6 +1,6 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 
 export interface DialogProps {
   open: boolean;
@@ -14,10 +14,13 @@ export interface DialogProps {
 
 export function Dialog({ open, onOpenChange, title, description, children, actions }: DialogProps) {
   // These dialogs open from ordinary buttons (no Radix Trigger), so remember the opener to return focus to it.
+  // Captured during render, before Radix moves focus into the dialog.
   const opener = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    if (open && document.activeElement instanceof HTMLElement) opener.current = document.activeElement;
-  }, [open]);
+  const wasOpen = useRef(false);
+  if (open && !wasOpen.current && typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+    opener.current = document.activeElement;
+  }
+  wasOpen.current = open;
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
