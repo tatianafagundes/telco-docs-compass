@@ -166,6 +166,22 @@ export interface DocRow {
   characteristic: unknown;
   tenant_id?: string;
   external_identifier?: unknown;
+  bundle_id?: string | null;
+}
+
+/** Extra read-only context for a document reply. */
+export interface DocExtras {
+  /** Business process names from the document type (TMF GB921), used as `category`. */
+  category?: string[];
+  /** Other visible documents in the same bundle (TMF DocumentRef). */
+  related?: { id: string; role: string }[];
+}
+
+/** Category from a document type definition's businessProcess list. */
+export function categoryFromDefinition(definition: unknown): string[] {
+  const bp = typeof definition === "object" && definition !== null ? (definition as { businessProcess?: unknown }).businessProcess : undefined;
+  if (!Array.isArray(bp)) return [];
+  return bp.map((b) => (typeof b === "object" && b !== null ? (b as { name?: unknown }).name : null)).filter((n): n is string => typeof n === "string");
 }
 
 export interface VersionRow {
@@ -220,6 +236,8 @@ export interface TmfDocument {
     isCurrent: boolean;
   }[];
   characteristic: { name: string; value: unknown; valueType?: string }[];
+  category?: string[];
+  document?: { id: string; href: string; role: string; "@referredType": "Document"; "@type": "DocumentRef" }[];
   // Extensions (EradDocument)
   lifecycleState: DocStatus;
   validFor?: { startDateTime?: string; endDateTime?: string };
@@ -246,7 +264,7 @@ function asCharacteristics(value: unknown): TmfDocument["characteristic"] {
     .map((c) => ({ name: c.name, value: c.value, ...(c.valueType ? { valueType: c.valueType } : {}) }));
 }
 
-export function toTmfDocument(origin: string, doc: DocRow, versions: VersionRow[], relations: RelationRow[]): TmfDocument {
+export function toTmfDocument(origin: string, doc: DocRow, versions: VersionRow[], relations: RelationRow[], extras: DocExtras = {}): TmfDocument {
   const current = versions.find((v) => v.id === doc.current_version_id);
   const validFor =
     doc.effective_date || doc.expiry_date
@@ -290,6 +308,10 @@ export function toTmfDocument(origin: string, doc: DocRow, versions: VersionRow[
       isCurrent: v.id === doc.current_version_id,
     })),
     characteristic: asCharacteristics(doc.characteristic),
+    ...(extras.category && extras.category.length ? { category: extras.category } : {}),
+    ...(extras.related && extras.related.length
+      ? { document: extras.related.map((r) => ({ id: r.id, href: `${origin}${TMF_BASE_PATH}/document/${r.id}`, role: r.role, "@referredType": "Document" as const, "@type": "DocumentRef" as const })) }
+      : {}),
     lifecycleState: doc.status,
     ...(validFor ? { validFor } : {}),
     sensitivity: doc.sensitivity,
@@ -330,6 +352,8 @@ export function toTmfSpecification(origin: string, s: SpecRow) {
     version: s.version,
     lifecycleStatus: s.lifecycle_status,
     "@baseType": "EntitySpecification" as const,
+    isBundle: false,
+    targetEntitySchema: { "@type": "EradDocument", "@schemaLocation": `${origin}${ERAD_SCHEMA_PATH}` },
     specCharacteristic: [...chars, ...fileRules],
     ...(typeof def.validFor === "object" && def.validFor !== null ? { validFor: def.validFor } : {}),
     // Kept until the legacy address is retired; the same rules are in specCharacteristic.
@@ -379,7 +403,22 @@ export function toTmfEvent(
   row: { id: number; event_type: string; document_id: string; created_at: string; payload: unknown },
   query: string | null = null,
 ) {
-  const p = (typeof row.payload === "object" && row.payload !== null ? row.payload : {}) as { lifecycleState?: string; previous?: string };
+  const p = (typeof row.payload === "object" && row.payload !== null ? row.payload : {}) as { lifecycleState?: string; previous?: string; documentIds?: unknown; action?: unknown };
+  if (row.event_type === "DocumentBatchEvent") {
+    const ids = Array.isArray(p.documentIds) ? p.documentIds.filter((x): x is string => typeof x === "string") : [];
+    return {
+      eventId: String(row.id),
+      eventTime: row.created_at,
+      timeOcurred: row.created_at,
+      eventType: "DocumentBatchEvent",
+      correlationId: `batch-${row.id}`,
+      domain: "documentManagement",
+      title: "Document batch event",
+      description: `Bulk change to ${ids.length} document(s)`,
+      priority: "normal",
+      event: { document: ids.map((id) => ({ id, href: `${origin}${TMF_BASE_PATH}/document/${id}`, "@type": "Document" })) },
+    };
+  }
   const eventType = eventNameFor(query, row.event_type);
   const state = p.lifecycleState as DocStatus | undefined;
   const changed = row.event_type === "DocumentStateChangeEvent" ? ["status"] : row.event_type === "DocumentAttributeValueChangeEvent" ? ["attachment", "characteristic", "legalHold"] : undefined;
@@ -410,8 +449,10 @@ export function toTmfEvent(
  * status=… and documentType=…. Old and new event names both match.
  */
 export function eventMatches(query: string | null, eventType: string, doc?: { status?: DocStatus | null; documentType?: string | null }): boolean {
-  if (!query) return true;
   const types = parseEventTypes(query);
+  // Batch events go only to subscriptions that ask for them by name.
+  if (eventType === "DocumentBatchEvent") return !!types && types.includes("DocumentBatchEvent");
+  if (!query) return true;
   if (types && !types.includes(eventType) && !types.includes(v4EventType(eventType))) return false;
   const status = queryValue(query, "status");
   if (status && doc?.status && !status.includes(toTmfStatus(doc.status))) return false;
