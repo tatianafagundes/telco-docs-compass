@@ -8,6 +8,9 @@ import type { AppRole } from "@/services/document-rules";
 import type { ApproveGate } from "@/services/review-rules";
 import { Link } from "@tanstack/react-router";
 import type { DocStatus } from "@/schemas/document";
+import type { ReactNode } from "react";
+import { Lock } from "lucide-react";
+import { DocumentMenu, type MenuEntry } from "@/components/documents/document-menu";
 
 interface Props {
   entityId: string;
@@ -15,6 +18,10 @@ interface Props {
   role: AppRole;
   /** Required details still to check before Approve. */
   approveGate?: ApproveGate;
+  /** Title block shown left of the "…" menu. */
+  header: ReactNode;
+  /** Extra menu entries supplied by the panel (access, explanation). */
+  extraMenu: MenuEntry[];
 }
 
 type Open = null | "sendBack" | "report" | "hold" | "release" | "delete" | "purge";
@@ -26,7 +33,7 @@ function Reason({ text }: { text?: string | undefined }) {
   return text ? <p className="type-label-12 text-text-secondary">{text}</p> : null;
 }
 
-export function DocumentActionsBar({ entityId, doc, role, approveGate }: Props) {
+export function DocumentActionsBar({ entityId, doc, role, approveGate, header, extraMenu }: Props) {
   const a = useDocumentActions(entityId, doc.id);
   const [open, setOpen] = useState<Open>(null);
   const [note, setNote] = useState("");
@@ -44,42 +51,41 @@ export function DocumentActionsBar({ entityId, doc, role, approveGate }: Props) 
   const isAdmin = role === "tenant_admin" || role === "master_admin";
   const busy = a.transition.isPending || a.reportProblem.isPending || a.setHold.isPending || a.remove.isPending || a.purge.isPending;
 
+  const menu: MenuEntry[] = [
+    ...extraMenu,
+    { label: "Report a problem", onSelect: () => setOpen("report") },
+    { label: doc.legal_hold ? "Release legal hold" : "Place legal hold", onSelect: () => setOpen(doc.legal_hold ? "release" : "hold"), reason: manage.reason, separatorBefore: true },
+    { label: "Delete document", onSelect: () => setOpen("delete"), reason: del.available ? undefined : (manage.available ? del.reason : manage.reason) },
+    ...(isAdmin ? [{ label: "Delete permanently", onSelect: () => setOpen("purge"), reason: purge.reason, destructive: true }] : []),
+  ];
+
   return (
-    <section aria-label="Actions" className="flex flex-col gap-3">
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-col gap-2">{header}</div>
+        <DocumentMenu entries={menu} />
+      </div>
+    <section aria-label="Next step" className="flex flex-col gap-3">
       {next ? (
         <div className="flex flex-col gap-1">
-          <Button variant="primary" unavailable={!next.available || busy} onClick={() => a.transition.mutate({ to: next.to })}>
-            {next.label}
-          </Button>
-          <Reason text={next.reason} />
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <Button variant="primary" className="self-start" unavailable={!next.available || busy} onClick={() => a.transition.mutate({ to: next.to })}>
+              {!next.available ? <Lock aria-hidden="true" /> : null}
+              {next.label}
+            </Button>
+            {next.reason ? <span className="type-label-12 text-text-secondary">{next.reason}</span> : null}
+          </div>
           {gated ? (
             <Link to="/records/$entityId/review/$docId" params={{ entityId, docId: doc.id }} className="focus-ring type-label-12 inline-flex min-h-6 items-center self-start underline">Review details</Link>
           ) : null}
         </div>
       ) : null}
-      <div className="flex flex-wrap gap-2">
-        {back ? <Button unavailable={!back.available} onClick={() => setOpen("sendBack")}>Send back</Button> : null}
-        <Button variant="ghost" onClick={() => setOpen("report")}>Report a problem</Button>
-      </div>
-      {back ? <Reason text={back.reason} /> : null}
-
-      <details className="border-t border-border-subtle pt-3">
-        <summary className="type-label-14 focus-ring cursor-pointer text-text-secondary">More</summary>
-        <div className="mt-3 flex flex-col gap-2">
-          <Button unavailable={!manage.available} onClick={() => setOpen(doc.legal_hold ? "release" : "hold")}>
-            {doc.legal_hold ? "Release legal hold" : "Place legal hold"}
-          </Button>
-          <Reason text={manage.reason} />
-          <Button unavailable={!del.available} onClick={() => setOpen("delete")}>Delete document</Button>
-          {manage.available ? <Reason text={del.reason} /> : null}
-          {isAdmin ? (
-            <>
-              <Button unavailable={!purge.available} onClick={() => setOpen("purge")}>Delete permanently</Button>
-              <Reason text={purge.reason} />
-            </>
-          ) : null}
+      {back ? (
+        <div className="flex flex-col gap-1">
+          <Button className="self-start" unavailable={!back.available} onClick={() => setOpen("sendBack")}>Send back</Button>
+          <Reason text={back.reason} />
         </div>
-      </details>
+      ) : null}
 
       <Dialog
         open={open === "sendBack"}
@@ -170,5 +176,6 @@ export function DocumentActionsBar({ entityId, doc, role, approveGate }: Props) 
         </>}
       />
     </section>
+    </>
   );
 }
