@@ -143,7 +143,7 @@ async function idempotent(request: Request, ctx: SystemCtx, operation: string, b
     return reply(r.status, r.body, ctx.requestId, { "Idempotent-Replay": "true" });
   }
   const res = await run();
-  if (res.status < 300) {
+  if (res.status < 300 || res.status === 204) {
     await ctx.admin.from("idempotency_keys").insert({ tenant_id: ctx.tenantId, actor: ctx.clientId, key, operation: op, request_hash: requestHash, response: res as unknown as Json });
   }
   return reply(res.status, res.body, ctx.requestId);
@@ -252,33 +252,127 @@ export async function getSpecification(request: Request, code: string): Promise<
 
 // ---------- writes ----------
 
+const relatedSchema = z.object({ id: z.string().min(1).max(64), role: z.string().min(1).max(64), "@referredType": z.string().max(64).optional() });
+const extIdSchema = z.object({ id: z.string().min(1).max(100), owner: z.string().max(100).optional(), externalIdentifierType: z.string().max(64).optional() });
+const characteristicSchema = z.object({ name: z.string().min(1).max(64), value: z.union([z.string().max(500), z.number(), z.boolean()]), valueType: z.string().max(32).optional() });
+
+/** TMF AttachmentRefOrValue: file details only (we return an upload address), a url to fetch, or inline base64 content. */
+const attachmentSchema = z.object({
+  mimeType: z.string().min(3).max(150),
+  name: z.string().max(255).optional(),
+  size: z.union([z.number().int().nonnegative(), z.object({ amount: z.number().nonnegative(), units: z.string().max(16).optional() })]).optional(),
+  contentHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  url: z.string().url().max(1000).optional(),
+  content: z.string().max(MAX_INLINE_BODY_CHARS).optional(),
+  attachmentType: z.string().max(64).optional(),
+  "@type": z.string().max(64).optional(),
+});
+
 const createSchema = z.object({
   name: z.string().trim().min(1).max(255),
   description: z.string().max(2000).optional(),
   documentType: z.string().min(1).max(64),
-  relatedEntity: z.array(z.object({ id: z.string().min(1).max(64), role: z.string().min(1).max(64), "@referredType": z.string().max(64).optional() })).min(1).max(5),
-  attachment: z.object({ mimeType: z.string().min(3).max(150), size: z.number().int().nonnegative().optional(), contentHash: z.string().regex(/^[a-f0-9]{64}$/) }),
+  relatedEntity: z.array(relatedSchema).min(1).max(5),
+  // Standard: array of attachments (we accept exactly one file per new document). Legacy: a single object.
+  attachment: z.union([z.array(attachmentSchema).min(1).max(1), attachmentSchema]),
+  externalIdentifier: z.array(extIdSchema).max(10).optional(),
+  characteristic: z.array(characteristicSchema).max(50).optional(),
+  "@type": z.string().max(64).optional(),
+  "@baseType": z.string().max(64).optional(),
 });
+
+function sizeBytes(size: z.infer<typeof attachmentSchema>["size"]): number | undefined {
+  if (size === undefined) return undefined;
+  return typeof size === "number" ? size : Math.round(size.amount);
+}
+
+async function sha256Bytes(bytes: Uint8Array): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function decodeBase64(b64: string): Uint8Array | null {
+  try {
+    const bin = atob(b64.replace(/\s/g, ""));
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+/** Resolves the host over DNS-over-HTTPS and refuses names that point at private addresses. */
+export async function resolvesPublic(url: string): Promise<boolean> {
+  if (!isSafeCallback(url)) return false;
+  const host = new URL(url).hostname;
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) return !isPrivateIp(host);
+  try {
+    const answers: string[] = [];
+    for (const type of ["A", "AAAA"]) {
+      const r = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(host)}&type=${type}`, { headers: { accept: "application/dns-json" }, signal: AbortSignal.timeout(3000) });
+      const j = (await r.json()) as { Answer?: { type: number; data: string }[] };
+      for (const a of j.Answer ?? []) if (a.type === 1 || a.type === 28) answers.push(a.data);
+    }
+    return answers.length > 0 && answers.every((ip) => !isPrivateIp(ip));
+  } catch {
+    return false;
+  }
+}
+
+async function fetchBytes(url: string): Promise<Uint8Array | null> {
+  if (!(await resolvesPublic(url))) return null;
+  try {
+    const r = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(15000) });
+    if (!r.ok) return null;
+    const len = Number(r.headers.get("content-length") ?? "0");
+    if (len > MAX_URL_FETCH_BYTES) return null;
+    const buf = new Uint8Array(await r.arrayBuffer());
+    return buf.byteLength > MAX_URL_FETCH_BYTES ? null : buf;
+  } catch {
+    return null;
+  }
+}
 
 export async function createDocument(request: Request): Promise<Response> {
   const ctx = await authenticate(request, "register");
   if (ctx instanceof Response) return ctx;
-  const parsed = await readJson(request, ctx);
+  const parsed = await readJson(request, ctx, MAX_INLINE_BODY_CHARS);
   if (!parsed.ok) return parsed.res;
   const input = createSchema.safeParse(parsed.body);
-  if (!input.success) return errorReply(tmfError(400, "invalidBody", "Bad Request", "Check name, documentType, relatedEntity and attachment (mimeType, contentHash)."), ctx.requestId);
+  if (!input.success) return errorReply(tmfError(400, "invalidBody", "Bad Request", "Check name, documentType, relatedEntity and attachment (mimeType plus contentHash, url or content)."), ctx.requestId);
   const d = input.data;
-  return idempotent(request, ctx, "createDocument", d, async () => {
-    const { data: entities } = await ctx.admin.from("business_entities").select("id").in("id", d.relatedEntity.map((r) => r.id)).eq("tenant_id", ctx.tenantId);
-    if ((entities ?? []).length !== new Set(d.relatedEntity.map((r) => r.id)).size) {
+  const att = Array.isArray(d.attachment) ? d.attachment[0] : d.attachment;
+  if (!att) return errorReply(tmfError(400, "invalidBody", "Bad Request", "Send one attachment."), ctx.requestId);
+  if (!att.contentHash && !att.url && !att.content) return errorReply(tmfError(400, "invalidBody", "Bad Request", "attachment needs contentHash, url or content."), ctx.requestId);
+  // Idempotency hashes the request without inline content to keep stored hashes small.
+  const idemBody = { ...d, attachment: { ...att, content: att.content ? `sha256:${await sha256Hex(att.content)}` : undefined } };
+  return idempotent(request, ctx, "createDocument", idemBody, async () => {
+    const ids = d.relatedEntity.map((r) => r.id);
+    const { data: entities } = await ctx.admin.from("business_entities").select("id").in("id", ids).eq("tenant_id", ctx.tenantId);
+    if ((entities ?? []).length !== new Set(ids).size) {
       return { status: 404, body: tmfError(404, "relatedEntityNotFound", "Not Found", "One or more related entities don't exist for this organisation.") };
     }
     const { data: specs } = await ctx.admin.rpc("effective_specifications", { p_tenant: ctx.tenantId });
     const spec = (specs ?? []).find((s) => s.code === d.documentType);
     if (!spec) return { status: 400, body: tmfError(400, "unknownDocumentType", "Bad Request", "This documentType isn't set up for this organisation.") };
     const def = spec.definition as { acceptedMimeTypes?: string[]; maxSizeMb?: number; defaultSensitivity?: string; retentionPolicyRef?: string };
-    if (def.acceptedMimeTypes && !def.acceptedMimeTypes.includes(d.attachment.mimeType)) return { status: 400, body: tmfError(400, "mimeNotAccepted", "Bad Request", "This file type isn't accepted for this documentType.") };
-    if (def.maxSizeMb && d.attachment.size && d.attachment.size > def.maxSizeMb * 1024 * 1024) return { status: 400, body: tmfError(400, "tooLarge", "Bad Request", "This file is larger than allowed.") };
+    if (def.acceptedMimeTypes && !def.acceptedMimeTypes.includes(att.mimeType)) return { status: 400, body: tmfError(400, "mimeNotAccepted", "Bad Request", "This file type isn't accepted for this documentType.") };
+
+    // Get the bytes when the client sent them (inline) or pointed at them (url).
+    let bytes: Uint8Array | null = null;
+    if (att.content) {
+      bytes = decodeBase64(att.content);
+      if (!bytes) return { status: 400, body: tmfError(400, "invalidContent", "Bad Request", "attachment.content must be base64.") };
+      if (bytes.byteLength > MAX_INLINE_BYTES) return { status: 413, body: tmfError(413, "tooLarge", "Payload Too Large", "Inline content is limited to 5 MB; send a url or use the upload address.") };
+    } else if (att.url) {
+      bytes = await fetchBytes(att.url);
+      if (!bytes) return { status: 422, body: tmfError(422, "attachmentUnreachable", "Unprocessable Entity", "We couldn't fetch the attachment url (public https, under 25 MB).") };
+    }
+    const size = bytes ? bytes.byteLength : sizeBytes(att.size);
+    if (def.maxSizeMb && size && size > def.maxSizeMb * 1024 * 1024) return { status: 400, body: tmfError(400, "tooLarge", "Bad Request", "This file is larger than allowed.") };
+    const hash = bytes ? await sha256Bytes(bytes) : (att.contentHash as string);
+    if (bytes && att.contentHash && att.contentHash !== hash) return { status: 422, body: tmfError(422, "hashMismatch", "Unprocessable Entity", "The file doesn't match contentHash.") };
 
     const { data: doc, error } = await ctx.admin
       .from("documents")
@@ -288,11 +382,14 @@ export async function createDocument(request: Request): Promise<Response> {
         description: d.description ?? null,
         document_type: d.documentType,
         status: "draft",
-        pipeline_state: "uploading",
+        // Bytes we received are hash-checked and stored; otherwise the client still has to upload.
+        pipeline_state: bytes ? "ready" : "uploading",
         sensitivity: (def.defaultSensitivity ?? "internal") as "public" | "internal" | "confidential" | "restricted",
         retention_policy_id: def.retentionPolicyRef ?? null,
         // The schema allows uploaded/generated only; the activity log records which system sent it.
         origin: "uploaded",
+        external_identifier: (d.externalIdentifier ?? []) as unknown as Json,
+        ...(d.characteristic ? { characteristic: d.characteristic as unknown as Json } : {}),
       })
       .select("id")
       .single();
@@ -300,57 +397,149 @@ export async function createDocument(request: Request): Promise<Response> {
     if (error || !doc) return { status: 503, body: tmfError(503, "unavailable", "Service Unavailable", "Try again shortly.") };
     const versionId = crypto.randomUUID();
     const storagePath = `${ctx.tenantId}/${versionId}`;
-    await ctx.admin.from("document_versions").insert({ id: versionId, document_id: doc.id, tenant_id: ctx.tenantId, label: "1", mime_type: d.attachment.mimeType, size_bytes: d.attachment.size ?? null, content_hash: d.attachment.contentHash, storage_path: storagePath });
+    if (bytes) await ctx.admin.storage.from("documents").upload(storagePath, bytes, { contentType: att.mimeType, upsert: false });
+    await ctx.admin.from("document_versions").insert({ id: versionId, document_id: doc.id, tenant_id: ctx.tenantId, label: "1", mime_type: att.mimeType, size_bytes: size ?? null, content_hash: hash, storage_path: storagePath });
     await ctx.admin.from("documents").update({ current_version_id: versionId }).eq("id", doc.id);
     await ctx.admin.from("document_relations").insert(d.relatedEntity.map((r) => ({ document_id: doc.id, entity_id: r.id, role: r.role })));
-    const { data: signed } = await ctx.admin.storage.from("documents").createSignedUploadUrl(storagePath);
-    await audit(ctx, "upload", doc.id, "Version 1");
+    const signed = bytes ? null : (await ctx.admin.storage.from("documents").createSignedUploadUrl(storagePath)).data;
+    await audit(ctx, "upload", doc.id, bytes ? (att.url ? "Version 1 (fetched from url)" : "Version 1 (sent inline)") : "Version 1");
     const created = await findDoc(ctx, doc.id);
     const [tmf] = created ? await loadTmfDocs(ctx, [created]) : [];
-    return { status: 201, body: { ...tmf, uploadUrl: signed?.signedUrl ?? null } };
+    return { status: 201, body: { ...tmf, ...(signed ? { uploadUrl: signed.signedUrl } : {}) } };
   });
 }
 
+/** TMF Document_Update subset we accept. Unknown fields are refused so nothing is silently ignored. */
 const patchSchema = z
   .object({
     name: z.string().trim().min(1).max(255).optional(),
     description: z.string().max(2000).optional(),
     validFor: z.object({ endDateTime: z.string().regex(/^\d{4}-\d{2}-\d{2}/) }).optional(),
+    status: z.string().max(32).optional(),
+    characteristic: z.array(characteristicSchema).max(50).optional(),
+    externalIdentifier: z.array(extIdSchema).max(10).optional(),
+    relatedEntity: z.array(relatedSchema).max(5).optional(),
+    "@type": z.string().max(64).optional(),
   })
   .strict();
 
+const PATCH_TYPES = ["application/merge-patch+json", "application/json"];
+
+/** Same status path, scope and approval gate as /transition. */
+async function applyTransition(ctx: SystemCtx, doc: DocRow, target: DocStatus): Promise<{ status: number; body: unknown } | null> {
+  if (!isTransitionAllowed(doc.status, target)) return { status: 409, body: tmfError(409, "transitionNotAllowed", "Conflict", `A ${doc.status} document can't move to ${target}.`) };
+  if (target === "approved") {
+    const { data: specs } = await ctx.admin.rpc("effective_specifications", { p_tenant: ctx.tenantId });
+    const def = (specs ?? []).find((s) => s.code === doc.document_type)?.definition as { specCharacteristic?: SpecCharacteristic[] } | undefined;
+    const { data: fields } = await ctx.admin.from("extraction_fields").select("name, status").eq("document_id", doc.id).eq("version_id", doc.current_version_id ?? "");
+    const pending = pendingRequiredDetails(def?.specCharacteristic ?? [], fields ?? []);
+    if (pending.length > 0) return { status: 409, body: tmfError(409, "requiredDetailsPending", "Conflict", `${pending.length} required detail(s) still need a person to confirm them.`) };
+  }
+  await ctx.admin.from("documents").update({ status: target, updated_at: new Date().toISOString() }).eq("id", doc.id).eq("tenant_id", ctx.tenantId);
+  await audit(ctx, "statusChange", doc.id, `${doc.status} to ${target}`);
+  return null;
+}
+
 export async function patchDocument(request: Request, id: string): Promise<Response> {
-  const ctx = await authenticate(request, "register");
+  const ctype = (request.headers.get("content-type") ?? "").split(";")[0]?.trim().toLowerCase() ?? "";
+  if (ctype && !PATCH_TYPES.includes(ctype)) {
+    return errorReply(tmfError(415, "unsupportedMediaType", "Unsupported Media Type", "Send application/merge-patch+json."), crypto.randomUUID());
+  }
+  const peek = await request.clone().text();
+  let peekBody: Record<string, unknown> = {};
+  try {
+    const j: unknown = JSON.parse(peek || "{}");
+    if (typeof j === "object" && j !== null) peekBody = j as Record<string, unknown>;
+  } catch {
+    peekBody = {};
+  }
+  // A status-only change needs the transition/approve scope; other fields need register.
+  const tmfTarget = typeof peekBody["status"] === "string" ? targetForTmfStatus(peekBody["status"]) : null;
+  const onlyStatus = Object.keys(peekBody).filter((k) => k !== "@type").length === 1 && tmfTarget !== null;
+  const ctx = await authenticate(request, onlyStatus && tmfTarget ? scopeForTransition(tmfTarget) : "register");
   if (ctx instanceof Response) return ctx;
   const parsed = await readJson(request, ctx);
   if (!parsed.ok) return parsed.res;
   const input = patchSchema.safeParse(parsed.body);
-  if (!input.success) return errorReply(tmfError(400, "invalidBody", "Bad Request", "Only name, description and validFor.endDateTime can be changed here."), ctx.requestId);
-  return idempotent(request, ctx, `patch:${id}`, input.data, async () => {
+  if (!input.success) return errorReply(tmfError(400, "invalidBody", "Bad Request", "You can change name, description, status, characteristic, externalIdentifier, relatedEntity (add) and validFor.endDateTime."), ctx.requestId);
+  const p = input.data;
+  let target: DocStatus | null = null;
+  if (p.status !== undefined) {
+    target = targetForTmfStatus(p.status);
+    if (!target) return errorReply(tmfError(400, "invalidStatus", "Bad Request", "status can be created, reviewed, approved, published or archived. Use DELETE to delete."), ctx.requestId);
+    if (!onlyStatus && !hasScope(ctx.scopes, scopeForTransition(target))) {
+      return errorReply(tmfError(403, "scopeMissing", "Forbidden", `This system key does not include '${scopeForTransition(target)}'.`), ctx.requestId);
+    }
+  }
+  return idempotent(request, ctx, `patch:${id}`, p, async () => {
     const doc = await findDoc(ctx, id);
     if (!doc) return { status: 404, body: tmfError(404, "notFound", "Not Found", "No document with this id.") };
-    if (isFrozen(doc.status)) return { status: 409, body: tmfError(409, "frozen", "Conflict", "This document can no longer be changed.") };
-    const p = input.data;
-    await ctx.admin
-      .from("documents")
-      .update({
-        ...(p.name ? { name: p.name } : {}),
-        ...(p.description !== undefined ? { description: p.description } : {}),
-        ...(p.validFor ? { expiry_date: p.validFor.endDateTime.slice(0, 10) } : {}),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", doc.id)
-      .eq("tenant_id", ctx.tenantId);
-    await audit(ctx, "metadataChange", doc.id, `Changed ${Object.keys(p).join(", ")}`);
+    const { status: _s, "@type": _t, ...fields } = p;
+    const editsFields = Object.keys(fields).length > 0;
+    if (editsFields && isFrozen(doc.status)) return { status: 409, body: tmfError(409, "frozen", "Conflict", "This document can no longer be changed.") };
+    if (p.relatedEntity?.length) {
+      const ids = p.relatedEntity.map((r) => r.id);
+      const { data: ents } = await ctx.admin.from("business_entities").select("id").in("id", ids).eq("tenant_id", ctx.tenantId);
+      if ((ents ?? []).length !== new Set(ids).size) return { status: 404, body: tmfError(404, "relatedEntityNotFound", "Not Found", "One or more related entities don't exist for this organisation.") };
+    }
+    if (editsFields) {
+      // Merge-patch on arrays replaces them, except relatedEntity which only adds (links are never removed by systems).
+      const merged = p.characteristic
+        ? [...asCharacteristicRows(doc.characteristic).filter((c) => !p.characteristic?.some((n) => n.name === c.name)), ...p.characteristic]
+        : null;
+      await ctx.admin
+        .from("documents")
+        .update({
+          ...(p.name ? { name: p.name } : {}),
+          ...(p.description !== undefined ? { description: p.description } : {}),
+          ...(p.validFor ? { expiry_date: p.validFor.endDateTime.slice(0, 10) } : {}),
+          ...(merged ? { characteristic: merged as unknown as Json } : {}),
+          ...(p.externalIdentifier ? { external_identifier: p.externalIdentifier as unknown as Json } : {}),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", doc.id)
+        .eq("tenant_id", ctx.tenantId);
+      if (p.relatedEntity?.length) {
+        await ctx.admin.from("document_relations").upsert(p.relatedEntity.map((r) => ({ document_id: doc.id, entity_id: r.id, role: r.role })), { onConflict: "document_id,entity_id", ignoreDuplicates: true });
+      }
+      // Field names only; values never reach the activity log.
+      await audit(ctx, "metadataChange", doc.id, `Changed ${Object.keys(fields).join(", ")}`);
+    }
+    if (target && target !== doc.status) {
+      const fresh = await findDoc(ctx, doc.id);
+      const fail = fresh ? await applyTransition(ctx, fresh, target) : null;
+      if (fail) return fail;
+    }
     const fresh = await findDoc(ctx, doc.id);
     const [tmf] = fresh ? await loadTmfDocs(ctx, [fresh]) : [];
     return { status: 200, body: tmf };
   });
 }
 
+function asCharacteristicRows(v: unknown): { name: string; value: unknown; valueType?: string }[] {
+  return Array.isArray(v) ? v.filter((c): c is { name: string; value: unknown } => typeof c === "object" && c !== null && typeof (c as { name?: unknown }).name === "string") : [];
+}
+
+/** Standard DELETE: same rules as delete in the app (holds and keep-until dates block it). Soft delete; restorable by an admin. */
+export async function deleteDocument(request: Request, id: string): Promise<Response> {
+  const ctx = await authenticate(request, "delete");
+  if (ctx instanceof Response) return ctx;
+  return idempotent(request, ctx, `delete:${id}`, { id }, async () => {
+    const doc = await findDoc(ctx, id);
+    if (!doc) return { status: 404, body: tmfError(404, "notFound", "Not Found", "No document with this id.") };
+    const today = new Date().toISOString().slice(0, 10);
+    const rule = deleteState("tenant_manager", doc.legal_hold, (doc as DocRow & { retain_until?: string | null }).retain_until ?? null, today);
+    if (!rule.available) return { status: 409, body: tmfError(409, doc.legal_hold ? "legalHold" : "retention", "Conflict", rule.reason ?? "This document can't be deleted yet.") };
+    await ctx.admin.from("documents").update({ deleted_at: new Date().toISOString() }).eq("id", doc.id).eq("tenant_id", ctx.tenantId);
+    await audit(ctx, "delete", doc.id, "Deleted");
+    return { status: 204, body: null };
+  });
+}
+
 const STATUS_VALUES = ["in_review", "approved", "effective", "superseded", "expired", "archived"] as const;
 const transitionSchema = z.object({ lifecycleState: z.enum(STATUS_VALUES) });
 
+/** Extension (not TMF667): explicit status task. Standard clients can PATCH status instead. */
 export async function transitionDocument(request: Request, id: string): Promise<Response> {
   const parsedPeek = await request.clone().text();
   let to: DocStatus | null = null;
@@ -366,16 +555,8 @@ export async function transitionDocument(request: Request, id: string): Promise<
   return idempotent(request, ctx, `transition:${id}`, { to: target }, async () => {
     const doc = await findDoc(ctx, id);
     if (!doc) return { status: 404, body: tmfError(404, "notFound", "Not Found", "No document with this id.") };
-    if (!isTransitionAllowed(doc.status, target)) return { status: 409, body: tmfError(409, "transitionNotAllowed", "Conflict", `A ${doc.status} document can't move to ${target}.`) };
-    if (target === "approved") {
-      const { data: specs } = await ctx.admin.rpc("effective_specifications", { p_tenant: ctx.tenantId });
-      const def = (specs ?? []).find((s) => s.code === doc.document_type)?.definition as { specCharacteristic?: SpecCharacteristic[] } | undefined;
-      const { data: fields } = await ctx.admin.from("extraction_fields").select("name, status").eq("document_id", doc.id).eq("version_id", doc.current_version_id ?? "");
-      const pending = pendingRequiredDetails(def?.specCharacteristic ?? [], fields ?? []);
-      if (pending.length > 0) return { status: 409, body: tmfError(409, "requiredDetailsPending", "Conflict", `${pending.length} required detail(s) still need a person to confirm them.`) };
-    }
-    await ctx.admin.from("documents").update({ status: target, updated_at: new Date().toISOString() }).eq("id", doc.id).eq("tenant_id", ctx.tenantId);
-    await audit(ctx, "statusChange", doc.id, `${doc.status} to ${target}`);
+    const fail = await applyTransition(ctx, doc, target);
+    if (fail) return fail;
     const fresh = await findDoc(ctx, doc.id);
     const [tmf] = fresh ? await loadTmfDocs(ctx, [fresh]) : [];
     return { status: 200, body: tmf };
@@ -417,7 +598,7 @@ export async function subscribe(request: Request): Promise<Response> {
   const parsed = await readJson(request, ctx);
   if (!parsed.ok) return parsed.res;
   const input = hubSchema.safeParse(parsed.body);
-  if (!input.success || !isSafeCallback(input.data.callback)) {
+  if (!input.success || !(await resolvesPublic(input.data.callback))) {
     return errorReply(tmfError(400, "invalidCallback", "Bad Request", "callback must be a public https address."), ctx.requestId);
   }
   const secretBytes = crypto.getRandomValues(new Uint8Array(32));
@@ -429,7 +610,8 @@ export async function subscribe(request: Request): Promise<Response> {
     .single();
   if (!data) return errorReply(tmfError(503, "unavailable", "Service Unavailable", "Try again shortly."), ctx.requestId);
   // The signing secret is shown once; events carry X-Signature: sha256=<hmac of body>.
-  return reply(201, { id: data.id, callback: data.callback, query: data.query, signingSecret: secret }, ctx.requestId);
+  // signingSecret is an extension: events carry X-Signature-Timestamp and X-Signature: sha256=HMAC(secret, "<timestamp>.<body>").
+  return reply(201, { id: data.id, callback: data.callback, query: data.query, signingSecret: secret, "@type": "EventSubscription" }, ctx.requestId);
 }
 
 export async function unsubscribe(request: Request, id: string): Promise<Response> {
