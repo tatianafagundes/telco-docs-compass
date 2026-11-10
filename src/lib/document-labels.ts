@@ -80,3 +80,8 @@ export function friendlyError(code: string | undefined): string {
       return "That didn't go through. You can try again in a moment.";
   }
 }
+
+/** Replaces status codes in an activity note with their labels ("draft to in_review" -> "Draft to In review"). */
+export function activityDetail(detail: string): string {
+  return detail.replace(/\b(draft|in_review|approved|effective|superseded|expired|archived)\b/g, (m) => STATUS_LABEL[m as DocStatus]);
+}

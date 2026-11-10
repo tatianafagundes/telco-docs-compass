@@ -5,7 +5,7 @@ import { Tag } from "@/components/erad/tag";
 import { Spinner } from "@/components/erad/misc";
 import { DocumentActionsBar } from "@/components/documents/document-actions-bar";
 import { DocumentDetails } from "@/components/documents/document-details";
-import { activityLabel, PIPELINE_LABEL, PIPELINE_TONE, STATUS_LABEL, STATUS_TONE } from "@/lib/document-labels";
+import { activityDetail, activityLabel, PIPELINE_LABEL, PIPELINE_TONE, STATUS_LABEL, STATUS_TONE } from "@/lib/document-labels";
 import { api } from "@/services/api";
 import type { AppRole } from "@/services/document-rules";
 
@@ -56,7 +56,7 @@ export function DocumentPanel({ id, entityId, role }: { id: string; entityId: st
           <ol className="flex flex-col gap-2">
             {activity.map((e) => (
               <li key={e.id} className="flex flex-col">
-                <span className="type-label-14">{activityLabel(e.action)}{e.detail ? ` · ${e.detail}` : ""}</span>
+                <span className="type-label-14">{activityLabel(e.action)}{e.detail ? ` · ${activityDetail(e.detail)}` : ""}</span>
                 <span className="type-label-12 text-text-secondary">{format(new Date(e.created_at), "d MMM yyyy, HH:mm")}</span>
               </li>
             ))}
