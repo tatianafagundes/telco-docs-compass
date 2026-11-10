@@ -67,3 +67,23 @@ describe.runIf(enabled)("access rules", () => {
     expect(Array.isArray(body) ? body.length : 0).toBe(0);
   });
 });
+
+describe.runIf(enabled)("country isolation for files and counts", () => {
+  it("should show the Sweden viewer only documents on order ord-se-7731", async () => {
+    const r = await rows("se.viewer@example.test", "document_relations?select=entity_id");
+    expect(new Set(r.map((x) => x["entity_id"]))).toEqual(new Set(["ord-se-7731"]));
+  });
+
+  it("should not let any account list stored files directly", async () => {
+    for (const email of ["no.manager@example.test", "se.viewer@example.test", "master.admin@example.test"]) {
+      const t = await token(email);
+      const res = await fetch(`${URL_}/storage/v1/object/list/documents`, {
+        method: "POST",
+        headers: { apikey: KEY ?? "", Authorization: `Bearer ${t}`, "content-type": "application/json" },
+        body: JSON.stringify({ prefix: "aurora-se", limit: 10 }),
+      });
+      const body: unknown = await res.json();
+      expect(Array.isArray(body) ? body.length : 0).toBe(0);
+    }
+  });
+});
