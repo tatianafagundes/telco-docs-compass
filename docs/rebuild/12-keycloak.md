@@ -2,7 +2,7 @@
 
 ## Realm
 - Use one realm, `erad`, per environment.
-- Tenants are modelled as groups: `/tenants/aurora`, `/tenants/aurora/se`, `/tenants/aurora/no`. Each group has an attribute `tenant_id`.
+- Tenants are modelled as groups: `/tenants/aurora-group`, `/tenants/aurora-group/aurora-se`, `/tenants/aurora-group/aurora-no`. Each group has an attribute `tenant_id`.
 - Realm roles: `viewer`, `contributor`, `reviewer`, `manager`, `tenant_admin`, `master_admin`. A user has **exactly one** role and is in **exactly one** tenant group. Admin tooling must enforce this; the app re-checks it.
 
 ## Clients
@@ -30,11 +30,11 @@
 ## Demo users (synthetic, emails only)
 | User | Tenant | Role | Record access |
 |---|---|---|---|
-| master.admin@example.test | aurora | master_admin | – (counts and settings) |
-| se.admin@example.test | se | tenant_admin | all Sweden |
-| se.manager@example.test | se | manager | all Sweden records |
-| se.viewer@example.test | se | viewer | ord-se-7731 only |
-| no.manager@example.test | no | manager | both Norway records |
+| master.admin@example.test | aurora-group | master_admin | – (counts and settings) |
+| se.admin@example.test | aurora-se | tenant_admin | all Sweden |
+| se.manager@example.test | aurora-se | manager | all Sweden records |
+| se.viewer@example.test | aurora-se | viewer | ord-se-7731 only |
+| no.manager@example.test | aurora-no | manager | both Norway records |
 
 Set passwords per environment in the realm import, never in this pack.
 

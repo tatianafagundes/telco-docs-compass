@@ -55,7 +55,7 @@ Record access: a non-admin sees a document only through `entity_access` on one o
 A person who reaches a document **only via a direct share** is capped by `sharedOnlyRole`: a view share gives viewer, and an edit share gives contributor at most.
 
 ## Demo tenants and accounts (synthetic)
-- Tenants: `aurora` (master group), `se` Sweden, `no` Norway.
+- Tenants: `aurora-group` (master, Aurora Telecom Group), `aurora-se` (Aurora Mobile Sweden), `aurora-no` (Norway).
 - Accounts (all `@example.test`): `master.admin`, `se.admin`, `se.manager`, `se.viewer` (only order `ord-se-7731`), `no.manager`. Passwords are not included in this pack.
 
 ## Main journeys
