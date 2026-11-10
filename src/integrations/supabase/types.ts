@@ -471,6 +471,80 @@ export type Database = {
           },
         ]
       }
+      event_outbox: {
+        Row: {
+          attempts: number
+          created_at: string
+          delivered_at: string | null
+          document_id: string
+          event_type: string
+          id: number
+          last_error: string | null
+          payload: Json
+          tenant_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          delivered_at?: string | null
+          document_id: string
+          event_type: string
+          id?: never
+          last_error?: string | null
+          payload?: Json
+          tenant_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          delivered_at?: string | null
+          document_id?: string
+          event_type?: string
+          id?: never
+          last_error?: string | null
+          payload?: Json
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      event_subscriptions: {
+        Row: {
+          callback: string
+          client_id: string
+          created_at: string
+          id: string
+          query: string | null
+          secret: string
+          tenant_id: string
+        }
+        Insert: {
+          callback: string
+          client_id: string
+          created_at?: string
+          id?: string
+          query?: string | null
+          secret: string
+          tenant_id: string
+        }
+        Update: {
+          callback?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          query?: string | null
+          secret?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_subscriptions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "integration_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       extraction_fields: {
         Row: {
           band: string | null
@@ -573,6 +647,56 @@ export type Database = {
           tenant_id?: string
         }
         Relationships: []
+      }
+      integration_clients: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          name: string
+          revoked_at: string | null
+          scopes: string[]
+          system_kind: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          name: string
+          revoked_at?: string | null
+          scopes?: string[]
+          system_kind?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          name?: string
+          revoked_at?: string | null
+          scopes?: string[]
+          system_kind?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_clients_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

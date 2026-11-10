@@ -50,6 +50,13 @@
       "when": 1794307150113,
       "tag": "0006_fix_tenants_policy_recursion",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794312065452,
+      "tag": "0007_migration",
+      "breakpoints": true
     }
   ]
 }
