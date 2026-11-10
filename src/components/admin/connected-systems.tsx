@@ -153,7 +153,10 @@ export function ConnectedSystems() {
             Address: <code className="type-code-14">{TMF_BASE_PATH}</code> on this site. Send the key as <code className="type-code-14">Authorization: Bearer …</code> and an <code className="type-code-14">Idempotency-Key</code> on every change.
           </p>
           <p className="type-paragraph-14 text-text-secondary">
-            Current approved contract for an order: <code className="type-code-14">GET /document?relatedEntity.id=ORDER_ID&amp;lifecycleState=approved,effective</code>
+            Current approved contract for an order: <code className="type-code-14">GET /document?relatedEntity.id=ORDER_ID&amp;status=approved,published</code>
+          </p>
+          <p className="type-paragraph-14 text-text-secondary">
+            TM Forum TMF667 v4. Limits: 120 reads and 30 changes per minute per key. Systems that use OAuth can swap the key for a 15-minute token at <code className="type-code-14">/api/public/tmf-api/oauth/token</code>. The earlier address ending in documentManagement/v4 keeps working until 10 May 2027.
           </p>
         </div>
       </Card>
