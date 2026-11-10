@@ -2,7 +2,7 @@
  * Change-notification delivery rules (pure, tested). Each subscriber has its own delivery record
  * per event, so a failing subscriber is retried on its own and never causes duplicates elsewhere.
  */
-import { hmacHex, signedPayload } from "@/services/tmf667-mapper";
+import { hmacHex, SIGNATURE_TOLERANCE_SECONDS, signedPayload } from "@/services/tmf667-mapper";
 
 /** First try plus five retries. */
 export const MAX_ATTEMPTS = 6;
@@ -10,7 +10,6 @@ export const MAX_ATTEMPTS = 6;
 export const BACKOFF_SECONDS = [30, 120, 600, 1800, 7200] as const;
 /** A subscriber's Retry-After is honoured up to one hour. */
 export const MAX_RETRY_AFTER_SECONDS = 3600;
-export const SIGNATURE_TOLERANCE_SECONDS = 300;
 
 export function isDelivered(status: number): boolean {
   return status >= 200 && status < 300;
