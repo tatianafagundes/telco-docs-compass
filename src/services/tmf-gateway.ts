@@ -263,7 +263,8 @@ export async function createDocument(request: Request): Promise<Response> {
         pipeline_state: "uploading",
         sensitivity: (def.defaultSensitivity ?? "internal") as "public" | "internal" | "confidential" | "restricted",
         retention_policy_id: def.retentionPolicyRef ?? null,
-        origin: "api",
+        // The schema allows uploaded/generated only; the activity log records which system sent it.
+        origin: "uploaded",
       })
       .select("id")
       .single();
