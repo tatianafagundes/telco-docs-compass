@@ -1,12 +1,12 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-export interface TextFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface TextFieldProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "prefix"> {
   label: string;
-  helper?: string;
-  error?: string;
-  prefix?: React.ReactNode;
-  suffix?: React.ReactNode;
+  helper?: string | undefined;
+  error?: string | undefined;
+  prefix?: React.ReactNode | undefined;
+  suffix?: React.ReactNode | undefined;
 }
 
 export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(

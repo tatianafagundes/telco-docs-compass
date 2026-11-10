@@ -52,7 +52,7 @@ export function Select({ label, groups, placeholder, ...props }: SelectProps) {
                     <SelectPrimitive.Item
                       key={o.value}
                       value={o.value}
-                      disabled={o.disabled}
+                      disabled={o.disabled ?? false}
                       className="type-label-14 flex h-8 cursor-pointer items-center px-2 outline-none data-[disabled]:text-text-disabled data-[highlighted]:bg-item-hover data-[state=checked]:bg-item-selected data-[state=checked]:text-text-on-primary"
                     >
                       <SelectPrimitive.ItemText>{o.label}</SelectPrimitive.ItemText>
