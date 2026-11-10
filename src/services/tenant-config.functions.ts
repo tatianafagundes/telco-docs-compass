@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Json } from "@/integrations/supabase/types";
-import { seamError, type SeamResult } from "@/services/document-rules";
+import { can, seamError, type SeamResult } from "@/services/document-rules";
 import { audit, forbidden, runRead, runWrite, type Db } from "@/services/seam-runtime";
 import { configChangeBlocker, type HardFloors, type InheritMode, SPEC_SETTINGS } from "@/services/tenant-rules";
 
@@ -113,7 +113,8 @@ export const getConfig = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<SeamResult<ConfigView>> =>
     runRead(context, "config.get", null, async (env) => {
-      if (!isAdmin(env.role)) return forbidden();
+      // Managers read it too: the Holds and retention page shows the policies in force.
+      if (!can(env.role, "manage")) return forbidden();
       const view = await loadView(env.caller, env.tenantId);
       return view ? { ok: true, data: view } : { ok: false, error: seamError("tenant.notFound", "notFound") };
     }),
