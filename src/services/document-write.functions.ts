@@ -1,3 +1,4 @@
+import { isOwnDocument } from "@/services/review-flow-rules";
 import { createServerFn } from "@tanstack/react-start";
 import type { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -354,6 +355,8 @@ export const transition = createServerFn({ method: "POST" })
       if (!doc) return fail("doc.notFound", "notFound");
       if (!isTransitionAllowed(doc.status, data.to)) return fail("doc.transition.notAllowed", "rejected");
       if (data.to === "approved") {
+        // Four-eyes: the person who added a document can't approve it.
+        if (isOwnDocument(doc.created_by, env.userId)) return fail("doc.approve.ownDocument", "rejected");
         const spec = await specFor(env.caller, doc.document_type);
         const { data: fields } = await env.admin
           .from("extraction_fields")

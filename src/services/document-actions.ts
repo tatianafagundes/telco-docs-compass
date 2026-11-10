@@ -14,7 +14,7 @@ export interface NextStep extends ActionState {
 }
 
 const NEXT: Partial<Record<DocStatus, { to: DocStatus; label: string }>> = {
-  draft: { to: "in_review", label: "Send for review" },
+  draft: { to: "in_review", label: "Send for approval" },
   in_review: { to: "approved", label: "Approve" },
   approved: { to: "effective", label: "Make effective" },
   effective: { to: "superseded", label: "Mark as superseded" },
