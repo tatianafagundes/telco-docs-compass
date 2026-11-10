@@ -11,5 +11,8 @@
 - [ ] 200% zoom and screen-reader walkthrough by a person
 - [ ] Add as new version from the upload dialog
 - [x] Prompt 05 – Add documents: button, drop, paste, dialog, simulated pipeline, error actions; site surveys tested on O-7731
-- [ ] Sharing UI (needs a people picker)
+- [x] Manage access: people search in own organisation, inherited + exceptions, remove, Why can I see this?
+- [x] Check details (prompt 07): banner, n to check, review screen, approve gate with reason
+- [ ] Open a document shared with you on a record you can't see (needs a "Shared with me" list)
+- [ ] Share with another organisation, full Activity page (rest of prompt 08)
 - [ ] Phases 3–9 remainder – entity documents, preview, upload, versions, review, access/activity, search
