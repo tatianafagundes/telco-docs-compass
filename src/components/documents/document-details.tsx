@@ -6,7 +6,7 @@ import { api } from "@/services/api";
 import { Button } from "@/components/erad/button";
 import { TextField } from "@/components/erad/text-field";
 import { useDocumentActions } from "@/hooks/use-document-actions";
-import { editState } from "@/services/document-actions";
+import { contentEditState, editState } from "@/services/document-actions";
 import type { AppRole } from "@/services/document-rules";
 import type { DocStatus } from "@/schemas/document";
 
@@ -19,6 +19,7 @@ interface Props {
 export function DocumentDetails({ entityId, role, doc }: Props) {
   const a = useDocumentActions(entityId, doc.id);
   const edit = editState(role, doc.status);
+  const content = contentEditState(role, doc.status);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(doc.name);
   const [description, setDescription] = useState(doc.description ?? "");
@@ -70,14 +71,18 @@ export function DocumentDetails({ entityId, role, doc }: Props) {
         e.preventDefault();
         if (invalid) return;
         a.updateDetails.mutate(
-          { name: name.trim(), description, ...(expiry ? { expiryDate: expiry } : {}) },
+          { name: name.trim(), description, ...(content.available && expiry ? { expiryDate: expiry } : {}) },
           { onSuccess: () => setEditing(false) },
         );
       }}
     >
       <TextField label="Name" required value={name} maxLength={255} onChange={(e) => setName(e.target.value)} error={invalid ? "A name helps everyone find this document." : undefined} />
       <TextField label="Description" value={description} maxLength={2000} onChange={(e) => setDescription(e.target.value)} />
-      <TextField label="Expiry date" type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
+      {content.available ? (
+        <TextField label="Expiry date" type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
+      ) : (
+        <p className="type-label-12 text-text-secondary">{content.reason}</p>
+      )}
       <div className="flex justify-end gap-2">
         <Button onClick={() => setEditing(false)}>Cancel</Button>
         <Button type="submit" variant="primary" unavailable={invalid || a.updateDetails.isPending}>Save</Button>

@@ -16,7 +16,7 @@ import { entitiesQuery } from "@/hooks/use-access";
 import { useReviewField, useReviewState } from "@/hooks/use-review";
 import { useDocumentActions } from "@/hooks/use-document-actions";
 import { api } from "@/services/api";
-import { can, isFrozen } from "@/services/document-rules";
+import { can, contentProtected, isFrozen } from "@/services/document-rules";
 import { toCheckCount } from "@/services/review-rules";
 import {
   confidenceReason,
@@ -55,7 +55,7 @@ function ReviewPage() {
   const docQ = useQuery(documentQuery(docId));
   const entities = useQuery(entitiesQuery);
   const doc = docQ.data?.doc ?? null;
-  const closed = doc ? isFrozen(doc.status) : false;
+  const closed = doc ? isFrozen(doc.status) || contentProtected(doc.status) : false;
   const canReview = can(role, "review") && !closed;
   const review = useReviewState(docId, doc?.document_type ?? "", doc?.current_version_id ?? null);
   const pagesQ = useQuery({ queryKey: ["content", docId, "preview"], queryFn: () => api.getContentUrl(docId, "preview") });

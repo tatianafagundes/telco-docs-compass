@@ -6,7 +6,7 @@ import { decideRate, rateHeaders, rateKind, retryGuidance } from "@/services/rat
 import { z } from "zod";
 import type { Json } from "@/integrations/supabase/types";
 import type { DocStatus } from "@/schemas/document";
-import { hashBody, idempotencyOutcome, isFrozen, isTransitionAllowed, metadataPatchAllowed, systemMayApprove, pendingRequiredDetails, type SpecCharacteristic } from "@/services/document-rules";
+import { hashBody, idempotencyOutcome, isTransitionAllowed, metadataPatchAllowed, systemMayApprove, pendingRequiredDetails, type SpecCharacteristic } from "@/services/document-rules";
 import { deleteState } from "@/services/document-actions";
 import type { Db } from "@/services/seam-runtime";
 import {
