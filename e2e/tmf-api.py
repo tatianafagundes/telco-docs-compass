@@ -155,6 +155,7 @@ def integrator(full: str, ro: str) -> dict:
     r, j, _ = call("POST", f"/document/{doc_id}/transition", full, {"lifecycleState": "in_review"}, idem=f"cpq-rev-{RUN}")
     check(r.status_code == 200 and (j or {}).get("lifecycleState") == "in_review", "CPQ sends quote to review")
     r, j, _ = call("POST", f"/document/{doc_id}/transition", full, {"lifecycleState": "approved"}, idem=f"cpq-apr-{RUN}")
+    check(r.status_code == 409 and (j or {}).get("code") == "fourEyesRequired", f"The registering system can't approve its own document (HTTP {r.status_code}, {(j or {}).get('code')})")
     check(r.status_code in (200, 409), f"Approval answers with a clear result (HTTP {r.status_code}, {(j or {}).get('code')})")
     approve_result = (j or {}).get("code") or (j or {}).get("lifecycleState")
 
@@ -367,6 +368,24 @@ def conforms(doc: dict, defs: dict) -> list[str]:
     return problems
 
 
+def four_eyes_and_refs(full: str, second: str, ro: str, doc_id: str) -> None:
+    print("\n== 8. Four-eyes, category and document links ==")
+    r, j, _ = call("POST", STD + f"/document/{doc_id}/transition", full, {"lifecycleState": "approved"}, idem=f"fe1-{RUN}")
+    check(r.status_code == 409 and (j or {}).get("code") == "fourEyesRequired", "same key approving its own document → 409 fourEyesRequired")
+    r, j, _ = call("POST", STD + f"/document/{doc_id}/transition", second, {"lifecycleState": "approved"}, idem=f"fe2-{RUN}")
+    code = (j or {}).get("code")
+    check(code != "fourEyesRequired" and (r.status_code == 200 or code == "requiredDetailsPending"), f"a second key can approve (or meets the normal approval gate) ({code or (j or {}).get('status')})")
+    r, lst, _ = call("GET", STD + "/document?limit=100", ro)
+    defs = requests.get(OFFICIAL_SWAGGER, timeout=30).json()["definitions"]
+    check(any(d.get("category") for d in lst or []), "documents carry category from the document type's business process")
+    linked = [d for d in lst or [] if d.get("document")]
+    check(all(all(x.get("@type") == "DocumentRef" and x.get("href", "").startswith(STD) for x in d["document"]) for d in linked), f"document links are DocumentRef with standard href ({len(linked)} linked)")
+    issues = sorted({p for d in lst or [] for p in conforms(d, defs)})
+    check(not issues, f"documents with category/document still conform to the official v4 definition {issues[:5] or ''}")
+    r, j, _ = call("GET", STD + "/documentSpecification", ro)
+    check(all(s.get("isBundle") is False and s.get("targetEntitySchema") for s in j or []), "documentSpecification has isBundle and targetEntitySchema")
+
+
 def standard_client(full: str, ro: str, burst: str) -> None:
     print("\n== 7. Standard TMF667 v4 client (standard address) ==")
     defs = requests.get(OFFICIAL_SWAGGER, timeout=30).json()["definitions"]
@@ -415,7 +434,7 @@ def standard_client(full: str, ro: str, burst: str) -> None:
     r, j, _ = call("PATCH", STD + f"/document/{sid}", ro, {"status": "approved"}, idem=f"std-p2-{RUN}", headers=mp)
     check(r.status_code == 403, "PATCH status needs the transition/approve permission")
     r, j, _ = call("PATCH", STD + f"/document/{sid}", full, {"status": "approved"}, idem=f"std-p3-{RUN}", headers=mp)
-    check(r.status_code in (200, 409) and (r.status_code == 200 or (j or {}).get("code") == "requiredDetailsPending"), f"PATCH status=approved applies the approval gate ({(j or {}).get('code') or (j or {}).get('status')})")
+    check(r.status_code in (200, 409) and (j or {}).get("code") == "fourEyesRequired", f"PATCH status=approved by the registering system is refused (four-eyes) ({(j or {}).get('code') or (j or {}).get('status')})")
     r, j, _ = call("PATCH", STD + f"/document/{sid}", full, {"status": "published"}, idem=f"std-p4-{RUN}", headers=mp)
     check(r.status_code == 409 if (j or {}).get("status") != "published" else True, "PATCH status can't skip steps")
     r, j, _ = call("PATCH", STD + f"/document/{sid}", full, {"characteristic": [{"name": "quoteValue", "value": "1200 SEK"}]}, idem=f"std-p5-{RUN}", headers=mp)
@@ -470,6 +489,8 @@ async def main() -> None:
         ro = await mint_key(page, ro_name, False)
         burst_name = f"TMF test burst {RUN}"
         burst = await mint_key(page, burst_name, False)
+        second_name = f"TMF test second {RUN}"
+        second = await mint_key(page, second_name, True)
         check(full.startswith("erad_") and ro.startswith("erad_"), "admin screen issued two system keys")
         try:
             ctx = integrator(full, ro)
@@ -479,6 +500,7 @@ async def main() -> None:
             reliability(full, ctx["create_body"])
             events(full, ctx["doc_id"])
             standard_client(full, ro, burst)
+            four_eyes_and_refs(full, second, ro, ctx["doc_id"])
             if not SKIP_SLOW:
                 print("\n== Download link expiry ==")
                 r, lst, _ = call("GET", "/document?limit=100", ro)
@@ -500,6 +522,7 @@ async def main() -> None:
             check(r.status_code == 401, "a disconnected key stops working straight away")
             await disconnect(page, full_name)
             await disconnect(page, burst_name)
+            await disconnect(page, second_name)
             await browser.close()
 
     print("\n== 6. Timing (ms) ==")

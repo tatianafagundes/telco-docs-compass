@@ -45,6 +45,7 @@ async function runBatch(admin: Db, job: JobRow) {
 
   const skipped: Record<string, number> = { ...job.skipped };
   let changed = job.changed;
+  const changedIds: string[] = [];
   const now = new Date().toISOString();
   const params: BulkParams = { ...(job.params.to ? { to: job.params.to } : {}), ...(job.params.sensitivity ? { sensitivity: job.params.sensitivity } : {}) };
   for (const id of ids) {
@@ -88,12 +89,26 @@ async function runBatch(admin: Db, job: JobRow) {
       detail: `${detail} · bulk change`.slice(0, 160),
     });
     changed++;
+    changedIds.push(id);
   }
+  // One TMF667 DocumentBatchEvent per pass, for subscriptions that ask for batch events.
+  await recordBatchEvent(admin, job.tenant_id, changedIds, job.action);
   const done = job.done + ids.length;
   await admin
     .from("bulk_jobs")
     .update({ done, changed, skipped: skipped as Json, status: done >= job.total ? "done" : "running", ...(done >= job.total ? { finished_at: now } : {}) })
     .eq("id", job.id);
+}
+
+/** Writes one DocumentBatchEvent outbox row for documents changed in one bulk pass (none when empty). */
+export async function recordBatchEvent(admin: Db, tenantId: string, documentIds: string[], action: string): Promise<void> {
+  if (documentIds.length === 0) return;
+  await admin.from("event_outbox").insert({
+    tenant_id: tenantId,
+    event_type: "DocumentBatchEvent",
+    document_id: documentIds[0] as string,
+    payload: { documentIds, action } as unknown as Json,
+  });
 }
 
 /** Runs one batch for each pending job (or just the given one). Safe to call repeatedly. */

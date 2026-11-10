@@ -19,5 +19,6 @@
 - [x] Documents page for large volumes: search-first start page, filters with counts, keyset paging with drawn-in-view rows, saved views, bulk changes as background jobs
 - [ ] Timing test with about 1 million synthetic documents (needs a separate test database so real data stays clean)
 - [x] TMF667 API: read, register, change details, status path, legal hold, download links, document types, event hub; Admin › Connected systems (keys, rotate, disconnect)
-- [ ] TMF667: rate limits per system key; OAuth client sign-in if your systems need it (waits on your choice)
+- [x] TMF667: rate limits per system key; OAuth client sign-in
+- [x] TMF667 v4 conformance audit findings (four-eyes over API, category, document links, batch events, spec fields)
 - [ ] TMF667: per-system integration guides and test scripts for Ticket management, CRM, CPQ

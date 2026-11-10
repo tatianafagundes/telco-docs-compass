@@ -6,7 +6,7 @@ import { decideRate, rateHeaders, rateKind, retryGuidance } from "@/services/rat
 import { z } from "zod";
 import type { Json } from "@/integrations/supabase/types";
 import type { DocStatus } from "@/schemas/document";
-import { hashBody, idempotencyOutcome, isFrozen, isTransitionAllowed, pendingRequiredDetails, type SpecCharacteristic } from "@/services/document-rules";
+import { hashBody, idempotencyOutcome, isFrozen, isTransitionAllowed, systemMayApprove, pendingRequiredDetails, type SpecCharacteristic } from "@/services/document-rules";
 import { deleteState } from "@/services/document-actions";
 import type { Db } from "@/services/seam-runtime";
 import {
@@ -31,6 +31,7 @@ import {
   type Scope,
   type TmfError,
   type VersionRow,
+  categoryFromDefinition,
 } from "@/services/tmf667-mapper";
 
 export const MAX_BODY_CHARS = 50_000;
@@ -62,7 +63,7 @@ export function errorReply(e: TmfError, requestId: string): Response {
 }
 
 const DOC_COLS =
-  "id, tenant_id, name, description, document_type, status, sensitivity, legal_hold, effective_date, expiry_date, created_at, updated_at, current_version_id, characteristic, external_identifier, retain_until";
+  "id, tenant_id, name, description, document_type, status, sensitivity, legal_hold, effective_date, expiry_date, created_at, updated_at, current_version_id, characteristic, external_identifier, retain_until, bundle_id, registered_by_client";
 
 /**
  * Verifies the system key (erad_…) or a short-lived OAuth token (eradt_…), checks expiry, scope and
@@ -156,10 +157,16 @@ async function idempotent(request: Request, ctx: SystemCtx, operation: string, b
 async function loadTmfDocs(ctx: SystemCtx, docs: DocRow[]) {
   const ids = docs.map((d) => d.id);
   if (ids.length === 0) return [];
-  const [{ data: versions }, { data: rels }] = await Promise.all([
+  const bundles = [...new Set(docs.map((d) => d.bundle_id).filter((b): b is string => !!b))];
+  const [{ data: versions }, { data: rels }, { data: specs }, { data: siblings }] = await Promise.all([
     ctx.admin.from("document_versions").select("id, document_id, label, mime_type, size_bytes, content_hash, created_at").in("document_id", ids).eq("tenant_id", ctx.tenantId).order("created_at"),
     ctx.admin.from("document_relations").select("document_id, entity_id, role, business_entities!inner(referred_type, tenant_id)").in("document_id", ids).eq("business_entities.tenant_id", ctx.tenantId),
+    ctx.admin.rpc("effective_specifications", { p_tenant: ctx.tenantId }),
+    bundles.length
+      ? ctx.admin.from("documents").select("id, bundle_id, bundle_role").in("bundle_id", bundles).eq("tenant_id", ctx.tenantId).is("deleted_at", null).is("purged_at", null)
+      : Promise.resolve({ data: [] as { id: string; bundle_id: string | null; bundle_role: string | null }[] }),
   ]);
+  const categoryByType = new Map((specs ?? []).map((s) => [s.code, categoryFromDefinition(s.definition)]));
   return docs.map((d) =>
     toTmfDocument(
       ctx.origin,
@@ -168,6 +175,11 @@ async function loadTmfDocs(ctx: SystemCtx, docs: DocRow[]) {
       (rels ?? [])
         .filter((r) => r.document_id === d.id)
         .map((r): RelationRow => ({ entity_id: r.entity_id, role: r.role, referred_type: (r.business_entities as { referred_type: string }).referred_type })),
+      {
+        category: categoryByType.get(d.document_type) ?? [],
+        // Same tenant, same bundle; never links outside the key's tenant.
+        related: (siblings ?? []).filter((x) => d.bundle_id && x.bundle_id === d.bundle_id && x.id !== d.id).map((x) => ({ id: x.id, role: x.bundle_role ?? "bundleMember" })),
+      },
     ),
   );
 }
@@ -392,6 +404,7 @@ export async function createDocument(request: Request): Promise<Response> {
         retention_policy_id: def.retentionPolicyRef ?? null,
         // The schema allows uploaded/generated only; the activity log records which system sent it.
         origin: "uploaded",
+        registered_by_client: ctx.clientId,
         external_identifier: (d.externalIdentifier ?? []) as unknown as Json,
         ...(d.characteristic ? { characteristic: d.characteristic as unknown as Json } : {}),
       })
@@ -433,6 +446,9 @@ const PATCH_TYPES = ["application/merge-patch+json", "application/json"];
 async function applyTransition(ctx: SystemCtx, doc: DocRow, target: DocStatus): Promise<{ status: number; body: unknown } | null> {
   if (!isTransitionAllowed(doc.status, target)) return { status: 409, body: tmfError(409, "transitionNotAllowed", "Conflict", `A ${doc.status} document can't move to ${target}.`) };
   if (target === "approved") {
+    if (!systemMayApprove(doc.registered_by_client, ctx.clientId)) {
+      return { status: 409, body: tmfError(409, "fourEyesRequired", "Conflict", "The system that added this document can't approve it. Another system or a person in the app can.") };
+    }
     const { data: specs } = await ctx.admin.rpc("effective_specifications", { p_tenant: ctx.tenantId });
     const def = (specs ?? []).find((s) => s.code === doc.document_type)?.definition as { specCharacteristic?: SpecCharacteristic[] } | undefined;
     const { data: fields } = await ctx.admin.from("extraction_fields").select("name, status").eq("document_id", doc.id).eq("version_id", doc.current_version_id ?? "");

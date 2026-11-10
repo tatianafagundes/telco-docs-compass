@@ -16,10 +16,17 @@ info:
         characteristic, externalIdentifier, relatedEntity (add only), validFor.endDateTime)
       - DELETE /document/{id} (soft delete; legal holds and keep-until dates block it)
       - GET /documentSpecification, GET /documentSpecification/{id}
-      - POST /hub, DELETE /hub/{id}; events DocumentCreateEvent, DocumentChangeEvent, DocumentDeleteEvent
+      - POST /hub, DELETE /hub/{id}; events DocumentCreateEvent, DocumentChangeEvent, DocumentDeleteEvent,
+        DocumentBatchEvent (one per bulk change pass; sent only to subscriptions with query eventType=DocumentBatchEvent)
+      - Optional Document fields: externalIdentifier, relatedParty, category (business process names, read-only),
+        document (DocumentRef to other documents in the same bundle, read-only)
+      - DocumentSpecification includes isBundle (always false) and targetEntitySchema
     Optional parts not offered: POST/PATCH/DELETE /documentSpecification (document types are
     managed by administrators in the app so group locks and country rules stay enforced),
-    PUT /document/{id}, DocumentBatchEvent, DocumentSpecification* events.
+    PUT /document/{id}, DocumentSpecification* events.
+
+    Four-eyes: a system cannot approve a document it registered itself (409 fourEyesRequired);
+    another system key or a person in the app can.
 
     Extensions (not in TMF667), with reasons:
       - POST /document/{id}/transition: explicit status task with our detailed lifecycleState

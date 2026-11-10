@@ -162,3 +162,11 @@ export function idempotencyOutcome(
 }
 
 export const IDEMPOTENCY_TTL_HOURS = 24;
+
+/**
+ * Four-eyes over the API: a system key may not approve a document it registered itself.
+ * Documents added in the app (no registering key) or by another key can be approved.
+ */
+export function systemMayApprove(registeredByClient: string | null | undefined, clientId: string): boolean {
+  return !registeredByClient || registeredByClient !== clientId;
+}

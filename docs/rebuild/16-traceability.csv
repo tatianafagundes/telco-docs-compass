@@ -100,3 +100,6 @@ BR-136,"Keys last 365 days and are stored only as SHA-256 hashes. Prefixes: erad
 BR-137,"Inline attachment ≤ 5 MB; URL attachment fetch ≤ 25 MB, with a DNS check that rejects private addresses.",tmf667-mapper.ts; tmf-gateway.ts,tmf667-mapper.test.ts; e2e/tmf-api.py,unit + contract: BR-137Test
 BR-138,"Unknown paths and methods return TMF error JSON (404/405), never HTML.",tmf667-mapper.ts; tmf-gateway.ts,tmf667-mapper.test.ts; e2e/tmf-api.py,unit + contract: BR-138Test
 BR-139,The legacy base /documentManagement/v4 remains an alias until 10 May 2027.,tmf667-mapper.ts; tmf-gateway.ts,tmf667-mapper.test.ts; e2e/tmf-api.py,unit + contract: BR-139Test
+BR-140,"TMF API four-eyes: a system key cannot approve a document it registered (409 fourEyesRequired).",document-rules.ts; tmf-gateway.ts,tmf667-audit-gaps.test.ts; e2e/tmf-api.py,unit + contract: BR-140Test
+BR-141,"category from business process, document refs to bundle siblings, spec isBundle/targetEntitySchema.",tmf667-mapper.ts; tmf-gateway.ts,tmf667-audit-gaps.test.ts; e2e/tmf-api.py,unit + contract: BR-141Test
+BR-142,"One DocumentBatchEvent per bulk pass, only to subscriptions naming it.",bulk-worker.ts; tmf667-mapper.ts,tmf667-audit-gaps.test.ts; e2e/tmf-events.py,unit + e2e: BR-142Test
