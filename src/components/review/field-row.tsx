@@ -35,7 +35,7 @@ const DONE_WORD = { accepted: "Confirmed", edited: "Corrected", rejected: "Not i
 
 export function Marker({ n, active }: { n: number; active?: boolean }) {
   return (
-    <span aria-hidden="true" className={cn("type-label-12 inline-flex size-5 shrink-0 items-center justify-center rounded-full border", active ? "border-focus bg-focus text-text-on-primary" : "border-border-input text-text-secondary")}>
+    <span aria-hidden="true" className={cn("type-label-12 inline-flex size-5 shrink-0 items-center justify-center rounded-full border", active ? "border-focus bg-focus text-text-on-primary" : "border-border-input bg-layer-content text-text-secondary")}>
       {n}
     </span>
   );
