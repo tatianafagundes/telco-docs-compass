@@ -7,8 +7,8 @@ import { whyCanISee } from "@/services/review-rules";
 import { Spinner } from "@/components/erad/misc";
 
 /** A small explanation of the signed-in person's own access. */
-export function WhyCanISee({ docId }: { docId: string }) {
-  const [open, setOpen] = useState(false);
+export function WhyCanISee({ docId, initiallyOpen = false }: { docId: string; initiallyOpen?: boolean }) {
+  const [open, setOpen] = useState(initiallyOpen);
   const access = useQuery({ ...accessQuery(docId), enabled: open });
   const entities = useQuery({ ...entitiesQuery, enabled: open });
   const me = useQuery(meQuery);

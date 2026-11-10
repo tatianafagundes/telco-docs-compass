@@ -33,6 +33,7 @@ export function DocumentPanel({ id, entityId, role }: { id: string; entityId: st
   const q = useQuery(documentQuery(id));
   const [sharing, setSharing] = useState(false);
   const [allActivity, setAllActivity] = useState(false);
+  const [showWhy, setShowWhy] = useState(false);
   const review = useReviewState(id, q.data?.doc?.document_type ?? "", q.data?.doc?.current_version_id ?? null);
   const toCheck = toCheckCount(review.fields);
   if (q.isPending) return <Spinner label="Opening document" />;
@@ -48,49 +49,63 @@ export function DocumentPanel({ id, entityId, role }: { id: string; entityId: st
   if (!doc) return <p className="type-paragraph-14">This document isn't available to you, or it has been removed.</p>;
   const current = versions.find((v) => v.id === doc.current_version_id) ?? versions[0];
 
+  const headerBlock = (
+    <>
+      <h3 className="type-title-16-medium">{doc.name}</h3>
+      <div className="flex flex-wrap gap-2">
+        <Tag tone={STATUS_TONE[doc.status]} small>{STATUS_LABEL[doc.status]}</Tag>
+        <Tag tone={PIPELINE_TONE[doc.pipeline_state]} small>{PIPELINE_LABEL[doc.pipeline_state]}</Tag>
+        {doc.legal_hold ? <Tag tone="major" icon={<Lock aria-hidden="true" className="size-4" />}>On hold</Tag> : null}
+      </div>
+      {shared ? <p className="type-label-12 text-text-secondary">Part of a record you don't have access to</p> : null}
+      {current ? <p className="type-label-12 text-text-secondary">Version {current.label} · {format(new Date(current.created_at), "d MMM yyyy")}</p> : null}
+    </>
+  );
+  const extraMenu = [
+    ...(!shared && can(role, "manage") ? [{ label: "Manage access", onSelect: () => setSharing(true) }] : []),
+    { label: "Why can I see this?", onSelect: () => setShowWhy(true) },
+  ];
+
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-2">
-        <h3 className="type-title-16-medium">{doc.name}</h3>
-        <div className="flex flex-wrap gap-2">
-          <Tag tone={STATUS_TONE[doc.status]} small>{STATUS_LABEL[doc.status]}</Tag>
-          <Tag tone={PIPELINE_TONE[doc.pipeline_state]} small>{PIPELINE_LABEL[doc.pipeline_state]}</Tag>
-          {doc.legal_hold ? <Tag tone="major" icon={<Lock aria-hidden="true" className="size-4" />}>On hold</Tag> : null}
-        </div>
-        {shared ? <p className="type-label-12 text-text-secondary">Part of a record you don't have access to</p> : null}
-        {current ? <p className="type-label-12 text-text-secondary">Version {current.label} · {format(new Date(current.created_at), "d MMM yyyy")}</p> : null}
-      </header>
-
-      {toCheck > 0 ? (
-        <Banner
-          tone="indeterminate"
-          status={`${toCheck} to check`}
-          action={shared ? undefined : <Link
-            id={`review-${id}`}
-            to="/records/$entityId/review/$docId"
-            params={{ entityId: recordId, docId: id }}
-            className="focus-ring type-label-14 inline-flex h-8 items-center rounded-control border border-border-btn px-3 hover:bg-btn-default-hover"
+      <div className="flex flex-col gap-4">
+        <DocumentActionsBar
+          entityId={recordId}
+          role={role}
+          doc={doc}
+          approveGate={review.gate}
+          header={headerBlock}
+          extraMenu={extraMenu}
+        />
+        {toCheck > 0 ? (
+          <Banner
+            tone="indeterminate"
+            status={`${toCheck} to check`}
+            action={shared ? undefined : <Link
+              id={`review-${id}`}
+              to="/records/$entityId/review/$docId"
+              params={{ entityId: recordId, docId: id }}
+              className="focus-ring type-label-14 inline-flex h-8 items-center rounded-control border border-border-btn px-3 hover:bg-btn-default-hover"
+            >
+              Review
+            </Link>}
           >
-            Review
-          </Link>}
-        >
-          {bannerText(toCheck)}
-        </Banner>
-      ) : review.fields.length > 0 ? (
-        <p className="type-label-12 text-text-secondary">All details read from this document are checked.</p>
-      ) : null}
-
-      <DocumentActionsBar entityId={recordId} role={role} doc={doc} approveGate={review.gate} />
-
-      <div className="flex flex-col items-start gap-2">
-        {!shared && can(role, "manage") ? <Button onClick={() => setSharing(true)}>Manage access</Button> : null}
-        <WhyCanISee docId={id} />
+            {bannerText(toCheck)}
+          </Banner>
+        ) : review.fields.length > 0 ? (
+          <p className="type-label-12 text-text-secondary">All details read from this document are checked.</p>
+        ) : null}
+        {showWhy ? <WhyCanISee key="why" docId={id} initiallyOpen /> : null}
       </div>
       <ManageAccessDialog docId={id} open={sharing} onOpenChange={setSharing} />
-      <DocumentDetails key={doc.updated_at} entityId={recordId} role={role} doc={doc} />
 
-      <section aria-label="Activity" className="flex flex-col gap-2">
-        <h4 className="type-label-12 text-text-secondary">Recent activity</h4>
+      <section aria-labelledby={`details-${id}`} className="flex flex-col gap-2 border-t border-border-subtle pt-4">
+        <h4 id={`details-${id}`} className="type-label-12 text-text-secondary">Details</h4>
+        <DocumentDetails key={doc.updated_at} entityId={recordId} role={role} doc={doc} />
+      </section>
+
+      <section aria-labelledby={`activity-${id}`} className="flex flex-col gap-2 border-t border-border-subtle pt-4">
+        <h4 id={`activity-${id}`} className="type-label-12 text-text-secondary">Activity</h4>
         {activity.length === 0 ? (
           <p className="type-paragraph-14 text-text-secondary">Nothing has happened here yet.</p>
         ) : (

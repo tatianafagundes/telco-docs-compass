@@ -31,7 +31,7 @@ export function DocumentDetails({ entityId, role, doc }: Props) {
 
   if (!editing) {
     return (
-      <section aria-label="Details" className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3">
         <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-2">
           <dt className="type-label-12 text-text-secondary">Type</dt><dd className="type-label-14">{typeLabel(doc.document_type)}</dd>
           <dt className="type-label-12 text-text-secondary">Description</dt><dd className="type-label-14">{doc.description || "No description yet"}</dd>
@@ -57,7 +57,7 @@ export function DocumentDetails({ entityId, role, doc }: Props) {
           <Button unavailable={!edit.available} onClick={() => setEditing(true)} className="self-start">Edit details</Button>
           {edit.reason ? <p className="type-label-12 text-text-secondary">{edit.reason}</p> : null}
         </div>
-      </section>
+      </div>
     );
   }
 
