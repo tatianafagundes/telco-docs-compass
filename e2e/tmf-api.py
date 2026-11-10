@@ -255,6 +255,21 @@ def rules(full: str, doc_id: str) -> None:
     check(r.status_code == 409 and (j or {}).get("code") == "transitionNotAllowed", "draft → effective (skipping steps) is refused")
     r, j, _ = call("PATCH", "/document/00000000-0000-0000-0000-0000000000d5", full, {"name": "Renamed"}, idem=f"frozen-{RUN}")
     check(r.status_code == 409 and (j or {}).get("code") == "frozen", "expired document details can't be edited")
+    # Approved/effective: name and description editable, approved content protected.
+    r, eff, _ = call("GET", "/document?lifecycleState=effective&limit=1", full)
+    if eff:
+        e = eff[0]
+        r, j, _ = call("PATCH", f"/document/{e['id']}", full, {"name": e["name"] + " (renamed)", "description": "Renamed by TMF test"}, idem=f"eff-ren-{RUN}")
+        check(r.status_code == 200 and (j or {}).get("name") == e["name"] + " (renamed)", "effective document can be renamed")
+        r, j, _ = call("PATCH", f"/document/{e['id']}", full, {"characteristic": [{"name": "quoteNumber", "value": "TAMPERED"}]}, idem=f"eff-ch-{RUN}")
+        check(r.status_code == 409 and (j or {}).get("code") == "approvedContentLocked", "effective document's confirmed details are protected (409)")
+        r, j, _ = call("PATCH", f"/document/{e['id']}", full, {"validFor": {"endDateTime": "2099-01-01"}}, idem=f"eff-vf-{RUN}")
+        check(r.status_code == 409 and (j or {}).get("code") == "approvedContentLocked", "effective document's dates are protected (409)")
+        r, after, _ = call("GET", f"/document/{e['id']}", full)
+        check(json.dumps((after or {}).get("characteristic")) == json.dumps(e.get("characteristic")) and (after or {}).get("validFor") == e.get("validFor"), "effective content is unchanged after refused edits")
+        call("PATCH", f"/document/{e['id']}", full, {"name": e["name"], "description": e.get("description") or ""}, idem=f"eff-back-{RUN}")
+    else:
+        check(False, "an effective document exists to test approved-content protection")
     r, j, _ = call("PATCH", f"/document/{draft}", full, {"name": f"TMF test draft {RUN} (renamed)"}, idem=f"ren-{RUN}")
     check(r.status_code == 200 and (j or {}).get("name", "").endswith("(renamed)"), "draft can be renamed")
     r, j, _ = call("PATCH", f"/document/{draft}", full, {"lifecycleState": "approved"}, idem=f"extra-{RUN}")
