@@ -24,7 +24,7 @@ export function RadioGroup({ label, options, ...props }: RadioGroupProps) {
           <label key={o.value} className="type-label-14 inline-flex min-h-6 cursor-pointer items-center gap-2">
             <RadioPrimitive.Item
               value={o.value}
-              disabled={o.disabled}
+              disabled={o.disabled ?? false}
               className={cn(
                 "focus-ring group flex size-4 items-center justify-center rounded-full",
                 "disabled:cursor-not-allowed",
