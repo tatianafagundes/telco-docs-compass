@@ -26,7 +26,8 @@ function show(v: unknown): string {
 }
 
 export function FieldRow({ field, index, selected, canReview, busy, editing, onSelect, onEditingChange, onDecide }: FieldRowProps) {
-  const [draft, setDraft] = useState(show(field.value));
+  const raw = field.value === null || field.value === undefined ? "" : String(field.value);
+  const [draft, setDraft] = useState(raw);
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
   const band = field.band ? BAND_TAG[field.band] : null;
@@ -80,7 +81,7 @@ export function FieldRow({ field, index, selected, canReview, busy, editing, onS
       {!editing ? (
         <div className="flex flex-wrap gap-2">
           <Button unavailable={!canReview || busy} onClick={(e) => { e.stopPropagation(); onDecide("accept"); }}>Accept</Button>
-          <Button unavailable={!canReview || busy} onClick={(e) => { e.stopPropagation(); setDraft(show(field.value)); onEditingChange(true); }}>Edit</Button>
+          <Button unavailable={!canReview || busy} onClick={(e) => { e.stopPropagation(); setDraft(raw); onEditingChange(true); }}>Edit</Button>
           <Button unavailable={!canReview || busy} onClick={(e) => { e.stopPropagation(); onDecide("reject"); }}>Reject</Button>
         </div>
       ) : null}
