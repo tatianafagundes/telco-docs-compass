@@ -1,3 +1,4 @@
+import { isOwnDocument } from "@/services/review-flow-rules";
 import { createServerFn } from "@tanstack/react-start";
 import type { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -47,7 +48,7 @@ type ContentResult =
   | { kind: "sample"; mimeType: string; pages: Json; previewable: boolean }
   | { kind: "signed"; url: string; expiresAt: string; mimeType: string; previewable: boolean };
 const DOC_COLUMNS =
-  "id, tenant_id, name, document_type, status, pipeline_state, pipeline_detail, sensitivity, signature_level, effective_date, valid_to, expiry_date, legal_hold, hold_reason, retain_until, characteristic, current_version_id, created_at, updated_at";
+  "id, tenant_id, name, document_type, status, pipeline_state, pipeline_detail, sensitivity, signature_level, effective_date, valid_to, expiry_date, legal_hold, hold_reason, retain_until, characteristic, current_version_id, created_by, created_at, updated_at";
 
 async function adminClient(): Promise<Db> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -354,6 +355,8 @@ export const transition = createServerFn({ method: "POST" })
       if (!doc) return fail("doc.notFound", "notFound");
       if (!isTransitionAllowed(doc.status, data.to)) return fail("doc.transition.notAllowed", "rejected");
       if (data.to === "approved") {
+        // Four-eyes: the person who added a document can't approve it.
+        if (isOwnDocument(doc.created_by, env.userId)) return fail("doc.approve.ownDocument", "rejected");
         const spec = await specFor(env.caller, doc.document_type);
         const { data: fields } = await env.admin
           .from("extraction_fields")

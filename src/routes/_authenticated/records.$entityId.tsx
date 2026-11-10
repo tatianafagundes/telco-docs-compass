@@ -81,7 +81,8 @@ function RecordPage() {
           <PageHeader title={data.entity.display_name} />
           <p className="type-label-12 -mt-3 text-text-secondary">
             {RECORD_KIND[data.entity.referred_type] ?? data.entity.referred_type}
-            {data.entity.status_label ? ` · ${data.entity.status_label}` : ""}
+            {/* The record's own status in its source system (CPQ, Order care), not a document status. */}
+            {data.entity.status_label ? ` · ${RECORD_KIND[data.entity.referred_type] ?? "Record"} status in source system: ${data.entity.status_label.toLowerCase()}` : ""}
             {` · ${data.items.length} ${data.items.length === 1 ? "document" : "documents"}`}
           </p>
         </div>

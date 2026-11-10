@@ -27,7 +27,7 @@ export function useReviewState(docId: string, documentType: string, versionId: s
   const specs = useQuery(specCharacteristicsQuery);
   const current = (fields.data ?? []).filter((f) => !versionId || (f as ReviewField & { version_id?: string }).version_id === versionId);
   const gate = approveGate(specs.data?.[documentType] ?? [], current);
-  return { fields: current, gate, isPending: fields.isPending || specs.isPending, isError: fields.isError || specs.isError, refetch: fields.refetch };
+  return { fields: current, gate, spec: specs.data?.[documentType] ?? [], isPending: fields.isPending || specs.isPending, isError: fields.isError || specs.isError, refetch: fields.refetch };
 }
 
 export function useReviewField(entityId: string, docId: string) {

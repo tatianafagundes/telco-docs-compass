@@ -3,6 +3,7 @@ import { Minus, Plus } from "lucide-react";
 import { Button } from "@/components/erad/button";
 import type { ReviewField } from "@/services/review-rules";
 import { cn } from "@/lib/utils";
+import { Marker } from "@/components/review/field-row";
 
 export interface SamplePage {
   page: number;
@@ -63,13 +64,13 @@ export function DocumentPage({ pages, fields, selectedId, onSelect }: DocumentPa
                   key={f.id}
                   ref={isSel ? selectedRef : undefined}
                   type="button"
-                  aria-label={`Detail ${n}`}
+                  aria-label={`Detail ${n}${f.status !== "pending" ? ", checked" : ""}`}
                   aria-pressed={isSel}
                   onClick={() => onSelect(f.id)}
-                  className={cn("focus-ring absolute border", isSel ? "border-2 border-focus" : "border-border-subtle")}
+                  className={cn("focus-ring absolute border", isSel ? "border-2 border-focus" : f.status !== "pending" ? "border-status-cleared" : "border-status-major")}
                   style={{ left: `${b.x * 100}%`, top: `${b.y * 100 - 1}%`, width: `${b.w * 100}%`, height: `${b.h * 100}%` }}
                 >
-                  <span className="type-label-12 absolute -top-5 -left-0.5 bg-item px-1">[{n}]</span>
+                  <span className="absolute -top-3 -left-3"><Marker n={n} active={isSel} /></span>
                 </button>
               );
             })}
