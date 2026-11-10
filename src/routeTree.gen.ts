@@ -27,6 +27,7 @@ import { Route as AuthenticatedSharedIndexRouteImport } from './routes/_authenti
 import { Route as AuthenticatedSharedDocIdRouteImport } from './routes/_authenticated/shared.$docId'
 import { Route as AuthenticatedAdminTenantsTenantIdRouteImport } from './routes/_authenticated/admin.tenants.$tenantId'
 import { Route as ApiPublicJobsBulkDocumentsRouteImport } from './routes/api/public/jobs/bulk-documents'
+import { Route as ApiPublicTmfApiSplatRouteImport } from './routes/api/public/tmf-api/$'
 import { Route as ApiPublicTmfEventsDeliverRouteImport } from './routes/api/public/tmf-events/deliver'
 import { Route as AuthenticatedRecordsEntityIdReviewDocIdRouteImport } from './routes/_authenticated/records.$entityId_.review.$docId'
 import { Route as ApiPublicTmfApiDocumentManagementV4DocumentRouteImport } from './routes/api/public/tmf-api/documentManagement/v4/document'
@@ -136,6 +137,11 @@ const ApiPublicJobsBulkDocumentsRoute =
     path: '/api/public/jobs/bulk-documents',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicTmfApiSplatRoute = ApiPublicTmfApiSplatRouteImport.update({
+  id: '/api/public/tmf-api/$',
+  path: '/api/public/tmf-api/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicTmfEventsDeliverRoute =
   ApiPublicTmfEventsDeliverRouteImport.update({
     id: '/api/public/tmf-events/deliver',
@@ -224,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/shared/': typeof AuthenticatedSharedIndexRoute
   '/admin/tenants/$tenantId': typeof AuthenticatedAdminTenantsTenantIdRoute
   '/api/public/jobs/bulk-documents': typeof ApiPublicJobsBulkDocumentsRoute
+  '/api/public/tmf-api/$': typeof ApiPublicTmfApiSplatRoute
   '/api/public/tmf-events/deliver': typeof ApiPublicTmfEventsDeliverRoute
   '/records/$entityId/review/$docId': typeof AuthenticatedRecordsEntityIdReviewDocIdRoute
   '/api/public/tmf-api/documentManagement/v4/document': typeof ApiPublicTmfApiDocumentManagementV4DocumentRouteWithChildren
@@ -253,6 +260,7 @@ export interface FileRoutesByTo {
   '/shared': typeof AuthenticatedSharedIndexRoute
   '/admin/tenants/$tenantId': typeof AuthenticatedAdminTenantsTenantIdRoute
   '/api/public/jobs/bulk-documents': typeof ApiPublicJobsBulkDocumentsRoute
+  '/api/public/tmf-api/$': typeof ApiPublicTmfApiSplatRoute
   '/api/public/tmf-events/deliver': typeof ApiPublicTmfEventsDeliverRoute
   '/records/$entityId/review/$docId': typeof AuthenticatedRecordsEntityIdReviewDocIdRoute
   '/api/public/tmf-api/documentManagement/v4/document': typeof ApiPublicTmfApiDocumentManagementV4DocumentRouteWithChildren
@@ -285,6 +293,7 @@ export interface FileRoutesById {
   '/_authenticated/shared/': typeof AuthenticatedSharedIndexRoute
   '/_authenticated/admin/tenants/$tenantId': typeof AuthenticatedAdminTenantsTenantIdRoute
   '/api/public/jobs/bulk-documents': typeof ApiPublicJobsBulkDocumentsRoute
+  '/api/public/tmf-api/$': typeof ApiPublicTmfApiSplatRoute
   '/api/public/tmf-events/deliver': typeof ApiPublicTmfEventsDeliverRoute
   '/_authenticated/records/$entityId_/review/$docId': typeof AuthenticatedRecordsEntityIdReviewDocIdRoute
   '/api/public/tmf-api/documentManagement/v4/document': typeof ApiPublicTmfApiDocumentManagementV4DocumentRouteWithChildren
@@ -317,6 +326,7 @@ export interface FileRouteTypes {
     | '/shared/'
     | '/admin/tenants/$tenantId'
     | '/api/public/jobs/bulk-documents'
+    | '/api/public/tmf-api/$'
     | '/api/public/tmf-events/deliver'
     | '/records/$entityId/review/$docId'
     | '/api/public/tmf-api/documentManagement/v4/document'
@@ -346,6 +356,7 @@ export interface FileRouteTypes {
     | '/shared'
     | '/admin/tenants/$tenantId'
     | '/api/public/jobs/bulk-documents'
+    | '/api/public/tmf-api/$'
     | '/api/public/tmf-events/deliver'
     | '/records/$entityId/review/$docId'
     | '/api/public/tmf-api/documentManagement/v4/document'
@@ -377,6 +388,7 @@ export interface FileRouteTypes {
     | '/_authenticated/shared/'
     | '/_authenticated/admin/tenants/$tenantId'
     | '/api/public/jobs/bulk-documents'
+    | '/api/public/tmf-api/$'
     | '/api/public/tmf-events/deliver'
     | '/_authenticated/records/$entityId_/review/$docId'
     | '/api/public/tmf-api/documentManagement/v4/document'
@@ -396,6 +408,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   DesignRoute: typeof DesignRoute
   ApiPublicJobsBulkDocumentsRoute: typeof ApiPublicJobsBulkDocumentsRoute
+  ApiPublicTmfApiSplatRoute: typeof ApiPublicTmfApiSplatRoute
   ApiPublicTmfEventsDeliverRoute: typeof ApiPublicTmfEventsDeliverRoute
   ApiPublicTmfApiDocumentManagementV4DocumentRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentRouteWithChildren
   ApiPublicTmfApiDocumentManagementV4DocumentSpecificationRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentSpecificationRouteWithChildren
@@ -528,6 +541,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/jobs/bulk-documents'
       fullPath: '/api/public/jobs/bulk-documents'
       preLoaderRoute: typeof ApiPublicJobsBulkDocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/tmf-api/$': {
+      id: '/api/public/tmf-api/$'
+      path: '/api/public/tmf-api/$'
+      fullPath: '/api/public/tmf-api/$'
+      preLoaderRoute: typeof ApiPublicTmfApiSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/tmf-events/deliver': {
@@ -742,6 +762,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   DesignRoute: DesignRoute,
   ApiPublicJobsBulkDocumentsRoute: ApiPublicJobsBulkDocumentsRoute,
+  ApiPublicTmfApiSplatRoute: ApiPublicTmfApiSplatRoute,
   ApiPublicTmfEventsDeliverRoute: ApiPublicTmfEventsDeliverRoute,
   ApiPublicTmfApiDocumentManagementV4DocumentRoute:
     ApiPublicTmfApiDocumentManagementV4DocumentRouteWithChildren,
