@@ -128,7 +128,7 @@ export const deletionHistory = createServerFn({ method: "POST" })
         .limit(200);
       const ids = [...new Set((ev ?? []).map((e) => e.document_id).filter((x): x is string => !!x))];
       const { data: docs } = ids.length
-        ? await admin.from("documents").select("id, name, deleted_at").eq("tenant_id", env.tenantId).in("id", ids)
+        ? await admin.from("documents").select("id, name, deleted_at, purged_at").eq("tenant_id", env.tenantId).in("id", ids)
         : { data: [] };
       const byId = new Map((docs ?? []).map((d) => [d.id, d]));
       const who = await names(admin, (ev ?? []).map((e) => e.actor));
@@ -143,7 +143,7 @@ export const deletionHistory = createServerFn({ method: "POST" })
             documentId: e.document_id,
             document: d?.name ?? e.detail ?? "Removed document",
             result: e.action === "purge" ? "Deleted permanently" : e.action === "restore" ? "Restored" : "Deleted",
-            restorable: e.action === "delete" && !!d?.deleted_at,
+            restorable: e.action === "delete" && !!d?.deleted_at && !d.purged_at,
           };
         }),
       };
@@ -196,17 +196,14 @@ export const purgeDocument = createServerFn({ method: "POST" })
       const { data: versions } = await env.admin.from("document_versions").select("storage_path").eq("document_id", doc.id);
       const paths = (versions ?? []).map((v) => v.storage_path).filter((p): p is string => !!p && !p.startsWith("sample:"));
       if (paths.length) await env.admin.storage.from("documents").remove(paths);
-      await env.admin.from("documents").update({ current_version_id: null }).eq("id", doc.id);
+      // Versions and events are append-only by design, so the record stays as a tombstone:
+      // stored files and extracted values are removed, access is withdrawn and it can't be restored.
       await env.admin.from("extraction_fields").delete().eq("document_id", doc.id);
-      await env.admin.from("document_relations").delete().eq("document_id", doc.id);
       await env.admin.from("document_access_exceptions").delete().eq("document_id", doc.id);
       await env.admin.from("cross_tenant_grants").delete().eq("document_id", doc.id);
-      await env.admin.from("document_versions").update({ supersedes: null }).eq("document_id", doc.id);
-      await env.admin.from("document_versions").delete().eq("document_id", doc.id);
-      // Keep the audit trail: detach earlier events and keep the name for the deletion history.
-      await env.admin.from("document_events").update({ document_id: null, version_id: null }).eq("document_id", doc.id);
-      await env.admin.from("documents").delete().eq("id", doc.id);
-      await audit(env, "purge", null, doc.name);
+      const now = new Date().toISOString();
+      await env.admin.from("documents").update({ purged_at: now, deleted_at: now, description: null, characteristic: [] }).eq("id", doc.id);
+      await audit(env, "purge", doc.id, null);
       return { ok: true, data: { id: doc.id } };
     });
   });
