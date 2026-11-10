@@ -272,7 +272,9 @@ def events(full: str, doc_id: str) -> None:
     r, sub, _ = call("POST", "/hub", full, {"callback": f"https://webhook.site/{tok}", "query": "eventType=DocumentStateChangeEvent"})
     check(r.status_code == 201 and len((sub or {}).get("signingSecret", "")) == 64, "subscription created with a one-time signing secret")
     secret = (sub or {}).get("signingSecret", "")
-    r, j, _ = call("PATCH", f"/document/{doc_id}/transition", full, {"lifecycleState": "approved" if False else "archived"}, idem=f"ev-{RUN}")
+    _, nd, _ = call("POST", "/document", full, {"name": f"TMF test event {RUN}", "documentType": "quote", "relatedEntity": [{"id": ORDER, "role": "subject"}], "attachment": {"mimeType": "application/pdf", "contentHash": hashlib.sha256(b"e" + RUN.encode()).hexdigest()}}, idem=f"evc-{RUN}")
+    doc_id = (nd or {}).get("id", doc_id)
+    r, j, _ = call("PATCH", f"/document/{doc_id}/transition", full, {"lifecycleState": "in_review"}, idem=f"ev-{RUN}")
     print(f"INFO transition for event: HTTP {r.status_code} {(j or {}).get('lifecycleState') or (j or {}).get('code')}")
     got = None
     for _ in range(30):
@@ -296,10 +298,6 @@ def events(full: str, doc_id: str) -> None:
     if sub:
         r, _, _ = call("DELETE", f"/hub/{sub['id']}", full)
         check(r.status_code == 204, "unsubscribe → 204")
-
-
-def expiry(link_holder: dict) -> None:
-    pass
 
 
 async def main() -> None:
