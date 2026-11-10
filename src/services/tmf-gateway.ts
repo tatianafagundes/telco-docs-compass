@@ -412,3 +412,22 @@ export async function unsubscribe(request: Request, id: string): Promise<Respons
   if (!data || data.length === 0) return errorReply(tmfError(404, "notFound", "Not Found", "No subscription with this id."), ctx.requestId);
   return reply(204, null, ctx.requestId);
 }
+
+// ---------- unsupported methods and paths ----------
+
+type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+const METHODS: HttpMethod[] = ["GET", "POST", "PUT", "PATCH", "DELETE"];
+
+/** Without these, an unsupported method falls through to the app page and answers 200 HTML. */
+export function otherMethods(allowed: HttpMethod[]): Partial<Record<HttpMethod, () => Response>> {
+  const res = () => {
+    const r = errorReply(tmfError(405, "methodNotAllowed", "Method Not Allowed", `Use ${allowed.join(" or ")} here.`), crypto.randomUUID());
+    r.headers.set("Allow", allowed.join(", "));
+    return r;
+  };
+  return Object.fromEntries(METHODS.filter((m) => !allowed.includes(m)).map((m) => [m, res]));
+}
+
+export function unknownPath(): Response {
+  return errorReply(tmfError(404, "notFound", "Not Found", "No API resource at this address."), crypto.randomUUID());
+}
