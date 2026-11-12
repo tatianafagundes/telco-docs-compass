@@ -24,15 +24,16 @@
 | Banner | Info, warning and error messages, with an optional action |
 | Breadcrumb, PageHeader | Record context: type, id, name, source-system status |
 | Card, Divider | |
-| Checkbox, RadioGroup, Select, TextField | Label, help text and error, all linked by `aria-describedby` |
-| DataTable | Virtualised rows, keyboard row navigation, a selection column, and a selected-row highlight |
+| Checkbox, RadioGroup, Select, TextField | Label, help text and error, all linked by `aria-describedby`. The reference shows help and error text only on TextField; the rebuild renders the same Label 12 line under Select, Checkbox and RadioGroup and sets `aria-invalid` on the trigger or group. Error text uses a text token that reaches 4.5:1 in both themes; `border-input-error` is a border token and is not used for text (the reference does, 3.31:1 in dark). |
+| DataTable | Plain `<table>` with sr-only caption, `scope="col"`, `aria-sort`, a selection column and row actions visible in the idle state; a row that opens something does so through a button in its first cell, never a click on the `tr` (the reference's rows are click-only). Used by admin and holds tables. |
+| ResultsTable (Documents) | Virtualised grid with one Tab stop, keyboard row navigation, `aria-rowcount`/`aria-rowindex`, real column headers, the open-row state (`aria-current`) and `fill-cell-selected` for the open row (see 05-screens/documents.md). |
 | Dialog | Remembers the focused element when it opens and returns focus there on close. Esc closes it. Focus is trapped while open. |
-| SidePanel | Document panel; the list keeps its scroll position |
+| SidePanel | Document panel; the list keeps its scroll position. Opening it does not move focus; closing it (collapse button, Esc, or the row toggling it off) returns focus to the row or button that opened it. Below 1280 px it overlays the content. |
 | EmptyState | Encouraging title, text and a call to action |
-| Tag, Pill | Tones: cleared, minor, major, critical, indeterminate, warning, purple. Used for status and confidence, always with words as well as colour. |
+| Tag, Pill | Tones: cleared, minor, major, critical, indeterminate, warning, purple. Used for status and confidence, always with the word, the tone colour and the 16 px tone icon (see 05-screens/README.md for the small-tag decision). Status colours are used on tags, borders and icons only; running text is `text-main`, `text-secondary` or `text-link` (the reference paints three lines in status colours, below 4.5:1). |
 | Tabs (TextTabs, NavTabs) | Roving tabindex; the indicator shows the active tab |
 | Tooltip | Never the only way to get information |
-| Spinner, Skeleton, SkeletonRow, ProgressBar, Avatar | Loading states |
+| Spinner, Skeleton, SkeletonRow, ProgressBar, Avatar | Loading states. ProgressBar fill contrasts at least 3:1 with its track in both themes (the reference's dark pair is 1.85:1) and is paired with a visible count. Loading lists expose a `role="status"` text. |
 
 Feature components to port:
 - **Access:** manage-access dialog, why-can-i-see.
@@ -61,17 +62,20 @@ Guards only hide navigation. **The server decides access.** A denied page shows 
 - **Auth:** a `keycloak-angular` interceptor adds the bearer token. A 401 triggers a silent refresh, then login.
 - **Errors:** the API returns `SeamError`. A `handleError` service maps `customerFacing.key` to copy, and raw messages are never shown.
 - **Search:** filter state lives in the URL query params, normalised as in BR-101.
-- **Review:** keyboard shortcuts (J/K, arrows, C, E, N) use a host listener and are ignored while typing in inputs.
+- **Review:** keyboard shortcuts (J/K, arrows, C, E, N) are active only while the details list has focus (`keydown` on the list, as in the reference, not a document-level listener), so no single-key shortcut fires elsewhere on the page (WCAG 2.1.4). Esc returns to the document except while a value is being corrected or a dialog, menu or select is open.
+- **Auth:** if re-login is needed mid-task, the app returns to the same URL and keeps unsent field values (correction, hold reason, note) until the request is sent.
 
 ## i18n readiness
 The current app is English-only. Use Angular i18n or Transloco with keys from day one, and keep exact English strings from `03-business-rules.md` and `05-screens/` as the en source.
 
 ## Accessibility checklist (WCAG 2.2 AA)
 - Keyboard: every action works without a pointer, and focus is always visible (`--focus-ring`).
-- Focus returns after dialogs and panels close.
+- Focus returns after dialogs and panels close: to the control that opened a dialog, to the row or button that opened a side panel, and from Check details back to the "Check details" link that opened it. Focus never lands on `body`. Tab panels are not Tab stops; menu and select options show focus with the ring or with `fill-item-selected` + `text-contrast`, never with `fill-item-hover` alone.
 - Unavailable actions stay focusable and show their reason.
-- Targets are at least 24×24 px, and contrast is AA in both themes.
+- Every pointer target is at least 24×24 px of hit area (a 16 px checkbox or radio without a label gets 4 px of padding on each side; icon-only buttons are 32 px), and contrast is AA in both themes. Token pairs that fail in the reference and must not be reused: `text-main` on `fill-item-selected` (3.45:1 light), `text-secondary` on `fill-item-hover` (3.94:1 light, 2.44:1 dark), `border-input-error` as text in dark (3.31:1), `status-cleared`/`status-critical`/`status-major` as running text, `text-on-primary` on `border-focus` (3.77:1 light, 2.76:1 dark). The dark focus ring is `--border-focus-dark` `#b98ad0` (5.6:1), not the DESIGN table's `#8e45b0` (2.7:1); see `docs/decisions/01-foundation-gaps.md`.
 - Layout works at 200% zoom, at 792 px width, and on phones (review uses tabs below 900 px).
 - Status and confidence always carry words, not just colour.
-- Live regions announce upload progress, bulk results and saved changes.
+- Live regions announce: the result count, "Loading more…", bulk progress and summary, the upload final summary, review progress "N of M checked", the outcome line, "Why can I see this?", sign-in errors and saved changes. Toasts (`role="status"`, polite) confirm actions but are never the only place for an action or an error: Undo after delete is also offered in a persistent place for the same role, and errors raised inside an open dialog appear inside that dialog.
+- Icons never carry `aria-label` on their own: a meaningful icon is `role="img"` with a name or is paired with text; `aria-label` is never put on `span`, `code` or other generic elements. Repeated actions name their object ("Open <name>", "Select <name>", "Change <field>").
+- `prefers-reduced-motion: reduce` collapses every transition and animation to an instant change; `color-scheme: dark` is set under the dark theme.
 - Run axe-core in the Playwright suite on every screen, in both themes.

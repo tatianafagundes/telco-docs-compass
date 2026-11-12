@@ -22,7 +22,8 @@
 ## Quality targets
 - **Accessibility:** WCAG 2.2 AA, including:
   - keyboard paths for every action, focus return after dialogs, and 24 px targets
-  - use at 200% zoom, light and dark themes
+  - use at 200% zoom (720 CSS px on a 1440 screen), light and dark themes; `prefers-reduced-motion` honoured
+  - every text at 4.5:1 and every UI element at 3:1 in both themes, on idle, hover and selected states (the reference has five failing token pairs, listed in 13)
   - layouts at 792 px width and on phones
 - **Privacy:**
   - No document content or detail values in logs, events or audit.

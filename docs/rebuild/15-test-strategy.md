@@ -10,7 +10,7 @@
 | Repository / integration | Testcontainers: Cassandra 5, OpenSearch, Keycloak, MinIO | Batches, LWT status races, idempotency replay and conflict, outbox → index, rate counters, delivery claims | ~60 |
 | API contract | RestAssured + OpenAPI validator (`contracts/seams/*.yaml`); the official TMF667 v4 swagger for standard operations | Every operation, every documented error code | 1 per operation × status |
 | Parity scenarios | Language-neutral Given/When/Then (Cucumber, or the existing Python scripts pointed at the new base URL) | Ports of `e2e/tmf-api.py` (97 checks), `tmf-events.py` (43), `tmf-rate-isolation.py` (16), `share-isolation.py` (13 + reply scans) | 169+ |
-| UI journeys | Playwright + axe-core | Sign in, search, open, add files, check details, approve (with four-eyes), make effective, share and remove share, hold and release, delete and undo, admin types with lock, connected systems | ~25 journeys × 2 widths × 2 themes |
+| UI journeys | Playwright + axe-core | Sign in, search, open, add files, check details, approve (with four-eyes), make effective, share and remove share, hold and release, delete and undo, admin types with lock, connected systems | ~25 journeys × 3 widths (1280, 792, 720 as 200 % zoom) × 2 themes, keyboard-only, with axe-core (`color-contrast` also on hover and selected states, `target-size`), `forcedColors` and `reducedMotion` passes, and a `:focus` assertion after every dialog close, panel close and navigation |
 | Load | k6 or Gatling, seed of 1–5M documents | Search, facets, capped count, bulk 10,000, API at configured limits, event fan-out | Targets in 08 and 14 |
 | Architecture | ArchUnit | No controller → repository; the master module has no document DTOs; rule classes have no I/O | 5 rules |
 
@@ -62,6 +62,7 @@ Scenario: TMF status mapping (BR-130)
 - [ ] Every line in `15b-test-inventory.md` has a passing equivalent.
 - [ ] Both OpenAPI contracts validate, and TMF standard operations validate against the official swagger.
 - [ ] The leak scans (L1–L6) find nothing.
-- [ ] axe-core shows no serious or critical issues on any screen, in either theme or at either width.
+- [ ] axe-core shows no serious or critical issues on any screen, in either theme or at any width, including hover and selected states; a unit test over `tokens.css` rejects any text pair below 4.5:1 and any UI pair below 3:1 in either theme.
+- [ ] Bulk approve refuses the document's own creator (four-eyes on the bulk path, BR-022/BR-108); search and `find` replies for `no.manager` contain no Sweden record id or record type (L1, BR-093).
 - [ ] Load targets are met at 5M documents.
 - [ ] The rebuild reaches the same answers as the reference app for the same seed (diff the API responses, ignoring timestamps and ids).
