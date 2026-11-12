@@ -129,3 +129,133 @@ describe("approved content protection", () => {
     expect(contentProtected("in_review")).toBe(false);
   });
 });
+
+// ---------- BR audit additions (review/multi-perspective-2026-11) ----------
+import {
+  ALLOWED_TRANSITIONS,
+  DOWNLOAD_URL_SECONDS,
+  FROZEN_STATUSES,
+  IDEMPOTENCY_TTL_HOURS,
+  isFrozen,
+  PREVIEW_URL_SECONDS,
+  stableStringify,
+  type AppRole,
+  type Capability,
+} from "@/services/document-rules";
+
+describe("BR-001/BR-002 roles and capabilities", () => {
+  const ROLES: AppRole[] = ["viewer", "contributor", "reviewer", "manager", "tenant_admin", "master_admin"];
+  const CAPS: Capability[] = ["edit", "review", "manage"];
+  it("BR-001 role rank: viewer < contributor < reviewer < manager < tenant_admin = master_admin", () => {
+    const table = Object.fromEntries(ROLES.map((r) => [r, CAPS.filter((c) => can(r, c))]));
+    expect(table).toEqual({
+      viewer: [],
+      contributor: ["edit"],
+      reviewer: ["edit", "review"],
+      manager: ["edit", "review", "manage"],
+      tenant_admin: ["edit", "review", "manage"],
+      master_admin: ["edit", "review", "manage"],
+    });
+  });
+  it("BR-002 edit needs contributor, review needs reviewer, manage needs manager", () => {
+    expect(can("viewer", "edit")).toBe(false);
+    expect(can("contributor", "edit")).toBe(true);
+    expect(can("contributor", "review")).toBe(false);
+    expect(can("reviewer", "review")).toBe(true);
+    expect(can("reviewer", "manage")).toBe(false);
+    expect(can("manager", "manage")).toBe(true);
+  });
+});
+
+describe("BR-010/BR-012/BR-013 status path", () => {
+  it("BR-010 allowed transitions table is exactly the spec's", () => {
+    expect(ALLOWED_TRANSITIONS).toEqual({
+      draft: ["in_review"],
+      in_review: ["approved"],
+      approved: ["effective"],
+      effective: ["superseded", "expired"],
+      superseded: ["archived"],
+      expired: ["archived"],
+      archived: [],
+    });
+    expect(isTransitionAllowed("superseded", "archived")).toBe(true);
+    for (const to of ["draft", "in_review", "approved", "effective", "superseded", "expired", "archived"] as const) {
+      expect(isTransitionAllowed("archived", to)).toBe(false);
+    }
+  });
+  it("BR-012 capability per target: in_review edit, approved review, every other target manage", () => {
+    expect(transitionCapability("in_review")).toBe("edit");
+    expect(transitionCapability("approved")).toBe("review");
+    for (const to of ["draft", "effective", "superseded", "expired", "archived"] as const) expect(transitionCapability(to)).toBe("manage");
+  });
+  it("BR-013 frozen statuses are superseded, expired and archived", () => {
+    expect(FROZEN_STATUSES).toEqual(["superseded", "expired", "archived"]);
+    expect(isFrozen("superseded")).toBe(true);
+    expect(isFrozen("expired")).toBe(true);
+    expect(isFrozen("archived")).toBe(true);
+    for (const s of ["draft", "in_review", "approved", "effective"] as const) expect(isFrozen(s)).toBe(false);
+  });
+});
+
+describe("BR-050 delete blockers in order with their details", () => {
+  const facts = { legalHold: false, holdReason: null, retainUntil: null, createdAt: "2026-11-05T00:00:00Z", minRetentionDays: null, today: "2026-11-10" };
+  it("BR-050 legal hold wins over retention and the floor, detail is the hold reason", () => {
+    const b = deleteBlocker({ ...facts, legalHold: true, holdReason: "Dispute DSP-1", retainUntil: "2038-02-28", minRetentionDays: 1825 });
+    expect(b?.code).toBe("doc.delete.legalHold");
+    expect(b?.customerFacing?.detail).toBe("Dispute DSP-1");
+  });
+  it("BR-050 retain_until later than today wins over the floor, detail is the date", () => {
+    const b = deleteBlocker({ ...facts, retainUntil: "2038-02-28", minRetentionDays: 1825 });
+    expect(b?.code).toBe("doc.delete.retention");
+    expect(b?.customerFacing?.detail).toBe("2038-02-28");
+  });
+  it("BR-050 created_at + minRetentionDays later than today blocks with the floor date as detail", () => {
+    const b = deleteBlocker({ ...facts, minRetentionDays: 1825 });
+    expect(b?.code).toBe("doc.delete.retention");
+    expect(b?.customerFacing?.detail).toBe("2031-11-04");
+  });
+  it("BR-050 retain_until equal to today does not block a soft delete", () => {
+    expect(deleteBlocker({ ...facts, retainUntil: "2026-11-10" })).toBeNull();
+  });
+});
+
+describe("BR-061 signed URL lifetimes", () => {
+  it("BR-061 preview URL lives 300 s and download URL lives 60 s", () => {
+    expect(PREVIEW_URL_SECONDS).toBe(300);
+    expect(DOWNLOAD_URL_SECONDS).toBe(60);
+  });
+});
+
+describe("BR-070/BR-071/BR-072 idempotency", () => {
+  it("BR-070 stable JSON form sorts keys and drops undefined, hash is SHA-256 hex", async () => {
+    expect(stableStringify({ b: 1, a: { d: undefined, c: [1, { z: 1, y: 2 }] } })).toBe('{"a":{"c":[1,{"y":2,"z":1}]},"b":1}');
+    expect(stableStringify(null)).toBe("null");
+    expect(await hashBody({ x: 1, y: undefined })).toBe(await hashBody({ x: 1 }));
+    expect(await hashBody({ x: 1 })).toMatch(/^[0-9a-f]{64}$/);
+  });
+  it("BR-071 same hash replays the stored response", async () => {
+    const h = await hashBody({ id: "a" });
+    expect(idempotencyOutcome({ request_hash: h, response: { ok: true, data: { id: "a" } } }, h)).toEqual({ kind: "replay", response: { ok: true, data: { id: "a" } } });
+  });
+  it("BR-072 idempotency keys expire after 24 h", () => {
+    expect(IDEMPOTENCY_TTL_HOURS).toBe(24);
+  });
+});
+
+describe("BR-143 approved content protection details", () => {
+  it("BR-143 name, description, sensitivity and record links stay editable once approved", () => {
+    expect(metadataPatchAllowed("approved", ["name", "description", "sensitivity", "externalIdentifier", "relatedEntity"])).toEqual({ ok: true });
+    expect(metadataPatchAllowed("effective", [])).toEqual({ ok: true });
+  });
+  it("BR-143 confirmed details, dates and file versions are blocked, listing every blocked field", () => {
+    expect(metadataPatchAllowed("effective", ["characteristic", "expiryDate", "validFor", "attachment"])).toEqual({
+      ok: false,
+      reason: "approvedContent",
+      blocked: ["characteristic", "expiryDate", "validFor", "attachment"],
+    });
+  });
+  it("BR-143 expired and archived documents stay fully closed", () => {
+    expect(metadataPatchAllowed("expired", ["name"])).toEqual({ ok: false, reason: "frozen" });
+    expect(metadataPatchAllowed("archived", ["description"])).toEqual({ ok: false, reason: "frozen" });
+  });
+});

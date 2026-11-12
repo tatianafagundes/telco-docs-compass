@@ -45,3 +45,39 @@ describe("event-delivery-rules", () => {
     expect(await verifyEventSignature("s3cret", "abc", body, sig, now)).toBe(false);
   });
 });
+
+// ---------- BR audit additions (review/multi-perspective-2026-11) ----------
+import { BACKOFF_SECONDS, isDelivered, MAX_RETRY_AFTER_SECONDS } from "@/services/event-delivery-rules";
+import { SIGNATURE_TOLERANCE_SECONDS } from "@/services/tmf667-mapper";
+
+describe("BR-120/BR-121/BR-123/BR-124 delivery rules", () => {
+  it("BR-120 delivered means HTTP 2xx only", () => {
+    expect(isDelivered(200)).toBe(true);
+    expect(isDelivered(299)).toBe(true);
+    expect(isDelivered(199)).toBe(false);
+    expect(isDelivered(300)).toBe(false);
+    expect(isDelivered(404)).toBe(false);
+  });
+  it("BR-121 backoff table, Retry-After honoured exactly up to 3600 s, and no retry after the sixth attempt", () => {
+    expect([...BACKOFF_SECONDS]).toEqual([30, 120, 600, 1800, 7200]);
+    expect(MAX_RETRY_AFTER_SECONDS).toBe(3600);
+    expect(outcomeAfter(1, 503, 3600)).toEqual({ kind: "retry", waitSeconds: 3600 });
+    expect(outcomeAfter(1, 503, 3601)).toEqual({ kind: "retry", waitSeconds: 3600 });
+    expect(outcomeAfter(5, 503, 3600)).toEqual({ kind: "retry", waitSeconds: 7200 });
+    expect(outcomeAfter(6, 503, 10)).toEqual({ kind: "gaveUp" });
+  });
+  it("BR-123 an event created at the same instant as the subscription is delivered", () => {
+    expect(subscribedBefore("2026-11-10T13:00:00Z", "2026-11-10T13:00:00Z")).toBe(true);
+  });
+  it("BR-124 tolerance is 300 s inclusive, payload is '<timestamp>.<body>', wrong-length signatures are refused", async () => {
+    expect(SIGNATURE_TOLERANCE_SECONDS).toBe(300);
+    const ts = String(now.getTime() / 1000);
+    const body = '{"eventId":"1"}';
+    expect(signedPayload(ts, body)).toBe(`${ts}.${body}`);
+    const sig = `sha256=${await hmacHex("s3cret", signedPayload(ts, body))}`;
+    expect(await verifyEventSignature("s3cret", ts, body, sig, new Date(now.getTime() + 300_000))).toBe(true);
+    expect(await verifyEventSignature("s3cret", ts, body, sig, new Date(now.getTime() - 300_000))).toBe(true);
+    expect(await verifyEventSignature("s3cret", ts, body, sig, new Date(now.getTime() - 301_000))).toBe(false);
+    expect(await verifyEventSignature("s3cret", ts, body, "sha256=abc", now)).toBe(false);
+  });
+});

@@ -40,3 +40,49 @@ describe("rate-limit-rules", () => {
     expect(retryGuidance("write", decideRate(31, 30, at(40)))).toContain("Wait 20 seconds");
   });
 });
+
+// ---------- BR audit additions (review/multi-perspective-2026-11) ----------
+import { DEFAULT_LIMITS, LIMIT_BOUNDS, WINDOW_SECONDS } from "@/services/rate-limit-rules";
+
+describe("BR-110/BR-112/BR-113/BR-114 limits, window, headers and message", () => {
+  it("BR-110 defaults are 120 reads and 30 changes per minute, bounds 1–6000 and 1–1000", () => {
+    expect(DEFAULT_LIMITS).toEqual({ read: 120, write: 30 });
+    expect(LIMIT_BOUNDS).toEqual({ read: { min: 1, max: 6000 }, write: { min: 1, max: 1000 } });
+    expect(WINDOW_SECONDS).toBe(60);
+    expect(isValidLimit("read", 0)).toBe(false);
+    expect(isValidLimit("write", 1)).toBe(true);
+  });
+  it("BR-112 reset is max(1, 60 − UTC second) and remaining never goes below zero", () => {
+    expect(decideRate(1, 30, at(59)).resetSeconds).toBe(1);
+    expect(decideRate(1, 30, at(1)).resetSeconds).toBe(59);
+    expect(decideRate(35, 30, at(0))).toEqual({ allowed: false, limit: 30, remaining: 0, resetSeconds: 60 });
+    expect(decideRate(1, 30, at(0))).toEqual({ allowed: true, limit: 30, remaining: 29, resetSeconds: 60 });
+  });
+  it("BR-113 every header on an allowed reply, plus Retry-After on a refusal", () => {
+    expect(rateHeaders(decideRate(5, 10, at(10)))).toEqual({
+      "RateLimit-Limit": "10",
+      "RateLimit-Remaining": "5",
+      "RateLimit-Reset": "50",
+      "RateLimit-Policy": "10;w=60",
+      "X-RateLimit-Limit": "10",
+      "X-RateLimit-Remaining": "5",
+    });
+    expect(rateHeaders(decideRate(11, 10, at(10)))).toEqual({
+      "RateLimit-Limit": "10",
+      "RateLimit-Remaining": "0",
+      "RateLimit-Reset": "50",
+      "RateLimit-Policy": "10;w=60",
+      "X-RateLimit-Limit": "10",
+      "X-RateLimit-Remaining": "0",
+      "Retry-After": "50",
+    });
+  });
+  it("BR-114 the 429 message names the limit and the wait, says other systems are not affected, and points to Admin > Connected systems", () => {
+    expect(retryGuidance("write", decideRate(31, 30, at(40)))).toBe(
+      "This system has used its allowance of 30 changes per minute. Wait 20 seconds (see Retry-After) and send the request again. Other connected systems are not affected. An administrator can raise this system's allowance in Admin > Connected systems.",
+    );
+    expect(retryGuidance("read", decideRate(121, 120, at(0)))).toBe(
+      "This system has used its allowance of 120 reads per minute. Wait 60 seconds (see Retry-After) and send the request again. Other connected systems are not affected. An administrator can raise this system's allowance in Admin > Connected systems.",
+    );
+  });
+});

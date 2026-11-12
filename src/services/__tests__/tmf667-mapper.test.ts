@@ -211,3 +211,78 @@ describe("callback address checks", () => {
     for (const ip of ["8.8.8.8", "2606:4700::1111"]) expect(isPrivateIp(ip)).toBe(false);
   });
 });
+
+// ---------- BR audit additions (review/multi-perspective-2026-11) ----------
+import { DEFAULT_LIMIT, fromStandardReferredType, LEGACY_BASE_PATH, LEGACY_SUNSET, SCOPES, TMF_BASE_PATH } from "@/services/tmf667-mapper";
+
+describe("BR-126/BR-127 event envelope", () => {
+  it("BR-126 events carry id, href and status only, never document content", () => {
+    const e = toTmfEvent("https://x.test", {
+      id: 3, event_type: "DocumentAttributeValueChangeEvent", document_id: "d1", created_at: "t",
+      payload: { lifecycleState: "draft", name: "Secret name", characteristic: [{ name: "contractNumber", value: "C-9" }] },
+    });
+    expect(Object.keys(e.event.document).sort()).toEqual(["@type", "href", "id", "lifecycleState", "status"]);
+    expect(e).toMatchObject({ event: { document: { href: "https://x.test/api/public/tmf-api/document/v4/document/d1" } } });
+    expect(JSON.stringify(e)).not.toContain("Secret name");
+    expect(JSON.stringify(e)).not.toContain("C-9");
+  });
+  it("BR-127 changed attributes per event kind and 'deleted' on a delete event", () => {
+    const attr = toTmfEvent("https://x.test", { id: 1, event_type: "DocumentAttributeValueChangeEvent", document_id: "d1", created_at: "t", payload: {} });
+    expect(attr).toMatchObject({ changedAttributes: ["attachment", "characteristic", "legalHold"] });
+    const state = toTmfEvent("https://x.test", { id: 2, event_type: "DocumentStateChangeEvent", document_id: "d1", created_at: "t", payload: {} });
+    expect(state).toMatchObject({ changedAttributes: ["status"] });
+    const created = toTmfEvent("https://x.test", { id: 3, event_type: "DocumentCreateEvent", document_id: "d1", created_at: "t", payload: {} });
+    expect(created.eventType).toBe("DocumentCreateEvent");
+    expect("changedAttributes" in created).toBe(false);
+    const del = toTmfEvent("https://x.test", { id: 4, event_type: "DocumentDeleteEvent", document_id: "d1", created_at: "t", payload: { lifecycleState: "effective" } });
+    expect(del.eventType).toBe("DocumentDeleteEvent");
+    expect(del.event.document).toEqual({ id: "d1", href: "https://x.test/api/public/tmf-api/document/v4/document/d1", "@type": "Document", status: "deleted" });
+  });
+  it("BR-127 internal names are delivered as v4 DocumentChangeEvent unless the subscription asked for the old name", () => {
+    expect(toTmfEvent("https://x.test", { id: 5, event_type: "DocumentStateChangeEvent", document_id: "d1", created_at: "t", payload: {} }).eventType).toBe("DocumentChangeEvent");
+    expect(toTmfEvent("https://x.test", { id: 5, event_type: "DocumentAttributeValueChangeEvent", document_id: "d1", created_at: "t", payload: {} }, "eventType=DocumentAttributeValueChangeEvent").eventType).toBe("DocumentAttributeValueChangeEvent");
+  });
+});
+
+describe("BR-131/BR-132/BR-133/BR-134 mapping tables", () => {
+  it("BR-131 PATCH status targets, every value, and refusal of anything else", () => {
+    expect(targetForTmfStatus("created")).toBe("draft");
+    expect(targetForTmfStatus("reviewed")).toBe("in_review");
+    expect(targetForTmfStatus("approved")).toBe("approved");
+    expect(targetForTmfStatus("published")).toBe("effective");
+    expect(targetForTmfStatus("archived")).toBe("archived");
+    for (const bad of ["deleted", "effective", "in_review", "Published", ""]) expect(targetForTmfStatus(bad)).toBeNull();
+  });
+  it("BR-132 scopes are read, register, transition, approve, hold, delete and subscribe", () => {
+    expect([...SCOPES]).toEqual(["read", "register", "transition", "approve", "hold", "delete", "subscribe"]);
+    for (const to of ["in_review", "effective", "superseded", "expired", "archived"] as const) expect(scopeForTransition(to)).toBe("transition");
+    expect(hasScope(["read", "approve"], "approve")).toBe(true);
+  });
+  it("BR-133 BillingAccount maps back to Account and other types pass through", () => {
+    expect(fromStandardReferredType("BillingAccount")).toBe("Account");
+    expect(fromStandardReferredType("ProductOrder")).toBe("ProductOrder");
+    expect(toStandardReferredType("Quote")).toBe("Quote");
+  });
+  it("BR-134 paging: default limit 20, max 100", () => {
+    expect(DEFAULT_LIMIT).toBe(20);
+    expect(MAX_LIMIT).toBe(100);
+    const r = parseListQuery(new URLSearchParams(""));
+    expect(r.ok && r.value).toMatchObject({ offset: 0, limit: 20 });
+    const capped = parseListQuery(new URLSearchParams("limit=101"));
+    expect(capped.ok && capped.value.limit).toBe(100);
+    expect(parseListQuery(new URLSearchParams("limit=0")).ok).toBe(false);
+  });
+});
+
+describe("BR-136/BR-139 keys and legacy base", () => {
+  it("BR-136 bearer prefixes: erad_ keys and eradt_ tokens are accepted, anything else is not", () => {
+    expect(readBearer("Bearer eradt_abcdefghijklmnopqrstuvwxyz")).toBe("eradt_abcdefghijklmnopqrstuvwxyz");
+    expect(readBearer("Bearer erad_short")).toBeNull();
+    expect(readBearer("erad_abcdefghijklmnopqrstuvwxyz")).toBeNull();
+  });
+  it("BR-139 the legacy base /documentManagement/v4 stays an alias with a sunset of 10 May 2027", () => {
+    expect(TMF_BASE_PATH).toBe("/api/public/tmf-api/document/v4");
+    expect(LEGACY_BASE_PATH).toBe("/api/public/tmf-api/documentManagement/v4");
+    expect(LEGACY_SUNSET).toBe("Mon, 10 May 2027 00:00:00 GMT");
+  });
+});
