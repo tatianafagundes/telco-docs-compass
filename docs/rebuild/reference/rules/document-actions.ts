@@ -1,6 +1,6 @@
 // Pure view rules: which actions a person sees for a document, and why one is unavailable.
 import type { DocStatus } from "@/schemas/document";
-import { can, isFrozen, transitionCapability, type AppRole } from "@/services/document-rules";
+import { can, contentProtected, isFrozen, transitionCapability, type AppRole } from "@/services/document-rules";
 
 export interface ActionState {
   available: boolean;
@@ -38,6 +38,16 @@ export function nextStep(role: AppRole, status: DocStatus): NextStep | null {
 export function editState(role: AppRole, status: DocStatus): ActionState {
   if (!can(role, "edit")) return { available: false, reason: ROLE_REASON.edit };
   if (isFrozen(status)) return { available: false, reason: "This document is closed, so its details are kept as they are." };
+  return { available: true };
+}
+
+export const APPROVED_CONTENT_REASON = "This document is approved, so its content stays as it was approved. You can still rename it or update its description.";
+
+/** Content (file, confirmed details, dates) can change only before approval. */
+export function contentEditState(role: AppRole, status: DocStatus): ActionState {
+  const base = editState(role, status);
+  if (!base.available) return base;
+  if (contentProtected(status)) return { available: false, reason: APPROVED_CONTENT_REASON };
   return { available: true };
 }
 

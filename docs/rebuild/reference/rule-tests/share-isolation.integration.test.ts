@@ -5,8 +5,8 @@ import { describe, expect, it } from "vitest";
 
 const URL_ = import.meta.env["VITE_SUPABASE_URL"] as string | undefined;
 const KEY = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] as string | undefined;
-const PASSWORD = process.env.DEMO_PASSWORD ?? ""; // set per environment; not stored in this pack
-const enabled = process.env["RUN_ACCESS_TESTS"] === "1" && Boolean(URL_ && KEY);
+const PASSWORD = process.env["DEMO_PASSWORD"] ?? "";
+const enabled = process.env["RUN_ACCESS_TESTS"] === "1" && Boolean(URL_ && KEY && PASSWORD);
 
 const QUOTE_RECORD = "quo-se-0412";
 const QUOTE_DOC = "00000000-0000-0000-0000-0000000000d2";

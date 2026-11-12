@@ -79,6 +79,22 @@ export function isFrozen(status: DocStatus): boolean {
   return FROZEN_STATUSES.includes(status);
 }
 
+// Approved/effective: name and description stay editable; approved content (file, confirmed details, dates) is protected.
+export const APPROVED_STATUSES: DocStatus[] = ["approved", "effective"];
+export function contentProtected(status: DocStatus): boolean {
+  return APPROVED_STATUSES.includes(status);
+}
+export const ALWAYS_EDITABLE_FIELDS = ["name", "description", "sensitivity", "externalIdentifier", "relatedEntity"] as const;
+export type PatchCheck = { ok: true } | { ok: false; reason: "frozen" } | { ok: false; reason: "approvedContent"; blocked: string[] };
+export function metadataPatchAllowed(status: DocStatus, changedFields: string[]): PatchCheck {
+  if (changedFields.length === 0) return { ok: true };
+  if (isFrozen(status)) return { ok: false, reason: "frozen" };
+  if (!contentProtected(status)) return { ok: true };
+  const allowed: readonly string[] = ALWAYS_EDITABLE_FIELDS;
+  const blocked = changedFields.filter((f) => !allowed.includes(f));
+  return blocked.length ? { ok: false, reason: "approvedContent", blocked } : { ok: true };
+}
+
 export interface SpecCharacteristic {
   name: string;
   required?: boolean;
