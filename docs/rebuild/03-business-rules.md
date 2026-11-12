@@ -117,9 +117,9 @@ Error shape for internal operations: `{code, category, retryable, customerFacing
 | BR-103 | Count cap 10,000: "More than 10,000 documents", otherwise "N document(s)" (en-GB grouping). |
 | BR-104 | Identifier detection: 3–64 characters, no spaces, contains a digit, matches `^[A-Za-z0-9][A-Za-z0-9._/-]*$`. Such a query offers a jump to the record. |
 | BR-105 | Bulk limit 10,000 documents, processed in batches of 200 (`bulk.tooMany`, `bulk.empty`). |
-| BR-106 | Bulk skip reasons: noPermission, frozen, notAllowed, detailsPending, notFound, unchanged. Each has an exact label (see source) and the same rules as single actions. Holds need manage; sensitivity needs edit and not frozen. |
+| BR-106 | Bulk skip reasons and labels: noPermission "your role can't make this change"; frozen "the document can no longer be changed"; notAllowed "it isn't the next step on its status path"; detailsPending "required details still need checking"; notFound "it was removed or is no longer visible"; unchanged "it already had this value". Same rules as single actions. Holds need manage; sensitivity needs edit and not frozen. |
 | BR-107 | Bulk summary: "X of N changed · K skipped because <label>". |
-| BR-108 | Each document in a bulk job is re-checked and audited individually. |
+| BR-108 | Each document in a bulk job is re-checked with the single-document rules, including four-eyes (BR-022, invariant 5), and audited individually. The reference's bulk path omits the four-eyes check (`bulkSkipReason` has no creator input); the rebuild must not copy that. |
 
 ## K. API rate limits (`rate-limit-rules.ts`)
 | ID | Rule |
@@ -153,7 +153,7 @@ Error shape for internal operations: `{code, category, retryable, customerFacing
 | BR-134 | Paging: default limit 20, max 100. |
 | BR-135 | Unknown status or lifecycleState values give a 400 `invalidQuery`. status and lifecycleState filters combine by intersection. |
 | BR-136 | Keys last 365 days and are stored only as SHA-256 hashes. Prefixes: `erad_` for keys, `eradt_` for OAuth tokens (15 min). |
-| BR-137 | Inline attachment ≤ 5 MB; URL attachment fetch ≤ 25 MB, with a DNS check that rejects private addresses. |
+| BR-137 | Inline attachment ≤ 5 MB; URL attachment fetch ≤ 25 MB, with a private-address check that binds the connection (a resolve-then-fetch pre-check, as in the reference, leaves a rebinding window) and a size cap applied while streaming. |
 | BR-138 | Unknown paths and methods return TMF error JSON (404/405), never HTML. |
 | BR-139 | The legacy base `/documentManagement/v4` remains an alias until 10 May 2027. |
 | BR-140 | TMF API four-eyes: a system key cannot approve (PATCH status or /transition) a document it registered; 409 `fourEyesRequired`. |

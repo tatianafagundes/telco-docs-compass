@@ -19,7 +19,7 @@
 - **Bulk changes:**
   - Select up to 10,000 documents (the whole result or picked rows). Actions: placeHold, releaseHold, setSensitivity, transition.
   - The job resolves ids **as the person**, then a worker processes them in batches of 200 (every minute).
-  - Each document is re-checked with the single-document rules and audited.
+  - Each document is re-checked with the single-document rules, including four-eyes (BR-022), and audited.
   - The result summary uses BR-107, and skips use the BR-106 reasons.
 - **Opening a result:** the document opens in a side panel and the list keeps its position. Rows are drawn only while in view.
 

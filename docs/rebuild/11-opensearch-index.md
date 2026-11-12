@@ -34,6 +34,7 @@ Index `erad-documents-v1`, alias `erad-documents`. Use one shared index with ten
 ```
 - `visible_user_ids` is the union of the users with entity_access on any related record and the users with an active share.
 - `visible_tenant_ids` holds the tenants with an active cross-tenant grant.
+- `entity_ids`, `entity_types` and `record_names` are returned in a hit only when the caller can read that record (BR-093); for shared-only and cross-tenant hits the DTO carries no record id. Record-id text matching is restricted to records the caller can open. See `04` "Effective role" and review ADR-R01/R02 for the scale of `visible_user_ids` and share expiry.
 - Expiring shares and grants are re-indexed by a job at expiry time. The rebuild must also re-check `canSee` on results, so an expired share never shows.
 
 ## Access filter (mirror of `_doc_search_where`)
