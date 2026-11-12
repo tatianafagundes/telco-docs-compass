@@ -4,10 +4,10 @@
 - **Who:** admins
 
 ## Purpose
-Holds, deletion history, verify holds, permanent deletion (BR-052–053).
+The same page as Holds and retention (see `holds.md`), reached from the Admin tabs so administrators have it without the manager navigation entry.
 
 ## Layout and actions
-Delete permanently is shown with its reason when unavailable.
+Identical to `holds.md`. Permanent deletion is not on this page: it lives in the document panel menu (`record.md`, BR-052–053). A master_admin on the group tenant sees document names of the group tenant here; whether invariant 2 applies to the group's own documents is the owner's decision.
 
 ## Accessibility
 - Every action is reachable by keyboard. Unavailable actions use `aria-disabled` and show the reason as visible text.

@@ -10,7 +10,7 @@ Email and password sign-in for the prototype. In the rebuild this becomes the Ke
 Fields: Email, Password; button **Sign in**. Badge "Prototype · synthetic data only". After sign-in, return to the `redirect` URL.
 
 ## States
-Error: plain message, never the raw error. Breach-protected passwords are refused.
+Busy: the button reads "Signing in…" and is unavailable. Error, on the password field: "That email and password did not match. You can try again." (never the raw error; the error is announced to assistive technology). Breach-protected passwords are refused with the same message (a Keycloak policy in the rebuild).
 
 ## Accessibility
 - Every action is reachable by keyboard. Unavailable actions use `aria-disabled` and show the reason as visible text.
