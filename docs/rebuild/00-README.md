@@ -14,11 +14,12 @@ This pack describes the current application (TanStack Start + Postgres) precisel
 8. `09`–`13` — target architecture, Cassandra, OpenSearch, Keycloak, Angular
 9. `14-non-functional.md`, `15-test-strategy.md`, `16-traceability.csv`
 10. `17-kiro-steering/` — drop into `.kiro/steering` and `.kiro/specs`
+11. `adr/` — review ADRs (proposals, owner's decision) from the 2026-11-12 multi-perspective review; the review itself is in `../review/2026-11-multi-perspective.md`
 
 `contracts/` holds the JSON schemas and OpenAPI files; `fixtures/` holds synthetic seed data.
 
 ## Ground rules for the rebuild
-- The current app is the reference implementation: when this pack and the app disagree, the app's tests decide.
+- The current app is the reference implementation: when this pack and the app disagree, the app's tests decide. Exceptions are the places where the app contradicts an invariant; they are listed in `../review/2026-11-multi-perspective.md` and marked in this pack as "the reference does X; the rebuild must not copy it".
 - Rules in `17-kiro-steering/invariants.md` must never change (tenant isolation, four-eyes, no document content in events, audit written only by operations).
 - Done means: every BR id, screen and API operation in `16-traceability.csv` has a passing target test.
 
