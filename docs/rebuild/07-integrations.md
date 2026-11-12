@@ -7,7 +7,8 @@
 - **Keys:**
   - A key is `erad_<random>`, shown **once** when created.
   - Only its SHA-256 hash and prefix are stored. It expires after 365 days.
-  - Rotating issues a new key with a new expiry, and the old one stops working at once.
+  - Rotating issues a new key with a new expiry, and the old one stops working at once; OAuth tokens already minted from the old key stay valid for up to 15 minutes in the reference (`tmf-gateway.ts:79-84`); whether rotation revokes them is the owner's decision.
+  - Subscriptions end with the client: the reference keeps delivering signed events to subscriptions of an expired key (`tmf-events.ts:33-37` filters on `revoked_at` only).
   - Revoking takes effect immediately for the key and for its OAuth tokens.
 - **OAuth:** `POST /oauth/token` with client credentials returns `eradt_…`, valid for 15 minutes and stored hashed.
 - **Limits:**
