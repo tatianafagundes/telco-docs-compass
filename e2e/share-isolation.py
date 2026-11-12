@@ -15,7 +15,7 @@ import sys
 from playwright.async_api import async_playwright
 
 BASE = os.environ.get("BASE_URL", "http://localhost:8080")
-PASSWORD = "AuroraTest123!"
+PASSWORD = os.environ.get("DEMO_PASSWORD") or sys.exit("DEMO_PASSWORD is not set (see README.md, Demo accounts)")
 RECORD = "quo-se-0412"
 DOC = "00000000-0000-0000-0000-0000000000d2"
 RECORD_NAME = "480 lines, 5G backup"  # record title: "Q-2026-0412 · 480 lines, 5G backup"

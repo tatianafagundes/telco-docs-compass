@@ -18,7 +18,7 @@ from playwright.async_api import async_playwright
 
 BASE = os.environ.get("BASE_URL", "http://localhost:8080")
 STD = BASE + "/api/public/tmf-api/document/v4"
-PASSWORD = "AuroraTest123!"
+PASSWORD = os.environ.get("DEMO_PASSWORD") or sys.exit("DEMO_PASSWORD is not set (see README.md, Demo accounts)")
 RUN = uuid.uuid4().hex[:6]
 failures: list[str] = []
 

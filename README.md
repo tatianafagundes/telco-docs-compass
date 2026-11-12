@@ -24,3 +24,13 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Demo accounts and tests that need a backend
+
+Ordinary `bun run test` runs offline and needs nothing. The access tests (`RUN_ACCESS_TESTS=1 bun run test`) and the scripts in `e2e/` sign in with the demo accounts on `@example.test`. Their shared password is not in the repository: export it as `DEMO_PASSWORD` before running them, and never commit it or paste it in a chat.
+
+```sh
+export DEMO_PASSWORD='<ask the project owner>'
+RUN_ACCESS_TESTS=1 bun run test
+python3 e2e/share-isolation.py
+```
