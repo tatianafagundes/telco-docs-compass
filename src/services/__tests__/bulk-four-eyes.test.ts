@@ -41,6 +41,7 @@ function world() {
       { ...base, id: "doc-own", created_by: AUTHOR },
       { ...base, id: "doc-theirs", created_by: REVIEWER },
     ],
+    user_roles: [{ user_id: AUTHOR, tenant_id: "t1", role: "manager" }],
     extraction_fields: [],
     document_events: [],
     event_outbox: [],

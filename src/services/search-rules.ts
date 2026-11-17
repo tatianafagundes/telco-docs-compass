@@ -14,6 +14,13 @@ export const PAGE_SIZE = 50;
 export const COUNT_CAP = 10_000;
 export const BULK_LIMIT = 10_000;
 export const BULK_BATCH = 200;
+/** A processor holding a job for longer than this is assumed to have stopped mid-batch. */
+export const BULK_LEASE_SECONDS = 600;
+/** True when the lease is missing, unreadable or older than BULK_LEASE_SECONDS. */
+export function leaseExpired(startedAt: string | undefined, now: Date): boolean {
+  const t = startedAt ? Date.parse(startedAt) : Number.NaN;
+  return Number.isNaN(t) || now.getTime() - t > BULK_LEASE_SECONDS * 1000;
+}
 
 export const SORTS = ["updated", "name", "expiry"] as const;
 export type SortKey = (typeof SORTS)[number];

@@ -82,6 +82,29 @@ describe("FakeDb writes", () => {
   });
 });
 
+describe("FakeDb race helpers", () => {
+  it("stubNextSelect serves one stale read and then goes back to the real data", async () => {
+    const db = new FakeDb({ jobs: [{ id: 1, done: 5 }] });
+    db.stubNextSelect("jobs", [{ id: 1, done: 0 }]);
+    expect((await db.from("jobs").select("done").eq("id", 1).maybeSingle()).data).toEqual({
+      done: 0,
+    });
+    expect((await db.from("jobs").select("done").eq("id", 1).maybeSingle()).data).toEqual({
+      done: 5,
+    });
+  });
+
+  it("onWrite runs once, right after the matching write", async () => {
+    const db = new FakeDb({ jobs: [{ id: 1, status: "running" }] });
+    db.onWrite("jobs", "update", () => {
+      db.rows("jobs")[0]!["status"] = "failed";
+    });
+    await db.from("jobs").update({ done: 1 }).eq("id", 1);
+    await db.from("jobs").update({ done: 2 }).eq("id", 1);
+    expect(db.rows("jobs")[0]).toMatchObject({ status: "failed", done: 2 });
+  });
+});
+
 describe("FakeDb errors and rpc", () => {
   it("returns an error object instead of throwing, like supabase-js", async () => {
     const db = seed().fail("documents", "update", "disk full");

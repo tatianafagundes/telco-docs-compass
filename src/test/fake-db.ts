@@ -66,6 +66,8 @@ export class FakeDb {
   /** Every insert, update, upsert and delete, in order. Tests assert on this. */
   readonly writes: WriteLogEntry[] = [];
   private rpcs: Record<string, RpcHandler> = {};
+  private staleReads = new Map<string, Row[]>();
+  private writeHooks: { key: string; fn: () => void }[] = [];
   private failures = new Map<string, DbError>();
 
   constructor(seed: Record<string, Row[]> = {}) {
@@ -83,6 +85,35 @@ export class FakeDb {
   fail(table: string, op: Op, message = "forced failure"): this {
     this.failures.set(`${table}:${op}`, { message });
     return this;
+  }
+
+  /**
+   * The next select on `table` returns `rows` instead of the current data, once. Use it to replay
+   * what a slow second processor would have read before another one changed the row.
+   */
+  stubNextSelect(table: string, rows: Row[]): this {
+    this.staleReads.set(
+      table,
+      rows.map((r) => ({ ...r })),
+    );
+    return this;
+  }
+
+  /** Runs `fn` right after the next `op` on `table` is applied, to simulate something else happening mid-flow. */
+  onWrite(table: string, op: WriteLogEntry["op"], fn: () => void): this {
+    this.writeHooks.push({ key: `${table}:${op}`, fn });
+    return this;
+  }
+
+  takeStale(table: string): Row[] | undefined {
+    const rows = this.staleReads.get(table);
+    this.staleReads.delete(table);
+    return rows;
+  }
+
+  fireWriteHook(table: string, op: WriteLogEntry["op"]): void {
+    const i = this.writeHooks.findIndex((h) => h.key === `${table}:${op}`);
+    if (i >= 0) this.writeHooks.splice(i, 1)[0]?.fn();
   }
 
   rows(table: string): Row[] {
@@ -253,6 +284,7 @@ class QueryBuilder implements PromiseLike<{ data: unknown; error: DbError | null
       const hit = this.matching();
       for (const r of hit) Object.assign(r, this.patch);
       this.db.writes.push({ table: this.table, op: "update", rows: hit.map((r) => ({ ...r })) });
+      this.db.fireWriteHook(this.table, "update");
       return {
         data: this.returning ? hit.map((r) => project(r, this.columns)) : null,
         error: null,
@@ -265,7 +297,10 @@ class QueryBuilder implements PromiseLike<{ data: unknown; error: DbError | null
       return { data: null, error: null };
     }
 
-    let out = this.matching().map((r) => ({ ...r }));
+    const stale = this.db.takeStale(this.table);
+    let out = (stale ?? this.matching())
+      .filter((r) => this.filters.every((f) => f(r)))
+      .map((r) => ({ ...r }));
     if (this.sort) {
       const { column, ascending } = this.sort;
       out.sort((a, b) => {

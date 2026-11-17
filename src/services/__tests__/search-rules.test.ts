@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  BULK_LEASE_SECONDS,
   bulkSkipReason,
+  leaseExpired,
   bulkSummary,
   countLabel,
   hasAnyFilter,
@@ -110,5 +112,20 @@ describe("bulkSummary", () => {
     expect(bulkSummary(3, 1, { noPermission: 2 })).toBe(
       "1 of 3 changed · 2 skipped because your role can't make this change",
     );
+  });
+});
+
+describe("leaseExpired", () => {
+  const now = new Date("2026-11-17T12:00:00Z");
+  const ago = (seconds: number) => new Date(now.getTime() - seconds * 1000).toISOString();
+  it("is false while the holder is within its time", () => {
+    expect(leaseExpired(ago(BULK_LEASE_SECONDS - 1), now)).toBe(false);
+  });
+  it("is true once the lease is older than the limit", () => {
+    expect(leaseExpired(ago(BULK_LEASE_SECONDS + 1), now)).toBe(true);
+  });
+  it("is true when there is no usable timestamp (a holder we cannot vouch for)", () => {
+    expect(leaseExpired(undefined, now)).toBe(true);
+    expect(leaseExpired("not a date", now)).toBe(true);
   });
 });
