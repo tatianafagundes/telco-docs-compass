@@ -127,7 +127,11 @@ describe("document-rules", () => {
   });
 });
 
-import { contentProtected, metadataPatchAllowed } from "@/services/document-rules";
+import {
+  contentProtected,
+  metadataPatchAllowed,
+  startsWithCalendarDay,
+} from "@/services/document-rules";
 
 describe("approved content protection", () => {
   it("should allow renaming an effective document", () => {
@@ -161,5 +165,30 @@ describe("approved content protection", () => {
     expect(contentProtected("approved")).toBe(true);
     expect(contentProtected("effective")).toBe(true);
     expect(contentProtected("in_review")).toBe(false);
+  });
+});
+
+describe("startsWithCalendarDay", () => {
+  it.each(["2027-03-01", "2027-03-01T00:00:00Z", "2028-02-29", "2027-12-31T23:59:59+02:00"])(
+    "%s starts with a real day",
+    (text) => {
+      expect(startsWithCalendarDay(text)).toBe(true);
+    },
+  );
+  it.each([
+    "",
+    "next year",
+    "2027-3-1",
+    "2027-13-01",
+    "2024-99-99",
+    "2027-02-30",
+    "2027-02-29",
+    "2027-04-31",
+    "2027-00-10",
+    "2027-01-00",
+    "27-03-01",
+    "x2027-03-01",
+  ])("%j does not", (text) => {
+    expect(startsWithCalendarDay(text)).toBe(false);
   });
 });

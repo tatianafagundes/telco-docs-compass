@@ -14,6 +14,7 @@ import {
   metadataPatchAllowed,
   systemMayApprove,
   pendingRequiredDetails,
+  startsWithCalendarDay,
   type SpecCharacteristic,
 } from "@/services/document-rules";
 import { deleteState } from "@/services/document-actions";
@@ -809,7 +810,7 @@ const patchSchema = z
   .object({
     name: z.string().trim().min(1).max(255).optional(),
     description: z.string().max(2000).optional(),
-    validFor: z.object({ endDateTime: z.string().regex(/^\d{4}-\d{2}-\d{2}/) }).optional(),
+    validFor: z.object({ endDateTime: z.string().refine(startsWithCalendarDay) }).optional(),
     status: z.string().max(32).optional(),
     characteristic: z.array(characteristicSchema).max(50).optional(),
     externalIdentifier: z.array(extIdSchema).max(10).optional(),
@@ -1225,8 +1226,7 @@ export async function subscribe(request: Request): Promise<Response> {
       tmfError(503, "unavailable", "Service Unavailable", "Try again shortly."),
       ctx.requestId,
     );
-  // The signing secret is shown once; events carry X-Signature: sha256=<hmac of body>.
-  // signingSecret is an extension: events carry X-Signature-Timestamp and X-Signature: sha256=HMAC(secret, "<timestamp>.<body>").
+  // signingSecret is shown once; events carry X-Signature-Timestamp and X-Signature: sha256=HMAC(secret, "<timestamp>.<body>").
   return reply(
     201,
     {

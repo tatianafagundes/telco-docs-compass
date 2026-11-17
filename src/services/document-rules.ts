@@ -110,6 +110,14 @@ export function metadataPatchAllowed(status: DocStatus, changedFields: string[])
   return blocked.length ? { ok: false, reason: "approvedContent", blocked } : { ok: true };
 }
 
+/** True when the text starts with a real calendar day written YYYY-MM-DD ("2027-02-30" is not one). */
+export function startsWithCalendarDay(text: string): boolean {
+  const day = text.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+  const parsed = new Date(`${day}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === day;
+}
+
 export interface SpecCharacteristic {
   name: string;
   required?: boolean;
