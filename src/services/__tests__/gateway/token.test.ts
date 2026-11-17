@@ -56,13 +56,13 @@ describe("asking for a token", () => {
     expect(viaJson.status).toBe(200);
   });
 
-  it("removes tokens that have expired when it issues a new one", async () => {
+  it("leaves removing expired tokens to the scheduled housekeeping", async () => {
     const db = await buildWorld();
     db.tables["integration_tokens"] = [
       { client_id: CLIENT_ID, token_hash: "old", expires_at: "2026-01-01T00:00:00Z" },
     ];
     await issueToken(form({ grant_type: "client_credentials", client_secret: KEY }));
-    expect(db.rows("integration_tokens").map((t) => t["token_hash"])).not.toContain("old");
+    expect(db.rows("integration_tokens").map((t) => t["token_hash"])).toContain("old");
   });
 
   it.each([

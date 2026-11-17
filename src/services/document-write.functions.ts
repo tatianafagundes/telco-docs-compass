@@ -37,7 +37,6 @@ import {
   type SpecCharacteristic,
 } from "@/services/document-rules";
 import { audit, forbidden, runRead, runWrite, type Db } from "@/services/seam-runtime";
-import { expireDue } from "@/services/retention.functions";
 
 const BUCKET = "documents";
 
@@ -88,8 +87,6 @@ export const find = createServerFn({ method: "POST" })
   .inputValidator((input: z.input<typeof findSchema>) => findSchema.parse(input))
   .handler(async ({ data, context }) =>
     runRead(context, "find", null, async ({ caller, tenantId }) => {
-      // No scheduler in the prototype: expiry is applied whenever documents are listed.
-      await expireDue(await adminClient(), tenantId);
       const pageSize = data.pageSize ?? 50;
       const offset = data.pageToken ? Number(data.pageToken) : 0;
       const select = `${DOC_COLUMNS}, extraction_fields(status, version_id), document_relations${data.entityId ? "!inner" : ""}(entity_id, role)`;

@@ -276,26 +276,6 @@ export const purgeDocument = createServerFn({ method: "POST" })
     );
   });
 
-/** Expiry without a scheduler: documents past expiry_date become Expired when listed or opened. */
-export async function expireDue(admin: Db, tenantId: string): Promise<void> {
-  const { data } = await admin
-    .from("documents")
-    .update({ status: "expired", updated_at: new Date().toISOString() })
-    .eq("tenant_id", tenantId)
-    .lt("expiry_date", today())
-    .in("status", ["approved", "effective"])
-    .is("deleted_at", null)
-    .select("id");
-  for (const d of data ?? []) {
-    await admin.from("document_events").insert({
-      tenant_id: tenantId,
-      document_id: d.id,
-      action: "statusChange",
-      detail: "Expired on its expiry date",
-    });
-  }
-}
-
 export interface RetentionInfo {
   policyName: string | null;
   keepUntil: string | null;

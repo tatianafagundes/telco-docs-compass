@@ -1340,7 +1340,6 @@ export async function issueToken(request: Request): Promise<Response> {
   const raw = crypto.getRandomValues(new Uint8Array(32));
   const token = `eradt_${Array.from(raw, (b) => b.toString(16).padStart(2, "0")).join("")}`;
   const expires = new Date(Date.now() + TOKEN_TTL_SECONDS * 1000).toISOString();
-  await admin.from("integration_tokens").delete().lt("expires_at", new Date().toISOString());
   await admin
     .from("integration_tokens")
     .insert({ client_id: client.id, token_hash: await sha256Hex(token), expires_at: expires });

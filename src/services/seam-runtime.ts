@@ -163,9 +163,6 @@ export async function runWrite<T>(
       }
     }
 
-    const cutoff = new Date(Date.now() - IDEMPOTENCY_TTL_HOURS * 3600_000).toISOString();
-    await admin.from("idempotency_keys").delete().lt("created_at", cutoff);
-
     const requestHash = await hashBody(opts.body);
     const { data: stored } = await admin
       .from("idempotency_keys")
