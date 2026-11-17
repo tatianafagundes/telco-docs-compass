@@ -31,8 +31,27 @@ interface JobRow {
   skipped: Record<string, number>;
 }
 
+/**
+ * Takes the next batch of a job for this processor. Moves `done` forward only if nobody else did
+ * (compare-and-swap on `done`), so two processors can never apply the same batch. Returns false
+ * when another processor won. Residual risk: if the process is killed mid-batch, `done` has moved
+ * but the counters are short; closing that needs a lock column (ask Lovable for an rpc).
+ */
+async function claimBatch(admin: Db, job: JobRow, size: number): Promise<boolean> {
+  const { data, error } = await admin
+    .from("bulk_jobs")
+    .update({ done: job.done + size, status: "running" })
+    .eq("id", job.id)
+    .eq("done", job.done)
+    .in("status", ["queued", "running"])
+    .select("id");
+  if (error) throw new Error("could not claim bulk batch");
+  return (data?.length ?? 0) > 0;
+}
+
 async function runBatch(admin: Db, job: JobRow) {
   const ids = job.doc_ids.slice(job.done, job.done + BULK_BATCH);
+  if (!(await claimBatch(admin, job, ids.length))) return;
   const { data: docs } = await admin
     .from("documents")
     .select("id, status, legal_hold, sensitivity, document_type, current_version_id, created_by")
