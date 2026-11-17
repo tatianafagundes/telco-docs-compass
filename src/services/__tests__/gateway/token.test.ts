@@ -1,15 +1,25 @@
 // Characterisation of the OAuth client-credentials endpoint: a system key is swapped for a
 // short-lived bearer token with the same permissions, and that token works like the key.
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildWorld, call, CLIENT_ID, DOC_ID, json, KEY } from "@/test/gateway-world";
 import { getDocument, issueToken } from "@/test/gateway-api";
 import { sha256Hex } from "@/services/tmf667-mapper";
+import {
+  MAX_ACTIVE_TOKENS,
+  TOKEN_REQUESTS_PER_ADDRESS_PER_MINUTE,
+  TOKEN_REQUESTS_PER_SYSTEM_PER_MINUTE,
+  tokenLimiters,
+} from "@/services/gateway-token";
 
 vi.mock(
   "@/integrations/supabase/client.server",
   async () => (await import("@/test/gateway-world")).clientServerMock,
 );
 
+beforeEach(() => {
+  tokenLimiters.byAddress.reset();
+  tokenLimiters.bySystem.reset();
+});
 const TOKEN_URL = "https://app.example/api/public/tmf-api/oauth/token";
 const form = (fields: Record<string, string>, headers: Record<string, string> = {}) =>
   new Request(TOKEN_URL, {
@@ -145,5 +155,85 @@ describe("using the token", () => {
   it("is not accepted if nobody issued it", async () => {
     await buildWorld();
     expect((await read("eradt_" + "a".repeat(64))).status).toBe(401);
+  });
+});
+
+describe("limits on asking for tokens", () => {
+  const ask = (headers: Record<string, string> = {}, secret = KEY) =>
+    issueToken(form({ grant_type: "client_credentials", client_secret: secret }, headers));
+  const from = (ip: string) => ({ "cf-connecting-ip": ip });
+
+  it("answers 429 temporarily_unavailable with Retry-After after too many requests from one address", async () => {
+    await buildWorld();
+    for (let i = 0; i < TOKEN_REQUESTS_PER_ADDRESS_PER_MINUTE; i++)
+      expect((await ask(from("203.0.113.9"), "erad_" + "z".repeat(24))).status).toBe(401);
+    const res = await ask(from("203.0.113.9"));
+    expect(res.status).toBe(429);
+    expect((await json(res))["error"]).toBe("temporarily_unavailable");
+    expect(res.headers.get("Retry-After")).toBe("60");
+  });
+  it("counts wrong keys too, so a key cannot be guessed at speed", async () => {
+    await buildWorld();
+    const wrong = "erad_" + "y".repeat(24);
+    for (let i = 0; i < TOKEN_REQUESTS_PER_ADDRESS_PER_MINUTE; i++)
+      await ask(from("203.0.113.9"), wrong);
+    // Even the right key is refused from that address until the minute is over.
+    expect((await ask(from("203.0.113.9"))).status).toBe(429);
+  });
+  it("keeps the budget of one address apart from another", async () => {
+    const db = await buildWorld();
+    for (let i = 0; i < TOKEN_REQUESTS_PER_ADDRESS_PER_MINUTE + 1; i++) {
+      db.tables["integration_tokens"] = []; // keep the cap on live tokens out of this test
+      await ask(from("203.0.113.9"));
+    }
+    db.tables["integration_tokens"] = [];
+    expect((await ask(from("198.51.100.4"))).status).toBe(200);
+  });
+  it("limits one system across addresses", async () => {
+    await buildWorld();
+    const db = (await import("@/test/gateway-world")).holder.db;
+    let last = 200;
+    for (let i = 0; i < TOKEN_REQUESTS_PER_SYSTEM_PER_MINUTE + 1; i++) {
+      db.tables["integration_tokens"] = [];
+      last = (await ask(from(`192.0.2.${i + 1}`))).status;
+    }
+    expect(last).toBe(429);
+  });
+  it("refuses a new token when the system already holds the most it may, and says to reuse one", async () => {
+    const db = await buildWorld();
+    const future = new Date(Date.now() + 600_000).toISOString();
+    db.tables["integration_tokens"] = Array.from({ length: MAX_ACTIVE_TOKENS }, (_, i) => ({
+      client_id: CLIENT_ID,
+      token_hash: `t${i}`,
+      expires_at: future,
+    }));
+    const res = await ask();
+    expect(res.status).toBe(429);
+    expect(String((await json(res))["error_description"])).toContain("Reuse");
+    expect(db.rows("integration_tokens")).toHaveLength(MAX_ACTIVE_TOKENS);
+  });
+  it("does not count tokens that have expired or belong to another system", async () => {
+    const db = await buildWorld();
+    const future = new Date(Date.now() + 600_000).toISOString();
+    const past = new Date(Date.now() - 600_000).toISOString();
+    db.tables["integration_tokens"] = [
+      ...Array.from({ length: MAX_ACTIVE_TOKENS }, (_, i) => ({
+        client_id: CLIENT_ID,
+        token_hash: `e${i}`,
+        expires_at: past,
+      })),
+      ...Array.from({ length: MAX_ACTIVE_TOKENS }, (_, i) => ({
+        client_id: "other",
+        token_hash: `o${i}`,
+        expires_at: future,
+      })),
+    ];
+    expect((await ask()).status).toBe(200);
+  });
+  it("hands out no token when the database fails while counting them", async () => {
+    const db = await buildWorld();
+    db.fail("integration_tokens", "select");
+    await expect(ask()).rejects.toThrow("database error");
+    expect(db.rows("integration_tokens")).toEqual([]);
   });
 });

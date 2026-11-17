@@ -1,3 +1,4 @@
+import { removeTokensOf } from "@/services/gateway-token";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -146,6 +147,8 @@ export const rotateSystemKey = createServerFn({ method: "POST" })
         .select("id");
       if (!rows || rows.length === 0)
         return { ok: false, error: seamError("system.notFound", "notFound", "none") };
+      // Tokens made with the old key must not outlive it.
+      await removeTokensOf(admin, data.id);
       return { ok: true, data: { key } };
     }),
   );
@@ -166,6 +169,7 @@ export const revokeSystem = createServerFn({ method: "POST" })
       if (!rows || rows.length === 0)
         return { ok: false, error: seamError("system.notFound", "notFound", "none") };
       await admin.from("event_subscriptions").delete().eq("client_id", data.id);
+      await removeTokensOf(admin, data.id);
       return { ok: true, data: { id: data.id } };
     }),
   );

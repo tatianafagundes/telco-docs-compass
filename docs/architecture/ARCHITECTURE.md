@@ -76,6 +76,10 @@ stateDiagram-v2
 
 Routes under `src/routes/api/public/tmf-api/` are thin. `tmf-gateway.ts` checks the system key first, pins every query to that key's tenant, applies the per-system rate limit, and then uses the same pure rules as the screens. `tmf667-mapper.ts` maps our internal lifecycle to TMF status and event names. The standard path is `document/v4`; `documentManagement/v4` is a legacy alias. Details: `src/routes/api/public/tmf-api/AGENTS.md`.
 
+Limits on what a caller can make the server do (constants in the files named):
+- Request bodies and fetched files are read up to a limit, never in full: 50 KB for ordinary bodies, about 7 MB for a registration with inline content, 4 KB for the token request, 25 MB for a file fetched from an address (`gateway-body.ts`, `gateway-create-input.ts`, `gateway-fetch.ts`). A body over the limit is answered 413.
+- Token requests are limited per caller address, per system, and by the number of tokens a system may hold at once; rotating or revoking a key removes its tokens (`gateway-token.ts`).
+
 ## I want to change... where do I look?
 
 | I want to change | Look at |

@@ -1,5 +1,6 @@
 // A connected system cannot make the gateway load a huge body, with or without a valid key.
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { tokenLimiters } from "@/services/gateway-token";
 import { buildWorld, call, DOC_ID, json } from "@/test/gateway-world";
 import { createDocument, issueToken, patchDocument, transitionDocument } from "@/test/gateway-api";
 vi.mock(
@@ -7,6 +8,7 @@ vi.mock(
   async () => (await import("@/test/gateway-world")).clientServerMock,
 );
 
+beforeEach(() => tokenLimiters.byAddress.reset());
 /** A request whose body is a stream of 1 KB chunks; `pulled()` says how many were read. */
 function streamed(path: string, method: string, key: string | null, chunks = 100_000) {
   let pulled = 0;

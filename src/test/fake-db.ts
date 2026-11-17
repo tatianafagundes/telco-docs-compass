@@ -290,6 +290,13 @@ class QueryBuilder implements PromiseLike<DbAnswer> {
     });
     return this;
   }
+  gt(column: string, value: string | number) {
+    this.filters.push((r) => {
+      const v = pathValue(r, column);
+      return v !== undefined && v !== null && (v as string | number) > value;
+    });
+    return this;
+  }
   gte(column: string, value: string | number) {
     this.filters.push((r) => {
       const v = pathValue(r, column);
