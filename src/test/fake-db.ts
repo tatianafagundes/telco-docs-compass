@@ -160,7 +160,7 @@ class QueryBuilder implements PromiseLike<{ data: unknown; error: DbError | null
   private filters: Filter[] = [];
   private sort: { column: string; ascending: boolean } | null = null;
   private max: number | null = null;
-  private single: "none" | "maybe" | "one" = "none";
+  private cardinality: "many" | "maybe" | "one" = "many";
   private upsertOn: string[] = [];
   private ignoreDuplicates = false;
   private returning = false;
@@ -234,7 +234,12 @@ class QueryBuilder implements PromiseLike<{ data: unknown; error: DbError | null
     return this;
   }
   maybeSingle() {
-    this.single = "maybe";
+    this.cardinality = "maybe";
+    return this;
+  }
+  /** Like maybeSingle, but no row (or more than one) is an error, as in supabase-js. */
+  single() {
+    this.cardinality = "one";
     return this;
   }
 
@@ -260,10 +265,7 @@ class QueryBuilder implements PromiseLike<{ data: unknown; error: DbError | null
       const added = this.payload.map((r) => ({ ...r }));
       rows.push(...added);
       this.db.writes.push({ table: this.table, op: "insert", rows: added });
-      return {
-        data: this.returning ? added.map((r) => project(r, this.columns)) : null,
-        error: null,
-      };
+      return this.answer(this.returning ? added : null);
     }
     if (this.op === "upsert") {
       const added: Row[] = [];
@@ -285,16 +287,13 @@ class QueryBuilder implements PromiseLike<{ data: unknown; error: DbError | null
       for (const r of hit) Object.assign(r, this.patch);
       this.db.writes.push({ table: this.table, op: "update", rows: hit.map((r) => ({ ...r })) });
       this.db.fireWriteHook(this.table, "update");
-      return {
-        data: this.returning ? hit.map((r) => project(r, this.columns)) : null,
-        error: null,
-      };
+      return this.answer(this.returning ? hit : null);
     }
     if (this.op === "delete") {
       const hit = new Set(this.matching());
       this.db.tables[this.table] = rows.filter((r) => !hit.has(r));
       this.db.writes.push({ table: this.table, op: "delete", rows: [...hit] });
-      return { data: null, error: null };
+      return this.answer(this.returning ? [...hit] : null);
     }
 
     const stale = this.db.takeStale(this.table);
@@ -310,8 +309,19 @@ class QueryBuilder implements PromiseLike<{ data: unknown; error: DbError | null
       });
     }
     if (this.max !== null) out = out.slice(0, this.max);
-    const projected = out.map((r) => project(r, this.columns));
-    if (this.single === "maybe") return { data: projected[0] ?? null, error: null };
+    return this.answer(out);
+  }
+
+  /** Shapes the rows like supabase-js: all of them, one or none, or exactly one. */
+  private answer(rows: Row[] | null): { data: unknown; error: DbError | null } {
+    if (rows === null) return { data: null, error: null };
+    const projected = rows.map((r) => project(r, this.columns));
+    if (this.cardinality === "maybe") return { data: projected[0] ?? null, error: null };
+    if (this.cardinality === "one") {
+      return projected.length === 1
+        ? { data: projected[0], error: null }
+        : { data: null, error: { message: `expected one row, got ${projected.length}` } };
+    }
     return { data: projected, error: null };
   }
 }

@@ -82,6 +82,31 @@ describe("FakeDb writes", () => {
   });
 });
 
+describe("FakeDb returning rows from writes", () => {
+  it("insert().select().single() gives the new row, and a delete().select() gives what it removed", async () => {
+    const db = new FakeDb({
+      subs: [
+        { id: 1, owner: "a" },
+        { id: 2, owner: "b" },
+      ],
+    });
+    const added = await db.from("subs").insert({ id: 3, owner: "a" }).select("id, owner").single();
+    expect(added.data).toEqual({ id: 3, owner: "a" });
+    const removed = await db.from("subs").delete().eq("owner", "a").select("id");
+    expect(removed.data).toEqual([{ id: 1 }, { id: 3 }]);
+    expect(db.rows("subs")).toEqual([{ id: 2, owner: "b" }]);
+  });
+
+  it("single() reports an error unless exactly one row matched", async () => {
+    const db = new FakeDb({ subs: [{ id: 1 }, { id: 2 }] });
+    expect((await db.from("subs").select("id").single()).error?.message).toContain("got 2");
+    expect((await db.from("subs").select("id").eq("id", 9).single()).error?.message).toContain(
+      "got 0",
+    );
+    expect((await db.from("subs").select("id").eq("id", 1).single()).data).toEqual({ id: 1 });
+  });
+});
+
 describe("FakeDb race helpers", () => {
   it("stubNextSelect serves one stale read and then goes back to the real data", async () => {
     const db = new FakeDb({ jobs: [{ id: 1, done: 5 }] });
