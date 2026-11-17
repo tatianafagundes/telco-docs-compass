@@ -1,7 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { bulkSkipReason, bulkSummary, countLabel, hasAnyFilter, looksLikeIdentifier, normaliseFilters, splitPage } from "@/services/search-rules";
+import {
+  BULK_LEASE_SECONDS,
+  bulkSkipReason,
+  leaseExpired,
+  bulkSummary,
+  countLabel,
+  hasAnyFilter,
+  looksLikeIdentifier,
+  normaliseFilters,
+  splitPage,
+} from "@/services/search-rules";
 
-const row = (i: number) => ({ id: `id-${i}`, name: `Doc ${i}`, updated_at: `2026-01-${String(30 - i).padStart(2, "0")}`, expiry_date: null });
+const row = (i: number) => ({
+  id: `id-${i}`,
+  name: `Doc ${i}`,
+  updated_at: `2026-01-${String(30 - i).padStart(2, "0")}`,
+  expiry_date: null,
+});
 
 describe("splitPage", () => {
   it("should return a cursor from the last shown row when one extra row came back", () => {
@@ -28,7 +43,14 @@ describe("countLabel", () => {
 
 describe("normaliseFilters", () => {
   it("should drop empty values and the default sort so equal searches share a key", () => {
-    expect(normaliseFilters({ q: "  ", types: [], sort: "updated", statuses: ["draft", "approved", "draft"] })).toEqual({ statuses: ["approved", "draft"] });
+    expect(
+      normaliseFilters({
+        q: "  ",
+        types: [],
+        sort: "updated",
+        statuses: ["draft", "approved", "draft"],
+      }),
+    ).toEqual({ statuses: ["approved", "draft"] });
     expect(hasAnyFilter({ sort: "name" })).toBe(false);
   });
 });
@@ -43,19 +65,42 @@ describe("looksLikeIdentifier", () => {
 });
 
 describe("bulkSkipReason", () => {
-  const doc = { status: "in_review" as const, legalHold: false, sensitivity: "internal", pendingRequired: 0 };
+  const doc = {
+    status: "in_review" as const,
+    legalHold: false,
+    sensitivity: "internal",
+    pendingRequired: 0,
+    isOwn: false,
+  };
+  it("should skip approval of a document the same person added (four-eyes)", () => {
+    expect(
+      bulkSkipReason("manager", "transition", { to: "approved" }, { ...doc, isOwn: true }),
+    ).toBe("ownDocument");
+    expect(
+      bulkSkipReason("manager", "transition", { to: "approved" }, { ...doc, isOwn: false }),
+    ).toBeNull();
+  });
   it("should skip holds when the role is below manager", () => {
     expect(bulkSkipReason("contributor", "placeHold", {}, doc)).toBe("noPermission");
     expect(bulkSkipReason("manager", "placeHold", {}, doc)).toBeNull();
   });
   it("should skip approval while required details are pending", () => {
-    expect(bulkSkipReason("reviewer", "transition", { to: "approved" }, { ...doc, pendingRequired: 2 })).toBe("detailsPending");
+    expect(
+      bulkSkipReason("reviewer", "transition", { to: "approved" }, { ...doc, pendingRequired: 2 }),
+    ).toBe("detailsPending");
   });
   it("should skip a status that is not the next step", () => {
     expect(bulkSkipReason("manager", "transition", { to: "effective" }, doc)).toBe("notAllowed");
   });
   it("should skip sensitivity changes on frozen documents", () => {
-    expect(bulkSkipReason("manager", "setSensitivity", { sensitivity: "restricted" }, { ...doc, status: "archived" })).toBe("frozen");
+    expect(
+      bulkSkipReason(
+        "manager",
+        "setSensitivity",
+        { sensitivity: "restricted" },
+        { ...doc, status: "archived" },
+      ),
+    ).toBe("frozen");
   });
   it("should report missing documents", () => {
     expect(bulkSkipReason("manager", "releaseHold", {}, null)).toBe("notFound");
@@ -64,6 +109,23 @@ describe("bulkSkipReason", () => {
 
 describe("bulkSummary", () => {
   it("should list each skip reason with its count", () => {
-    expect(bulkSummary(3, 1, { noPermission: 2 })).toBe("1 of 3 changed · 2 skipped because your role can't make this change");
+    expect(bulkSummary(3, 1, { noPermission: 2 })).toBe(
+      "1 of 3 changed · 2 skipped because your role can't make this change",
+    );
+  });
+});
+
+describe("leaseExpired", () => {
+  const now = new Date("2026-11-17T12:00:00Z");
+  const ago = (seconds: number) => new Date(now.getTime() - seconds * 1000).toISOString();
+  it("is false while the holder is within its time", () => {
+    expect(leaseExpired(ago(BULK_LEASE_SECONDS - 1), now)).toBe(false);
+  });
+  it("is true once the lease is older than the limit", () => {
+    expect(leaseExpired(ago(BULK_LEASE_SECONDS + 1), now)).toBe(true);
+  });
+  it("is true when there is no usable timestamp (a holder we cannot vouch for)", () => {
+    expect(leaseExpired(undefined, now)).toBe(true);
+    expect(leaseExpired("not a date", now)).toBe(true);
   });
 });

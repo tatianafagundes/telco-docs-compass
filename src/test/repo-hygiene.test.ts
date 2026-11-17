@@ -7,7 +7,10 @@
 // 2. Docs: a link or a `path/in/backticks` in the docs we maintain must point at a file that exists.
 // 3. Module READMEs: every README.md under src/services has the same seven sections.
 // 4. English only: no Portuguese in the code and docs we maintain.
+// 5. The rebuild handbook (docs/rebuild) carries copies of contracts, migrations, rules and tests so it can
+//    be handed over as one folder. They must match their sources: `bun run sync:rebuild` refreshes them.
 import { existsSync, lstatSync, readdirSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { dirname, join, normalize } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -288,5 +291,22 @@ describe("the repository is written in English", () => {
       "Repository text is English only (see AGENTS.md > Repository rules). Translate these lines. " +
         "Swedish names in demo data are fine. Offending lines:",
     ).toEqual([]);
+  });
+});
+
+// ---------- 5. rebuild handbook copies ----------
+describe("the rebuild handbook copies match their sources", () => {
+  it("nothing has drifted", () => {
+    // process.execPath is the node binary running the tests, so this does not depend on PATH.
+    const run = spawnSync(process.execPath, ["scripts/sync-rebuild.mjs", "--check"], {
+      cwd: ROOT,
+      encoding: "utf8",
+      timeout: 30_000,
+    });
+    expect(
+      run.status,
+      (run.error?.message ?? run.stdout ?? run.stderr) +
+        "\nEdit the source (src/ or contracts/), never the copy, then run `bun run sync:rebuild` and commit both.",
+    ).toBe(0);
   });
 });

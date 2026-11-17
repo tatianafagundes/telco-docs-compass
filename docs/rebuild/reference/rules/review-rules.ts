@@ -13,7 +13,11 @@ export interface ReviewField {
   confidence: number | null;
   band: Band | null;
   status: FieldStatus;
-  source: { page?: number; excerpt?: string; box?: { x: number; y: number; w: number; h: number } } | null;
+  source: {
+    page?: number;
+    excerpt?: string;
+    box?: { x: number; y: number; w: number; h: number };
+  } | null;
 }
 
 export const FIELD_LABEL: Record<string, string> = {
@@ -30,7 +34,10 @@ export const FIELD_LABEL: Record<string, string> = {
 /** Human label; unknown codes become "Sentence case" words, never the raw code. */
 export function fieldLabel(code: string): string {
   if (FIELD_LABEL[code]) return FIELD_LABEL[code];
-  const words = code.replace(/([A-Z])/g, " $1").trim().toLowerCase();
+  const words = code
+    .replace(/([A-Z])/g, " $1")
+    .trim()
+    .toLowerCase();
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
@@ -51,7 +58,11 @@ const BAND_RANK: Record<Band, number> = { low: 0, medium: 1, high: 2 };
 
 /** Risk first: Low, Medium, High; unknown confidence goes first too. */
 export function reviewOrder<T extends Pick<ReviewField, "band" | "name">>(fields: T[]): T[] {
-  return [...fields].sort((a, b) => (a.band ? BAND_RANK[a.band] : -1) - (b.band ? BAND_RANK[b.band] : -1) || a.name.localeCompare(b.name));
+  return [...fields].sort(
+    (a, b) =>
+      (a.band ? BAND_RANK[a.band] : -1) - (b.band ? BAND_RANK[b.band] : -1) ||
+      a.name.localeCompare(b.name),
+  );
 }
 
 export function toCheckCount(fields: Pick<ReviewField, "status">[]): number {
@@ -59,7 +70,11 @@ export function toCheckCount(fields: Pick<ReviewField, "status">[]): number {
 }
 
 /** Index of the next unchecked field after `from`, wrapping round; -1 when all are checked. */
-export function nextToCheck(fields: Pick<ReviewField, "status">[], from: number, step: 1 | -1 = 1): number {
+export function nextToCheck(
+  fields: Pick<ReviewField, "status">[],
+  from: number,
+  step: 1 | -1 = 1,
+): number {
   const n = fields.length;
   for (let i = 1; i <= n; i++) {
     const j = (((from + step * i) % n) + n) % n;
@@ -74,17 +89,30 @@ export interface ApproveGate {
 }
 
 /** Approve waits until every required readable detail is accepted or edited. */
-export function approveGate(spec: SpecCharacteristic[], fields: Pick<ReviewField, "name" | "status">[]): ApproveGate {
+export function approveGate(
+  spec: SpecCharacteristic[],
+  fields: Pick<ReviewField, "name" | "status">[],
+): ApproveGate {
   const pending = pendingRequiredDetails(spec, fields).length;
   if (pending === 0) return { pending };
-  return { pending, reason: pending === 1 ? "1 required detail needs checking" : `${pending} required details need checking` };
+  return {
+    pending,
+    reason:
+      pending === 1
+        ? "1 required detail needs checking"
+        : `${pending} required details need checking`,
+  };
 }
 
 export function bannerText(n: number): string {
-  return n === 1 ? "1 detail read from this document needs checking." : `${n} details read from this document need checking.`;
+  return n === 1
+    ? "1 detail read from this document needs checking."
+    : `${n} details read from this document need checking.`;
 }
 
-export function editedNote(f: Pick<ReviewField, "status" | "band" | "original_value">): string | null {
+export function editedNote(
+  f: Pick<ReviewField, "status" | "band" | "original_value">,
+): string | null {
   if (f.status !== "edited" || !f.band) return null;
   const word = f.band.charAt(0).toUpperCase() + f.band.slice(1);
   return `Edited – read as ${word}: ${String(f.original_value ?? "")}`;
@@ -112,9 +140,12 @@ export function whyCanISee(
   formatDate: (iso: string) => string,
   now: Date,
 ): string {
-  const mine = items.filter((i) => i.subject.type === "user" && i.subject.id === userId && !isExpired(i.expiresAt, now));
+  const mine = items.filter(
+    (i) => i.subject.type === "user" && i.subject.id === userId && !isExpired(i.expiresAt, now),
+  );
   const viaRecord = mine.find((i) => i.source === "inheritedFromEntity" && i.viaEntity);
-  if (viaRecord?.viaEntity) return `You can see this because you can ${viaRecord.level === "edit" ? "edit" : "view"} ${entityName(viaRecord.viaEntity.id)}.`;
+  if (viaRecord?.viaEntity)
+    return `You can see this because you can ${viaRecord.level === "edit" ? "edit" : "view"} ${entityName(viaRecord.viaEntity.id)}.`;
   const shared = mine.find((i) => i.source === "explicit");
   if (shared) {
     const who = shared.grantedBy ?? "someone in your organisation";

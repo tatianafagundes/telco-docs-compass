@@ -10,17 +10,40 @@ export const LEGACY_SUNSET = "Mon, 10 May 2027 00:00:00 GMT";
 /** Published JSON schema for our Document extension fields. */
 export const ERAD_SCHEMA_PATH = "/tmf-schemas/EradDocument.schema.json";
 
-export const SCOPES = ["read", "register", "transition", "approve", "hold", "delete", "subscribe"] as const;
+export const SCOPES = [
+  "read",
+  "register",
+  "transition",
+  "approve",
+  "hold",
+  "delete",
+  "subscribe",
+] as const;
 export type Scope = (typeof SCOPES)[number];
 
 export const SYSTEM_KINDS = ["orderCare", "ticketManagement", "crm", "cpq", "other"] as const;
 export type SystemKind = (typeof SYSTEM_KINDS)[number];
 
 /** TMF622/621/629/666/648 referred types our business entities map to. */
-export const REFERRED_TYPES = ["ProductOrder", "TroubleTicket", "Customer", "BillingAccount", "Quote", "Agreement", "Site"] as const;
+export const REFERRED_TYPES = [
+  "ProductOrder",
+  "TroubleTicket",
+  "Customer",
+  "BillingAccount",
+  "Quote",
+  "Agreement",
+  "Site",
+] as const;
 
 /** TMF667 v4 DocumentStatusType. */
-export const TMF_STATUSES = ["created", "reviewed", "approved", "published", "archived", "deleted"] as const;
+export const TMF_STATUSES = [
+  "created",
+  "reviewed",
+  "approved",
+  "published",
+  "archived",
+  "deleted",
+] as const;
 export type TmfStatus = (typeof TMF_STATUSES)[number];
 
 const TO_TMF_STATUS: Record<DocStatus, TmfStatus> = {
@@ -44,7 +67,13 @@ export function statesForTmfStatus(s: TmfStatus): DocStatus[] {
 
 /** Target internal state when a client PATCHes `status`. null = not something a client can set. */
 export function targetForTmfStatus(s: string): DocStatus | null {
-  const m: Record<string, DocStatus> = { created: "draft", reviewed: "in_review", approved: "approved", published: "effective", archived: "archived" };
+  const m: Record<string, DocStatus> = {
+    created: "draft",
+    reviewed: "in_review",
+    approved: "approved",
+    published: "effective",
+    archived: "archived",
+  };
   return m[s] ?? null;
 }
 
@@ -91,7 +120,15 @@ export interface ListQuery {
   externalId: string | null;
 }
 
-const STATUSES: DocStatus[] = ["draft", "in_review", "approved", "effective", "superseded", "expired", "archived"];
+const STATUSES: DocStatus[] = [
+  "draft",
+  "in_review",
+  "approved",
+  "effective",
+  "superseded",
+  "expired",
+  "archived",
+];
 
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: TmfError };
 
@@ -104,14 +141,31 @@ export function parseListQuery(params: URLSearchParams): ParseResult<ListQuery> 
   const offset = num("offset", 0);
   const limit = num("limit", DEFAULT_LIMIT);
   if (Number.isNaN(offset) || Number.isNaN(limit) || limit < 1) {
-    return { ok: false, error: tmfError(400, "invalidQuery", "Bad Request", "offset and limit must be positive whole numbers.") };
+    return {
+      ok: false,
+      error: tmfError(
+        400,
+        "invalidQuery",
+        "Bad Request",
+        "offset and limit must be positive whole numbers.",
+      ),
+    };
   }
   const states = params.get("lifecycleState");
   let lifecycleState: DocStatus[] | null = null;
   if (states) {
     const parts = states.split(",").map((s) => s.trim());
     const bad = parts.find((p) => !STATUSES.includes(p as DocStatus));
-    if (bad) return { ok: false, error: tmfError(400, "invalidQuery", "Bad Request", `Unknown lifecycleState '${bad.slice(0, 32)}'.`) };
+    if (bad)
+      return {
+        ok: false,
+        error: tmfError(
+          400,
+          "invalidQuery",
+          "Bad Request",
+          `Unknown lifecycleState '${bad.slice(0, 32)}'.`,
+        ),
+      };
     lifecycleState = parts as DocStatus[];
   }
   // Standard filter: status=published,approved (TMF667 DocumentStatusType). Combined with lifecycleState by intersection.
@@ -119,7 +173,16 @@ export function parseListQuery(params: URLSearchParams): ParseResult<ListQuery> 
   if (tmf) {
     const parts = tmf.split(",").map((s) => s.trim());
     const bad = parts.find((p) => !(TMF_STATUSES as readonly string[]).includes(p));
-    if (bad) return { ok: false, error: tmfError(400, "invalidQuery", "Bad Request", `Unknown status '${bad.slice(0, 32)}'.`) };
+    if (bad)
+      return {
+        ok: false,
+        error: tmfError(
+          400,
+          "invalidQuery",
+          "Bad Request",
+          `Unknown status '${bad.slice(0, 32)}'.`,
+        ),
+      };
     const mapped = parts.flatMap((p) => statesForTmfStatus(p as TmfStatus));
     lifecycleState = lifecycleState ? lifecycleState.filter((x) => mapped.includes(x)) : mapped;
   }
@@ -133,9 +196,17 @@ export function parseListQuery(params: URLSearchParams): ParseResult<ListQuery> 
     value: {
       offset,
       limit: Math.min(limit, MAX_LIMIT),
-      fields: fields ? fields.split(",").map((f) => f.trim()).filter(Boolean) : null,
+      fields: fields
+        ? fields
+            .split(",")
+            .map((f) => f.trim())
+            .filter(Boolean)
+        : null,
       relatedEntityId: short("relatedEntity.id"),
-      referredType: (() => { const t = short("relatedEntity.@referredType"); return t ? fromStandardReferredType(t) : null; })(),
+      referredType: (() => {
+        const t = short("relatedEntity.@referredType");
+        return t ? fromStandardReferredType(t) : null;
+      })(),
       documentType: short("documentType"),
       lifecycleState,
       externalId: short("externalIdentifier.id"),
@@ -144,7 +215,10 @@ export function parseListQuery(params: URLSearchParams): ParseResult<ListQuery> 
 }
 
 /** TMF630 field selection: id, href and @type are always kept. */
-export function selectFields<T extends Record<string, unknown>>(resource: T, fields: string[] | null): Partial<T> {
+export function selectFields<T extends Record<string, unknown>>(
+  resource: T,
+  fields: string[] | null,
+): Partial<T> {
   if (!fields) return resource;
   const keep = new Set(["id", "href", "@type", ...fields]);
   return Object.fromEntries(Object.entries(resource).filter(([k]) => keep.has(k))) as Partial<T>;
@@ -180,9 +254,14 @@ export interface DocExtras {
 
 /** Category from a document type definition's businessProcess list. */
 export function categoryFromDefinition(definition: unknown): string[] {
-  const bp = typeof definition === "object" && definition !== null ? (definition as { businessProcess?: unknown }).businessProcess : undefined;
+  const bp =
+    typeof definition === "object" && definition !== null
+      ? (definition as { businessProcess?: unknown }).businessProcess
+      : undefined;
   if (!Array.isArray(bp)) return [];
-  return bp.map((b) => (typeof b === "object" && b !== null ? (b as { name?: unknown }).name : null)).filter((n): n is string => typeof n === "string");
+  return bp
+    .map((b) => (typeof b === "object" && b !== null ? (b as { name?: unknown }).name : null))
+    .filter((n): n is string => typeof n === "string");
 }
 
 export interface VersionRow {
@@ -200,7 +279,12 @@ export interface RelationRow {
   referred_type: string;
 }
 
-export interface ExternalIdentifier { id: string; owner?: string; externalIdentifierType?: string; "@type": "ExternalIdentifier" }
+export interface ExternalIdentifier {
+  id: string;
+  owner?: string;
+  externalIdentifierType?: string;
+  "@type": "ExternalIdentifier";
+}
 
 /**
  * TMF667 v4 Document. Standard fields first; our additions (sensitivity, legalHold, validFor,
@@ -219,9 +303,19 @@ export interface TmfDocument {
   creationDate: string;
   lastUpdate: string;
   version?: string;
-  documentSpecification: { id: string; "@referredType": "DocumentSpecification"; href: string; "@type": "DocumentSpecificationRef" };
+  documentSpecification: {
+    id: string;
+    "@referredType": "DocumentSpecification";
+    href: string;
+    "@type": "DocumentSpecificationRef";
+  };
   relatedEntity: { id: string; role: string; "@referredType": string; "@type": "RelatedEntity" }[];
-  relatedParty: { id: string; role: "owner"; "@referredType": "Organization"; "@type": "RelatedParty" }[];
+  relatedParty: {
+    id: string;
+    role: "owner";
+    "@referredType": "Organization";
+    "@type": "RelatedParty";
+  }[];
   externalIdentifier: ExternalIdentifier[];
   attachment: {
     id: string;
@@ -238,7 +332,13 @@ export interface TmfDocument {
   }[];
   characteristic: { name: string; value: unknown; valueType?: string }[];
   category?: string[];
-  document?: { id: string; href: string; role: string; "@referredType": "Document"; "@type": "DocumentRef" }[];
+  document?: {
+    id: string;
+    href: string;
+    role: string;
+    "@referredType": "Document";
+    "@type": "DocumentRef";
+  }[];
   // Extensions (EradDocument)
   lifecycleState: DocStatus;
   validFor?: { startDateTime?: string; endDateTime?: string };
@@ -249,11 +349,16 @@ export interface TmfDocument {
 export function asExternalIdentifiers(value: unknown): ExternalIdentifier[] {
   if (!Array.isArray(value)) return [];
   return value
-    .filter((c): c is { id: string; owner?: unknown; externalIdentifierType?: unknown } => typeof c === "object" && c !== null && typeof (c as { id?: unknown }).id === "string")
+    .filter(
+      (c): c is { id: string; owner?: unknown; externalIdentifierType?: unknown } =>
+        typeof c === "object" && c !== null && typeof (c as { id?: unknown }).id === "string",
+    )
     .map((c) => ({
       id: c.id,
       ...(typeof c.owner === "string" ? { owner: c.owner } : {}),
-      ...(typeof c.externalIdentifierType === "string" ? { externalIdentifierType: c.externalIdentifierType } : {}),
+      ...(typeof c.externalIdentifierType === "string"
+        ? { externalIdentifierType: c.externalIdentifierType }
+        : {}),
       "@type": "ExternalIdentifier" as const,
     }));
 }
@@ -261,15 +366,31 @@ export function asExternalIdentifiers(value: unknown): ExternalIdentifier[] {
 function asCharacteristics(value: unknown): TmfDocument["characteristic"] {
   if (!Array.isArray(value)) return [];
   return value
-    .filter((c): c is { name: string; value: unknown; valueType?: string } => typeof c === "object" && c !== null && typeof (c as { name?: unknown }).name === "string")
-    .map((c) => ({ name: c.name, value: c.value, ...(c.valueType ? { valueType: c.valueType } : {}) }));
+    .filter(
+      (c): c is { name: string; value: unknown; valueType?: string } =>
+        typeof c === "object" && c !== null && typeof (c as { name?: unknown }).name === "string",
+    )
+    .map((c) => ({
+      name: c.name,
+      value: c.value,
+      ...(c.valueType ? { valueType: c.valueType } : {}),
+    }));
 }
 
-export function toTmfDocument(origin: string, doc: DocRow, versions: VersionRow[], relations: RelationRow[], extras: DocExtras = {}): TmfDocument {
+export function toTmfDocument(
+  origin: string,
+  doc: DocRow,
+  versions: VersionRow[],
+  relations: RelationRow[],
+  extras: DocExtras = {},
+): TmfDocument {
   const current = versions.find((v) => v.id === doc.current_version_id);
   const validFor =
     doc.effective_date || doc.expiry_date
-      ? { ...(doc.effective_date ? { startDateTime: doc.effective_date } : {}), ...(doc.expiry_date ? { endDateTime: doc.expiry_date } : {}) }
+      ? {
+          ...(doc.effective_date ? { startDateTime: doc.effective_date } : {}),
+          ...(doc.expiry_date ? { endDateTime: doc.expiry_date } : {}),
+        }
       : undefined;
   const base = `${origin}${TMF_BASE_PATH}/document/${doc.id}`;
   return {
@@ -291,8 +412,22 @@ export function toTmfDocument(origin: string, doc: DocRow, versions: VersionRow[
       "@type": "DocumentSpecificationRef",
       href: `${origin}${TMF_BASE_PATH}/documentSpecification/${doc.document_type}`,
     },
-    relatedEntity: relations.map((r) => ({ id: r.entity_id, role: r.role, "@referredType": toStandardReferredType(r.referred_type), "@type": "RelatedEntity" })),
-    relatedParty: doc.tenant_id ? [{ id: doc.tenant_id, role: "owner", "@referredType": "Organization", "@type": "RelatedParty" }] : [],
+    relatedEntity: relations.map((r) => ({
+      id: r.entity_id,
+      role: r.role,
+      "@referredType": toStandardReferredType(r.referred_type),
+      "@type": "RelatedEntity",
+    })),
+    relatedParty: doc.tenant_id
+      ? [
+          {
+            id: doc.tenant_id,
+            role: "owner",
+            "@referredType": "Organization",
+            "@type": "RelatedParty",
+          },
+        ]
+      : [],
     externalIdentifier: asExternalIdentifiers(doc.external_identifier),
     attachment: versions.map((v) => ({
       id: v.id,
@@ -311,7 +446,15 @@ export function toTmfDocument(origin: string, doc: DocRow, versions: VersionRow[
     characteristic: asCharacteristics(doc.characteristic),
     ...(extras.category && extras.category.length ? { category: extras.category } : {}),
     ...(extras.related && extras.related.length
-      ? { document: extras.related.map((r) => ({ id: r.id, href: `${origin}${TMF_BASE_PATH}/document/${r.id}`, role: r.role, "@referredType": "Document" as const, "@type": "DocumentRef" as const })) }
+      ? {
+          document: extras.related.map((r) => ({
+            id: r.id,
+            href: `${origin}${TMF_BASE_PATH}/document/${r.id}`,
+            role: r.role,
+            "@referredType": "Document" as const,
+            "@type": "DocumentRef" as const,
+          })),
+        }
       : {}),
     lifecycleState: doc.status,
     ...(validFor ? { validFor } : {}),
@@ -339,10 +482,31 @@ export function toTmfSpecification(origin: string, s: SpecRow) {
   const chars = Array.isArray(def.specCharacteristic) ? def.specCharacteristic : [];
   const fileRules = [
     ...(Array.isArray(def.acceptedMimeTypes) && def.acceptedMimeTypes.length
-      ? [{ name: "acceptedMimeType", valueType: "string", configurable: false, "@type": "CharacteristicSpecification", characteristicValueSpecification: def.acceptedMimeTypes.map((m) => ({ value: m, valueType: "string" })) }]
+      ? [
+          {
+            name: "acceptedMimeType",
+            valueType: "string",
+            configurable: false,
+            "@type": "CharacteristicSpecification",
+            characteristicValueSpecification: def.acceptedMimeTypes.map((m) => ({
+              value: m,
+              valueType: "string",
+            })),
+          },
+        ]
       : []),
     ...(typeof def.maxSizeMb === "number"
-      ? [{ name: "maxSizeMb", valueType: "number", configurable: false, "@type": "CharacteristicSpecification", characteristicValueSpecification: [{ value: def.maxSizeMb, valueType: "number", unitOfMeasure: "MB" }] }]
+      ? [
+          {
+            name: "maxSizeMb",
+            valueType: "number",
+            configurable: false,
+            "@type": "CharacteristicSpecification",
+            characteristicValueSpecification: [
+              { value: def.maxSizeMb, valueType: "number", unitOfMeasure: "MB" },
+            ],
+          },
+        ]
       : []),
   ];
   return {
@@ -354,9 +518,14 @@ export function toTmfSpecification(origin: string, s: SpecRow) {
     lifecycleStatus: s.lifecycle_status,
     "@baseType": "EntitySpecification" as const,
     isBundle: false,
-    targetEntitySchema: { "@type": "EradDocument", "@schemaLocation": `${origin}${ERAD_SCHEMA_PATH}` },
+    targetEntitySchema: {
+      "@type": "EradDocument",
+      "@schemaLocation": `${origin}${ERAD_SCHEMA_PATH}`,
+    },
     specCharacteristic: [...chars, ...fileRules],
-    ...(typeof def.validFor === "object" && def.validFor !== null ? { validFor: def.validFor } : {}),
+    ...(typeof def.validFor === "object" && def.validFor !== null
+      ? { validFor: def.validFor }
+      : {}),
     // Kept until the legacy address is retired; the same rules are in specCharacteristic.
     acceptedMimeTypes: Array.isArray(def.acceptedMimeTypes) ? def.acceptedMimeTypes : [],
     ...(typeof def.maxSizeMb === "number" ? { maxSizeMb: def.maxSizeMb } : {}),
@@ -370,7 +539,12 @@ const V4_EVENT: Record<string, string> = {
   DocumentAttributeValueChangeEvent: "DocumentChangeEvent",
   DocumentDeleteEvent: "DocumentDeleteEvent",
 };
-export const V4_EVENT_TYPES = ["DocumentCreateEvent", "DocumentChangeEvent", "DocumentBatchEvent", "DocumentDeleteEvent"] as const;
+export const V4_EVENT_TYPES = [
+  "DocumentCreateEvent",
+  "DocumentChangeEvent",
+  "DocumentBatchEvent",
+  "DocumentDeleteEvent",
+] as const;
 const LEGACY_ONLY = ["DocumentStateChangeEvent", "DocumentAttributeValueChangeEvent"];
 
 export function v4EventType(internal: string): string {
@@ -401,12 +575,25 @@ function queryValue(query: string, key: string): string[] | null {
  */
 export function toTmfEvent(
   origin: string,
-  row: { id: number; event_type: string; document_id: string; created_at: string; payload: unknown },
+  row: {
+    id: number;
+    event_type: string;
+    document_id: string;
+    created_at: string;
+    payload: unknown;
+  },
   query: string | null = null,
 ) {
-  const p = (typeof row.payload === "object" && row.payload !== null ? row.payload : {}) as { lifecycleState?: string; previous?: string; documentIds?: unknown; action?: unknown };
+  const p = (typeof row.payload === "object" && row.payload !== null ? row.payload : {}) as {
+    lifecycleState?: string;
+    previous?: string;
+    documentIds?: unknown;
+    action?: unknown;
+  };
   if (row.event_type === "DocumentBatchEvent") {
-    const ids = Array.isArray(p.documentIds) ? p.documentIds.filter((x): x is string => typeof x === "string") : [];
+    const ids = Array.isArray(p.documentIds)
+      ? p.documentIds.filter((x): x is string => typeof x === "string")
+      : [];
     return {
       eventId: String(row.id),
       eventTime: row.created_at,
@@ -417,12 +604,23 @@ export function toTmfEvent(
       title: "Document batch event",
       description: `Bulk change to ${ids.length} document(s)`,
       priority: "normal",
-      event: { document: ids.map((id) => ({ id, href: `${origin}${TMF_BASE_PATH}/document/${id}`, "@type": "Document" })) },
+      event: {
+        document: ids.map((id) => ({
+          id,
+          href: `${origin}${TMF_BASE_PATH}/document/${id}`,
+          "@type": "Document",
+        })),
+      },
     };
   }
   const eventType = eventNameFor(query, row.event_type);
   const state = p.lifecycleState as DocStatus | undefined;
-  const changed = row.event_type === "DocumentStateChangeEvent" ? ["status"] : row.event_type === "DocumentAttributeValueChangeEvent" ? ["attachment", "characteristic", "legalHold"] : undefined;
+  const changed =
+    row.event_type === "DocumentStateChangeEvent"
+      ? ["status"]
+      : row.event_type === "DocumentAttributeValueChangeEvent"
+        ? ["attachment", "characteristic", "legalHold"]
+        : undefined;
   return {
     eventId: String(row.id),
     eventTime: row.created_at,
@@ -431,14 +629,20 @@ export function toTmfEvent(
     correlationId: row.document_id,
     domain: "documentManagement",
     title: eventType.replace(/([a-z])([A-Z])/g, "$1 $2"),
-    description: changed ? `Changed: ${changed.join(", ")}` : eventType.replace(/([a-z])([A-Z])/g, "$1 $2"),
+    description: changed
+      ? `Changed: ${changed.join(", ")}`
+      : eventType.replace(/([a-z])([A-Z])/g, "$1 $2"),
     priority: "normal",
     event: {
       document: {
         id: row.document_id,
         href: `${origin}${TMF_BASE_PATH}/document/${row.document_id}`,
         "@type": "Document",
-        ...(row.event_type === "DocumentDeleteEvent" ? { status: "deleted" } : state ? { status: toTmfStatus(state), lifecycleState: state } : {}),
+        ...(row.event_type === "DocumentDeleteEvent"
+          ? { status: "deleted" }
+          : state
+            ? { status: toTmfStatus(state), lifecycleState: state }
+            : {}),
       },
     },
     ...(changed ? { changedAttributes: changed } : {}),
@@ -449,7 +653,11 @@ export function toTmfEvent(
  * Event subscription query (TMF630 style): eventType=A,B plus optional document filters
  * status=… and documentType=…. Old and new event names both match.
  */
-export function eventMatches(query: string | null, eventType: string, doc?: { status?: DocStatus | null; documentType?: string | null }): boolean {
+export function eventMatches(
+  query: string | null,
+  eventType: string,
+  doc?: { status?: DocStatus | null; documentType?: string | null },
+): boolean {
   const types = parseEventTypes(query);
   // Batch events go only to subscriptions that ask for them by name.
   if (eventType === "DocumentBatchEvent") return !!types && types.includes("DocumentBatchEvent");
@@ -468,14 +676,19 @@ export function signedPayload(timestamp: string, body: string): string {
 }
 export const SIGNATURE_TOLERANCE_SECONDS = 300;
 
-
 export async function sha256Hex(text: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 export async function hmacHex(secret: string, body: string): Promise<string> {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
   const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body));
   return Array.from(new Uint8Array(sig), (b) => b.toString(16).padStart(2, "0")).join("");
 }
@@ -489,8 +702,18 @@ export function readBearer(header: string | null): string | null {
 /** True for loopback, private, link-local, CGNAT and unique-local addresses (v4 and v6). */
 export function isPrivateIp(ip: string): boolean {
   const v = ip.toLowerCase();
-  if (v.includes(":")) return v === "::1" || v === "::" || v.startsWith("fc") || v.startsWith("fd") || v.startsWith("fe80") || v.startsWith("::ffff:");
-  return /^(0\.|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(v);
+  if (v.includes(":"))
+    return (
+      v === "::1" ||
+      v === "::" ||
+      v.startsWith("fc") ||
+      v.startsWith("fd") ||
+      v.startsWith("fe80") ||
+      v.startsWith("::ffff:")
+    );
+  return /^(0\.|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(
+    v,
+  );
 }
 
 /** Callback addresses must be https and not point at internal hosts. */
@@ -499,7 +722,12 @@ export function isSafeCallback(url: string): boolean {
     const u = new URL(url);
     if (u.protocol !== "https:") return false;
     const h = u.hostname;
-    return !(h === "localhost" || h.endsWith(".local") || /^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h) || h.includes(":"));
+    return !(
+      h === "localhost" ||
+      h.endsWith(".local") ||
+      /^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h) ||
+      h.includes(":")
+    );
   } catch {
     return false;
   }

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { decideRate, isValidLimit, rateHeaders, rateKind, retryGuidance } from "@/services/rate-limit-rules";
+import {
+  createWindowLimiter,
+  decideRate,
+  isValidLimit,
+  rateHeaders,
+  rateKind,
+  retryGuidance,
+} from "@/services/rate-limit-rules";
 
 const at = (s: number) => new Date(Date.UTC(2026, 10, 10, 13, 0, s));
 
@@ -38,5 +45,42 @@ describe("rate-limit-rules", () => {
   });
   it("should name the wait time in the guidance", () => {
     expect(retryGuidance("write", decideRate(31, 30, at(40)))).toContain("Wait 20 seconds");
+  });
+});
+
+describe("createWindowLimiter", () => {
+  const T0 = 1_000_000;
+  it("records up to the limit, summarises once when it is crossed, then drops", () => {
+    const l = createWindowLimiter(3, 60_000);
+    const verdicts = [1, 2, 3, 4, 5, 6].map(() => l.hit("a", T0));
+    expect(verdicts).toEqual(["record", "record", "record", "summarise", "drop", "drop"]);
+  });
+
+  it("counts each key on its own", () => {
+    const l = createWindowLimiter(1, 60_000);
+    expect(l.hit("a", T0)).toBe("record");
+    expect(l.hit("a", T0)).toBe("summarise");
+    expect(l.hit("b", T0)).toBe("record");
+  });
+
+  it("starts a fresh window once the old one has passed, at exactly the window length", () => {
+    const l = createWindowLimiter(1, 60_000);
+    l.hit("a", T0);
+    expect(l.hit("a", T0 + 59_999)).toBe("summarise");
+    expect(l.hit("a", T0 + 60_000)).toBe("record");
+  });
+
+  it("forgets old keys so memory stays bounded", () => {
+    const l = createWindowLimiter(1, 1000);
+    for (let i = 0; i < 1500; i++) l.hit(`k${i}`, T0);
+    l.hit("late", T0 + 5000); // triggers the cleanup
+    expect(l.hit("k0", T0 + 5000)).toBe("record"); // its old window is gone
+  });
+
+  it("reset empties every counter", () => {
+    const l = createWindowLimiter(1, 60_000);
+    l.hit("a", T0);
+    l.reset();
+    expect(l.hit("a", T0)).toBe("record");
   });
 });

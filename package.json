@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "eslint . && tsc --noEmit && vitest run && vite build"
+    "check": "eslint . && tsc --noEmit && vitest run && vite build",
+    "sync:rebuild": "node scripts/sync-rebuild.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"

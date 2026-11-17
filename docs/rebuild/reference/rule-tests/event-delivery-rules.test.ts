@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { MAX_ATTEMPTS, outcomeAfter, parseRetryAfter, subscribedBefore, verifyEventSignature } from "@/services/event-delivery-rules";
+import {
+  DELIVERY_LOCK_SECONDS,
+  MAX_ATTEMPTS,
+  outcomeAfter,
+  parseRetryAfter,
+  subscribedBefore,
+  verifyEventSignature,
+  worstCasePassSeconds,
+} from "@/services/event-delivery-rules";
 import { hmacHex, signedPayload } from "@/services/tmf667-mapper";
 
 const now = new Date(Date.UTC(2026, 10, 10, 13, 0, 0));
@@ -10,7 +18,9 @@ describe("event-delivery-rules", () => {
     expect(outcomeAfter(3, 204, null)).toEqual({ kind: "delivered" });
   });
   it("should retry after 30 s, 2 min, 10 min, 30 min and 2 h", () => {
-    expect([1, 2, 3, 4, 5].map((n) => outcomeAfter(n, 503, null))).toEqual([30, 120, 600, 1800, 7200].map((w) => ({ kind: "retry", waitSeconds: w })));
+    expect([1, 2, 3, 4, 5].map((n) => outcomeAfter(n, 503, null))).toEqual(
+      [30, 120, 600, 1800, 7200].map((w) => ({ kind: "retry", waitSeconds: w })),
+    );
   });
   it("should give up after six attempts", () => {
     expect(MAX_ATTEMPTS).toBe(6);
@@ -41,7 +51,16 @@ describe("event-delivery-rules", () => {
     expect(await verifyEventSignature("s3cret", ts, body, sig, now)).toBe(true);
     expect(await verifyEventSignature("s3cret", ts, '{"eventId":"2"}', sig, now)).toBe(false);
     expect(await verifyEventSignature("other", ts, body, sig, now)).toBe(false);
-    expect(await verifyEventSignature("s3cret", ts, body, sig, new Date(now.getTime() + 301_000))).toBe(false);
+    expect(
+      await verifyEventSignature("s3cret", ts, body, sig, new Date(now.getTime() + 301_000)),
+    ).toBe(false);
     expect(await verifyEventSignature("s3cret", "abc", body, sig, now)).toBe(false);
+  });
+});
+
+describe("delivery pass timing", () => {
+  it("locks claimed rows for longer than the slowest possible pass", () => {
+    // Otherwise a second pass could claim rows still being sent and deliver the same event twice.
+    expect(worstCasePassSeconds()).toBeLessThanOrEqual(DELIVERY_LOCK_SECONDS);
   });
 });

@@ -49,3 +49,35 @@ export function retryGuidance(kind: RateKind, d: RateDecision): string {
   const what = kind === "read" ? "reads" : "changes";
   return `This system has used its allowance of ${d.limit} ${what} per minute. Wait ${d.resetSeconds} seconds (see Retry-After) and send the request again. Other connected systems are not affected. An administrator can raise this system's allowance in Admin > Connected systems.`;
 }
+
+export type WindowVerdict = "record" | "summarise" | "drop";
+export interface WindowLimiter {
+  /** One more event for `key`. `record` while under the limit, `summarise` exactly once when it is crossed, then `drop`. */
+  hit(key: string, now?: number): WindowVerdict;
+  reset(): void;
+}
+const LIMITER_MAX_KEYS = 1000;
+/**
+ * Fixed-window counter kept in memory, one counter per key (here: per person). It costs no
+ * database call, which is the point: it protects the database from the very requests it counts.
+ * Each server instance counts on its own, so the limit is approximate across instances.
+ */
+export function createWindowLimiter(limit: number, windowMs: number): WindowLimiter {
+  const windows = new Map<string, { start: number; count: number }>();
+  return {
+    hit(key, now = Date.now()) {
+      if (windows.size > LIMITER_MAX_KEYS) {
+        for (const [k, w] of windows) if (now - w.start >= windowMs) windows.delete(k);
+      }
+      const current = windows.get(key);
+      const w = current && now - current.start < windowMs ? current : { start: now, count: 0 };
+      w.count++;
+      windows.set(key, w);
+      if (w.count <= limit) return "record";
+      return w.count === limit + 1 ? "summarise" : "drop";
+    },
+    reset() {
+      windows.clear();
+    },
+  };
+}
