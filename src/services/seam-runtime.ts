@@ -2,6 +2,7 @@
 // client from the server-function handler; never imports server-only modules itself.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/integrations/supabase/types";
+import { createWindowLimiter } from "@/services/rate-limit-rules";
 import {
   hashBody,
   IDEMPOTENCY_TTL_HOURS,
@@ -186,6 +187,33 @@ export async function runWrite<T>(
   }
 }
 
+/** Refused attempts one person can leave in the activity log per minute. */
+export const ACCESS_DENIED_LOGGED_PER_MINUTE = 20;
+/** Counts refusals per person in memory (no database call). Exported so tests can reset it. */
+export const accessDeniedLimiter = createWindowLimiter(ACCESS_DENIED_LOGGED_PER_MINUTE, 60_000);
+
+/**
+ * Records a refused attempt, but cannot be used to flood the log. The log is append-only, so
+ * without a cap anyone signed in could fill it by asking for documents they cannot reach. After
+ * the limit, refusals are still refused but not recorded one by one: a single summary event says
+ * so, which keeps the fact (and when) on record without the noise. The counter lives in this
+ * server instance's memory, so it adds no database cost per refusal and is approximate across instances.
+ */
+async function auditDenied(env: WriteEnv, detail: string) {
+  const verdict = accessDeniedLimiter.hit(env.userId);
+  if (verdict === "drop") return;
+  if (verdict === "summarise") {
+    await audit(
+      env,
+      "accessDeniedSuppressed",
+      null,
+      `more than ${ACCESS_DENIED_LOGGED_PER_MINUTE} refused attempts in one minute; further ones are not recorded until it passes`,
+    );
+    return;
+  }
+  await audit(env, "accessDenied", null, detail);
+}
+
 /**
  * Null when the caller may write to this document; otherwise the `notFound` answer.
  * A document the caller cannot see and a document of another tenant look the same on purpose.
@@ -198,9 +226,12 @@ async function documentAccessDenied(
   operation: string,
 ): Promise<SeamErr | null> {
   const notFound: SeamErr = { ok: false, error: seamError("doc.notFound", "notFound", "none") };
-  const { data: visible } = await ctx.supabase.rpc("can_see_document", { _doc: documentId });
+  const { data: visible, error: visibleError } = await ctx.supabase.rpc("can_see_document", {
+    _doc: documentId,
+  });
+  if (visibleError) throw new Error("visibility check failed");
   if (!visible) {
-    await audit(env, "accessDenied", null, operation);
+    await auditDenied(env, operation);
     return notFound;
   }
   const { data: doc, error } = await env.admin
@@ -210,7 +241,7 @@ async function documentAccessDenied(
     .maybeSingle();
   if (error) throw new Error("document lookup failed");
   if (!doc || doc.tenant_id !== env.tenantId) {
-    await audit(env, "accessDenied", null, `${operation} (other tenant)`);
+    await auditDenied(env, `${operation} (${doc ? "other tenant" : "missing"})`);
     return notFound;
   }
   return null;

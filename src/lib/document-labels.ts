@@ -55,6 +55,7 @@ const ACTIVITY: Record<string, string> = {
   metadataChange: "Details edited",
   pipelineStateChange: "Processing updated",
   accessDenied: "Access refused",
+  accessDeniedSuppressed: "Many refused attempts (not all recorded)",
   configChange: "Setting changed",
   purge: "Deleted permanently",
 };
