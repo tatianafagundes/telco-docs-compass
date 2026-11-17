@@ -12,8 +12,11 @@ export const BACKOFF_SECONDS = [30, 120, 600, 1800, 7200] as const;
 export const DELIVERY_BATCH = 20;
 /** Time limit for one POST to a subscriber. */
 export const DELIVERY_TIMEOUT_MS = 5_000;
-/** resolvesPublic does up to two DNS lookups of 3 s each (tmf-gateway.ts), once per callback host. */
-export const DNS_CHECK_WORST_CASE_MS = 6_000;
+/** The DNS check of a callback host (resolvesPublic in tmf-gateway.ts) looks up these record types, one after the other. */
+export const DNS_RECORD_TYPES = ["A", "AAAA"] as const;
+export const DNS_LOOKUP_TIMEOUT_MS = 3_000;
+/** Slowest possible DNS check of one callback host; done once per host in a pass. */
+export const DNS_CHECK_WORST_CASE_MS = DNS_RECORD_TYPES.length * DNS_LOOKUP_TIMEOUT_MS;
 /** Seconds a pass can take if every delivery is slow. */
 export function worstCasePassSeconds(batch: number = DELIVERY_BATCH): number {
   return Math.ceil((batch * (DELIVERY_TIMEOUT_MS + DNS_CHECK_WORST_CASE_MS)) / 1000);

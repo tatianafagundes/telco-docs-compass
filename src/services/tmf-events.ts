@@ -7,6 +7,7 @@
 //    Success is recorded per subscriber; failures back off and retry for that subscriber only.
 import type { Db } from "@/services/seam-runtime";
 import {
+  BACKOFF_SECONDS,
   DELIVERY_BATCH,
   DELIVERY_LOCK_SECONDS,
   DELIVERY_TIMEOUT_MS,
@@ -25,6 +26,8 @@ export interface DeliveryPassResult {
   delivered: number;
   retrying: number;
   gaveUp: number;
+  /** Deliveries given back untouched because we could not read what to send. */
+  deferred: number;
 }
 
 async function fanOut(admin: Db): Promise<number> {
@@ -84,24 +87,63 @@ async function fanOut(admin: Db): Promise<number> {
   return rows.length;
 }
 
+/**
+ * Gives claimed deliveries back without counting an attempt, after a failure that was ours (we
+ * could not read what to send). `next_attempt_at` moves out by the first backoff step so a
+ * persistent failure retries every 30 s, not on every pass. Only rows still locked by this claim
+ * are touched, so a pass that took over after our lock expired is not disturbed.
+ */
+async function deferClaims(
+  admin: Db,
+  claimed: {
+    event_id: number;
+    subscription_id: string;
+    tenant_id: string;
+    locked_until: string | null;
+  }[],
+) {
+  const next = new Date(Date.now() + BACKOFF_SECONDS[0] * 1000).toISOString();
+  for (const d of claimed) {
+    let q = admin
+      .from("event_deliveries")
+      .update({ locked_until: null, next_attempt_at: next })
+      .match({ event_id: d.event_id, subscription_id: d.subscription_id, tenant_id: d.tenant_id });
+    if (d.locked_until) q = q.eq("locked_until", d.locked_until);
+    await q;
+  }
+}
+
 export async function deliverPending(admin: Db, origin: string): Promise<DeliveryPassResult> {
   const fannedOut = await fanOut(admin);
-  const result: DeliveryPassResult = { fannedOut, delivered: 0, retrying: 0, gaveUp: 0 };
+  const result: DeliveryPassResult = {
+    fannedOut,
+    delivered: 0,
+    retrying: 0,
+    gaveUp: 0,
+    deferred: 0,
+  };
 
-  const { data: claimed } = await admin.rpc("claim_event_deliveries", {
+  const { data: claimed, error: claimError } = await admin.rpc("claim_event_deliveries", {
     p_limit: DELIVERY_BATCH,
     p_lock_seconds: DELIVERY_LOCK_SECONDS,
   });
-  if (!claimed || claimed.length === 0) return result;
+  if (claimError || !claimed || claimed.length === 0) return result;
 
-  const { data: events } = await admin
+  const { data: events, error: eventsError } = await admin
     .from("event_outbox")
     .select("id, tenant_id, event_type, document_id, created_at, payload")
     .in("id", [...new Set(claimed.map((c) => c.event_id))]);
-  const { data: subs } = await admin
+  const { data: subs, error: subsError } = await admin
     .from("event_subscriptions")
     .select("id, tenant_id, callback, query, secret")
     .in("id", [...new Set(claimed.map((c) => c.subscription_id))]);
+  if (eventsError || subsError) {
+    // We could not even read what to send. That says nothing about the subscriber, so do NOT give
+    // the deliveries up: release them (no attempt counted) and let the next pass try again.
+    await deferClaims(admin, claimed);
+    result.deferred = claimed.length;
+    return result;
+  }
   const eventById = new Map((events ?? []).map((e) => [e.id, e]));
   const subById = new Map((subs ?? []).map((s) => [s.id, s]));
   const hostOk = new Map<string, boolean>();
@@ -111,7 +153,7 @@ export async function deliverPending(admin: Db, origin: string): Promise<Deliver
     const s = subById.get(d.subscription_id);
     const key = { event_id: d.event_id, subscription_id: d.subscription_id };
     // Defence in depth: never send across tenants even if a record were wrong.
-    if (!e || !s || e.tenant_id !== s.tenant_id || d.tenant_id !== s.tenant_id) {
+    if (e && s && (e.tenant_id !== s.tenant_id || d.tenant_id !== s.tenant_id)) {
       await admin
         .from("event_deliveries")
         .update({
@@ -127,33 +169,39 @@ export async function deliverPending(admin: Db, origin: string): Promise<Deliver
     let status: number | null = null;
     let retryAfter: number | null = null;
     let error: string | null = null;
-    // Re-check DNS before each delivery: a public name could have been pointed at a private address.
-    if (!hostOk.has(s.callback)) hostOk.set(s.callback, await resolvesPublic(s.callback));
-    if (!hostOk.get(s.callback)) {
-      error = "callback resolves to a private address";
+    if (!e || !s) {
+      // Both reads worked yet one record is missing: odd, but not the subscriber's fault. Count it
+      // as a failed attempt so it backs off and is eventually given up, instead of dropping it now.
+      error = "event or subscription not found";
     } else {
-      const body = JSON.stringify(toTmfEvent(origin, e, s.query));
-      const ts = String(Math.floor(Date.now() / 1000));
-      try {
-        const res = await fetch(s.callback, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Signature-Timestamp": ts,
-            "X-Signature": `sha256=${await hmacHex(s.secret, signedPayload(ts, body))}`,
-            // Stable across retries: receivers use it to ignore an event they already processed.
-            "X-Event-Id": String(e.id),
-            "X-Delivery-Attempt": String(attempt),
-          },
-          redirect: "error",
-          body,
-          signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS),
-        });
-        status = res.status;
-        retryAfter = parseRetryAfter(res.headers.get("retry-after"), new Date());
-        if (status < 200 || status >= 300) error = `HTTP ${status}`;
-      } catch {
-        error = "unreachable";
+      // Re-check DNS before each delivery: a public name could have been pointed at a private address.
+      if (!hostOk.has(s.callback)) hostOk.set(s.callback, await resolvesPublic(s.callback));
+      if (!hostOk.get(s.callback)) {
+        error = "callback resolves to a private address";
+      } else {
+        const body = JSON.stringify(toTmfEvent(origin, e, s.query));
+        const ts = String(Math.floor(Date.now() / 1000));
+        try {
+          const res = await fetch(s.callback, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Signature-Timestamp": ts,
+              "X-Signature": `sha256=${await hmacHex(s.secret, signedPayload(ts, body))}`,
+              // Stable across retries: receivers use it to ignore an event they already processed.
+              "X-Event-Id": String(e.id),
+              "X-Delivery-Attempt": String(attempt),
+            },
+            redirect: "error",
+            body,
+            signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS),
+          });
+          status = res.status;
+          retryAfter = parseRetryAfter(res.headers.get("retry-after"), new Date());
+          if (status < 200 || status >= 300) error = `HTTP ${status}`;
+        } catch {
+          error = "unreachable";
+        }
       }
     }
     const outcome = outcomeAfter(attempt, status, retryAfter);

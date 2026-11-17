@@ -2,6 +2,7 @@
 // Routes under /api/public/tmf-api/* skip site auth, so every handler starts with authenticate().
 // The admin client is loaded only after the system key is verified, and every query is pinned
 // to the key's tenant. Business rules are the same pure rules the screens use.
+import { DNS_LOOKUP_TIMEOUT_MS, DNS_RECORD_TYPES } from "@/services/event-delivery-rules";
 import { decideRate, rateHeaders, rateKind, retryGuidance } from "@/services/rate-limit-rules";
 import { z } from "zod";
 import type { Json } from "@/integrations/supabase/types";
@@ -562,10 +563,13 @@ export async function resolvesPublic(url: string): Promise<boolean> {
   if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) return !isPrivateIp(host);
   try {
     const answers: string[] = [];
-    for (const type of ["A", "AAAA"]) {
+    for (const type of DNS_RECORD_TYPES) {
       const r = await fetch(
         `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(host)}&type=${type}`,
-        { headers: { accept: "application/dns-json" }, signal: AbortSignal.timeout(3000) },
+        {
+          headers: { accept: "application/dns-json" },
+          signal: AbortSignal.timeout(DNS_LOOKUP_TIMEOUT_MS),
+        },
       );
       const j = (await r.json()) as { Answer?: { type: number; data: string }[] };
       for (const a of j.Answer ?? []) if (a.type === 1 || a.type === 28) answers.push(a.data);
