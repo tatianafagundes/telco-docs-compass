@@ -234,7 +234,7 @@ export const purgeDocument = createServerFn({ method: "POST" })
     return runWrite(
       context,
       await adminClient(),
-      { op: "purge", idempotencyKey, body, documentId: null },
+      { op: "purge", idempotencyKey, body, scope: { kind: "tenant" } },
       async (env) => {
         const { data: doc } = await env.admin
           .from("documents")

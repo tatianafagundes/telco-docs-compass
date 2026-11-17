@@ -264,7 +264,7 @@ export const saveSpecification = createServerFn({ method: "POST" })
     return runWrite(
       context,
       await adminClient(),
-      { op: "config.saveSpecification", idempotencyKey, body, documentId: null },
+      { op: "config.saveSpecification", idempotencyKey, body, scope: { kind: "tenant" } },
       async (env) => {
         const view = await loadView(env.caller, env.tenantId);
         if (!view) return { ok: false, error: seamError("tenant.notFound", "notFound") };
@@ -348,7 +348,7 @@ export const resetSpecification = createServerFn({ method: "POST" })
     return runWrite(
       context,
       await adminClient(),
-      { op: "config.resetSpecification", idempotencyKey, body, documentId: null },
+      { op: "config.resetSpecification", idempotencyKey, body, scope: { kind: "tenant" } },
       async (env) => {
         if (!isAdmin(env.role)) return forbidden();
         const t = await loadTenant(env.caller, env.tenantId);

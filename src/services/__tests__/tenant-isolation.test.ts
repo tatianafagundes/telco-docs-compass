@@ -34,7 +34,7 @@ function world(callerTenant: string) {
 
 /**
  * The single place that knows how to call the write pipeline for a document.
- * (Task 2.1 changes `documentId` into a required `scope`; only this helper changes, not the assertions.)
+ * Uses the required `scope` (task 2.1); the assertions below did not change when it was introduced.
  */
 async function writeTo(
   w: ReturnType<typeof world>,
@@ -45,7 +45,12 @@ async function writeTo(
   return runWrite(
     { supabase: w.caller.asDb(), userId: "user-1" },
     w.admin.asDb(),
-    { op: "updateMetadata", idempotencyKey: key, body: { id: documentId }, documentId },
+    {
+      op: "updateMetadata",
+      idempotencyKey: key,
+      body: { id: documentId },
+      scope: { kind: "doc", id: documentId },
+    },
     fn,
   );
 }

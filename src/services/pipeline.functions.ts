@@ -32,7 +32,7 @@ export const advancePipeline = createServerFn({ method: "POST" })
     return runWrite(
       context,
       await adminClient(),
-      { op: "advancePipeline", idempotencyKey, body, documentId: data.id },
+      { op: "advancePipeline", idempotencyKey, body, scope: { kind: "doc", id: data.id } },
       async (env) => {
         // Seeing a document (e.g. through a share) is not enough: processing changes need edit rights in its own organisation.
         if (!can(env.role, "edit")) return forbidden();

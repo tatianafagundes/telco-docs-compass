@@ -144,7 +144,7 @@ export const register = createServerFn({ method: "POST" })
     return runWrite(
       context,
       await adminClient(),
-      { op: "register", idempotencyKey, body, documentId: null },
+      { op: "register", idempotencyKey, body, scope: { kind: "tenant" } },
       async (env) => {
         if (!can(env.role, "edit")) return forbidden();
         const { data: entity } = await env.caller
@@ -241,7 +241,7 @@ export const updateMetadata = createServerFn({ method: "POST" })
     return runWrite(
       context,
       await adminClient(),
-      { op: "updateMetadata", idempotencyKey, body, documentId: data.id },
+      { op: "updateMetadata", idempotencyKey, body, scope: { kind: "doc", id: data.id } },
       async (env) => {
         if (!can(env.role, "edit")) return forbidden();
         const doc = await loadDoc(env.admin, data.id);
@@ -292,7 +292,7 @@ export const addVersion = createServerFn({ method: "POST" })
     return runWrite(
       context,
       await adminClient(),
-      { op: "addVersion", idempotencyKey, body, documentId: data.id },
+      { op: "addVersion", idempotencyKey, body, scope: { kind: "doc", id: data.id } },
       async (env) => {
         if (!can(env.role, "edit")) return forbidden();
         const doc = await loadDoc(env.admin, data.id);
@@ -448,7 +448,7 @@ export const transition = createServerFn({ method: "POST" })
     return runWrite(
       context,
       await adminClient(),
-      { op: "transition", idempotencyKey, body, documentId: data.id },
+      { op: "transition", idempotencyKey, body, scope: { kind: "doc", id: data.id } },
       async (env) => {
         if (!can(env.role, transitionCapability(data.to))) return forbidden();
         const doc = await loadDoc(env.admin, data.id);
@@ -493,7 +493,7 @@ export const setHold = createServerFn({ method: "POST" })
     return runWrite(
       context,
       await adminClient(),
-      { op: "setHold", idempotencyKey, body, documentId: data.id },
+      { op: "setHold", idempotencyKey, body, scope: { kind: "doc", id: data.id } },
       async (env) => {
         if (!can(env.role, "manage")) return forbidden();
         const now = new Date().toISOString();
@@ -539,7 +539,7 @@ export const deleteDocument = createServerFn({ method: "POST" })
     return runWrite(
       context,
       await adminClient(),
-      { op: "delete", idempotencyKey, body, documentId: data.id },
+      { op: "delete", idempotencyKey, body, scope: { kind: "doc", id: data.id } },
       async (env) => {
         if (!can(env.role, "manage")) return forbidden();
         const doc = await loadDoc(env.admin, data.id);
@@ -586,7 +586,7 @@ export const restoreDeleted = createServerFn({ method: "POST" })
     return runWrite(
       context,
       await adminClient(),
-      { op: "restoreDeleted", idempotencyKey, body, documentId: null },
+      { op: "restoreDeleted", idempotencyKey, body, scope: { kind: "tenant" } },
       async (env) => {
         if (!can(env.role, "manage")) return forbidden();
         const { data: doc } = await env.admin
@@ -625,7 +625,7 @@ export const reportProblem = createServerFn({ method: "POST" })
     return runWrite(
       context,
       await adminClient(),
-      { op: "reportProblem", idempotencyKey, body, documentId: data.id },
+      { op: "reportProblem", idempotencyKey, body, scope: { kind: "doc", id: data.id } },
       async (env) => {
         if (data.kind === "sendBack") {
           if (!can(env.role, "review")) return forbidden();
@@ -653,7 +653,7 @@ export const grantAccess = createServerFn({ method: "POST" })
     return runWrite(
       context,
       await adminClient(),
-      { op: "grantAccess", idempotencyKey, body, documentId: data.id },
+      { op: "grantAccess", idempotencyKey, body, scope: { kind: "doc", id: data.id } },
       async (env) => {
         if (!can(env.role, "manage")) return forbidden();
         if (data.subject.type === "user") {
@@ -717,7 +717,7 @@ export const revokeAccess = createServerFn({ method: "POST" })
     return runWrite(
       context,
       await adminClient(),
-      { op: "revokeAccess", idempotencyKey, body, documentId: data.id },
+      { op: "revokeAccess", idempotencyKey, body, scope: { kind: "doc", id: data.id } },
       async (env) => {
         if (!can(env.role, "manage")) return forbidden();
         if (data.subject.type === "user") {
@@ -812,7 +812,7 @@ export const reviewExtraction = createServerFn({ method: "POST" })
     return runWrite(
       context,
       await adminClient(),
-      { op: "reviewExtraction", idempotencyKey, body, documentId: data.id },
+      { op: "reviewExtraction", idempotencyKey, body, scope: { kind: "doc", id: data.id } },
       async (env) => {
         if (!can(env.role, "review")) return forbidden();
         const doc = await loadDoc(env.admin, data.id);
