@@ -1,3 +1,4 @@
+import { holdColumns, updateDocument } from "@/services/document-update";
 import { masterRetentionFloor } from "@/services/retention-floor";
 import { isOwnDocument } from "@/services/review-flow-rules";
 import { createServerFn } from "@tanstack/react-start";
@@ -475,10 +476,12 @@ export const transition = createServerFn({ method: "POST" })
               String(pending.length),
             );
         }
-        await env.admin
-          .from("documents")
-          .update({ status: data.to, updated_at: new Date().toISOString() })
-          .eq("id", data.id);
+        await updateDocument(
+          env.admin,
+          data.id,
+          { status: data.to, updated_at: new Date().toISOString() },
+          "changing the status of a document",
+        );
         await audit(env, "statusChange", data.id, `${doc.status} to ${data.to}`);
         return { ok: true, data: await loadDoc(env.admin, data.id) };
       },
@@ -498,17 +501,12 @@ export const setHold = createServerFn({ method: "POST" })
       async (env) => {
         if (!can(env.role, "manage")) return forbidden();
         const now = new Date().toISOString();
-        await env.admin
-          .from("documents")
-          .update({
-            legal_hold: data.active,
-            hold_reason: data.active ? (data.reason ?? null) : null,
-            hold_reference: data.active ? (data.reference ?? null) : null,
-            hold_since: data.active ? now : null,
-            hold_set_by: data.active ? env.userId : null,
-            updated_at: now,
-          })
-          .eq("id", data.id);
+        await updateDocument(
+          env.admin,
+          data.id,
+          holdColumns(data, env.userId, now),
+          "changing the legal hold of a document",
+        );
         const { count } = await env.admin
           .from("document_versions")
           .select("id", { count: "exact", head: true })
@@ -554,10 +552,12 @@ export const deleteDocument = createServerFn({ method: "POST" })
           today: today(),
         });
         if (blocker) return { ok: false, error: blocker };
-        await env.admin
-          .from("documents")
-          .update({ deleted_at: new Date().toISOString() })
-          .eq("id", data.id);
+        await updateDocument(
+          env.admin,
+          data.id,
+          { deleted_at: new Date().toISOString() },
+          "deleting a document",
+        );
         await audit(env, "delete", data.id, null);
         return { ok: true, data: { id: data.id } };
       },

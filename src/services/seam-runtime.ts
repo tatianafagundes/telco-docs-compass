@@ -3,6 +3,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/integrations/supabase/types";
 import { createWindowLimiter } from "@/services/rate-limit-rules";
+import { DatabaseError, must } from "@/services/shared/must";
 import {
   hashBody,
   IDEMPOTENCY_TTL_HOURS,
@@ -47,10 +48,22 @@ function logOp(
   documentId: string | null,
   status: string,
   started: number,
+  cause?: unknown,
 ) {
   console.info(
-    JSON.stringify({ op, tenant: tenantId, documentId, status, ms: Date.now() - started }),
+    JSON.stringify({
+      op,
+      tenant: tenantId,
+      documentId,
+      status,
+      ms: Date.now() - started,
+      ...(cause === undefined ? {} : { cause: describeCause(cause) }),
+    }),
   );
+}
+/** What went wrong, without anything the database or a user wrote: our own step name or the error type. */
+function describeCause(e: unknown): string {
+  return e instanceof DatabaseError ? e.message : e instanceof Error ? e.name : "unknown";
 }
 
 export async function audit(
@@ -60,14 +73,18 @@ export async function audit(
   detail: string | null = null,
   versionId: string | null = null,
 ) {
-  await env.admin.from("document_events").insert({
-    tenant_id: env.tenantId,
-    document_id: documentId,
-    version_id: versionId,
-    actor: env.userId,
-    action,
-    detail: detail ? detail.slice(0, 160) : null,
-  });
+  // No activity record, no success: the log is how a change is accounted for afterwards.
+  must(
+    await env.admin.from("document_events").insert({
+      tenant_id: env.tenantId,
+      document_id: documentId,
+      version_id: versionId,
+      actor: env.userId,
+      action,
+      detail: detail ? detail.slice(0, 160) : null,
+    }),
+    "recording an activity event",
+  );
 }
 
 /**
@@ -104,8 +121,8 @@ export async function runRead<T>(
     });
     logOp(op, r.tenantId, documentId, res.ok ? "ok" : res.error.code, started);
     return res;
-  } catch {
-    logOp(op, r.tenantId, documentId, "error", started);
+  } catch (e) {
+    logOp(op, r.tenantId, documentId, "error", started, e);
     return { ok: false, error: seamError("seam.unavailable", "unavailable", "retry") };
   }
 }
@@ -181,8 +198,8 @@ export async function runWrite<T>(
     }
     logOp(opts.op, env.tenantId, documentId, res.ok ? "ok" : res.error.code, started);
     return res;
-  } catch {
-    logOp(opts.op, env.tenantId, documentId, "error", started);
+  } catch (e) {
+    logOp(opts.op, env.tenantId, documentId, "error", started, e);
     return { ok: false, error: seamError("seam.unavailable", "unavailable", "retry") };
   }
 }
