@@ -1,3 +1,4 @@
+import { masterRetentionFloor } from "@/services/retention-floor";
 import { isOwnDocument } from "@/services/review-flow-rules";
 import { createServerFn } from "@tanstack/react-start";
 import type { z } from "zod";
@@ -544,25 +545,12 @@ export const deleteDocument = createServerFn({ method: "POST" })
         if (!can(env.role, "manage")) return forbidden();
         const doc = await loadDoc(env.admin, data.id);
         if (!doc) return fail("doc.notFound", "notFound");
-        const { data: tenant } = await env.admin
-          .from("tenants")
-          .select("parent_tenant_id")
-          .eq("id", env.tenantId)
-          .maybeSingle();
-        const { data: master } = tenant?.parent_tenant_id
-          ? await env.admin
-              .from("tenants")
-              .select("hard_floors")
-              .eq("id", tenant.parent_tenant_id)
-              .maybeSingle()
-          : { data: null };
-        const floors = (master?.hard_floors ?? {}) as { minRetentionDays?: number };
         const blocker = deleteBlocker({
           legalHold: doc.legal_hold,
           holdReason: doc.hold_reason,
           retainUntil: doc.retain_until,
           createdAt: doc.created_at,
-          minRetentionDays: floors.minRetentionDays ?? null,
+          minRetentionDays: await masterRetentionFloor(env.admin, env.tenantId),
           today: today(),
         });
         if (blocker) return { ok: false, error: blocker };

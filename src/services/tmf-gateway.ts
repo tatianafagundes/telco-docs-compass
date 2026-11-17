@@ -17,7 +17,7 @@ import {
   startsWithCalendarDay,
   type SpecCharacteristic,
 } from "@/services/document-rules";
-import { deleteState } from "@/services/document-actions";
+import { gatewayDeleteRefusal } from "@/services/retention-floor";
 import type { Db } from "@/services/seam-runtime";
 import { storeFirstVersion } from "@/services/gateway-document-store";
 import {
@@ -1058,23 +1058,8 @@ export async function deleteDocument(request: Request, id: string): Promise<Resp
         status: 404,
         body: tmfError(404, "notFound", "Not Found", "No document with this id."),
       };
-    const today = new Date().toISOString().slice(0, 10);
-    const rule = deleteState(
-      "manager",
-      doc.legal_hold,
-      (doc as DocRow & { retain_until?: string | null }).retain_until ?? null,
-      today,
-    );
-    if (!rule.available)
-      return {
-        status: 409,
-        body: tmfError(
-          409,
-          doc.legal_hold ? "legalHold" : "retention",
-          "Conflict",
-          rule.reason ?? "This document can't be deleted yet.",
-        ),
-      };
+    const refusal = await gatewayDeleteRefusal(ctx.admin, ctx.tenantId, doc);
+    if (refusal) return refusal;
     await ctx.admin
       .from("documents")
       .update({ deleted_at: new Date().toISOString() })

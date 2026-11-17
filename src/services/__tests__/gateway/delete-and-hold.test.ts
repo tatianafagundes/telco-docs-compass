@@ -1,6 +1,6 @@
 // Characterisation of delete and legal hold through the TMF gateway.
 import { describe, expect, it, vi } from "vitest";
-import { buildWorld, call, DOC_ID, docRow, json } from "@/test/gateway-world";
+import { buildWorld, call, DOC_ID, docRow, json, TENANT } from "@/test/gateway-world";
 import { deleteDocument, setLegalHold } from "@/test/gateway-api";
 
 vi.mock(
@@ -61,6 +61,44 @@ describe("delete", () => {
   });
 });
 
+describe("the retention floor set by the master tenant", () => {
+  const ago = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
+  async function withFloor(created: number, floor: unknown, parent: string | null = "master") {
+    const db = await buildWorld({ documents: [docRow({ created_at: ago(created) })] });
+    db.tables["tenants"] = [
+      { id: TENANT, parent_tenant_id: parent, hard_floors: {} },
+      { id: "master", parent_tenant_id: null, hard_floors: floor },
+    ];
+    return db;
+  }
+  it("refuses with 409 retention while the document is younger than the floor", async () => {
+    const db = await withFloor(10, { minRetentionDays: 30 });
+    const res = await del();
+    expect(res.status).toBe(409);
+    expect((await json(res))["code"]).toBe("retention");
+    expect(db.rows("documents")[0]?.["deleted_at"]).toBeNull();
+  });
+  it("allows it once the floor has passed", async () => {
+    await withFloor(31, { minRetentionDays: 30 });
+    expect((await del()).status).toBe(204);
+  });
+  it.each([
+    ["the master sets no floor", {}, "master"],
+    ["the floor is zero", { minRetentionDays: 0 }, "master"],
+    ["the tenant has no master", { minRetentionDays: 30 }, null],
+  ])("does not apply when %s", async (_label, floor, parent) => {
+    await withFloor(1, floor, parent);
+    expect((await del()).status).toBe(204);
+  });
+  it("answers 503 and keeps the document when the floor cannot be read", async () => {
+    const db = await withFloor(1, { minRetentionDays: 30 });
+    db.fail("tenants", "select");
+    const res = await del();
+    expect(res.status).toBe(503);
+    expect(db.rows("documents")[0]?.["deleted_at"]).toBeNull();
+    expect(db.rows("idempotency_keys")).toEqual([]);
+  });
+});
 describe("legal hold", () => {
   it("places a hold and keeps the reason, the reference and when it started", async () => {
     const db = await buildWorld();
