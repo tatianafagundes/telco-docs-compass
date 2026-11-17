@@ -4,7 +4,12 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Json } from "@/integrations/supabase/types";
 import { can, seamError, type SeamResult } from "@/services/document-rules";
 import { audit, forbidden, runRead, runWrite, type Db } from "@/services/seam-runtime";
-import { configChangeBlocker, type HardFloors, type InheritMode, SPEC_SETTINGS } from "@/services/tenant-rules";
+import {
+  configChangeBlocker,
+  type HardFloors,
+  type InheritMode,
+  SPEC_SETTINGS,
+} from "@/services/tenant-rules";
 
 /**
  * Shared configuration between the group and its countries. The group admin sees counts and
@@ -116,7 +121,9 @@ export const getConfig = createServerFn({ method: "POST" })
       // Managers read it too: the Holds and retention page shows the policies in force.
       if (!can(env.role, "manage")) return forbidden();
       const view = await loadView(env.caller, env.tenantId);
-      return view ? { ok: true, data: view } : { ok: false, error: seamError("tenant.notFound", "notFound") };
+      return view
+        ? { ok: true, data: view }
+        : { ok: false, error: seamError("tenant.notFound", "notFound") };
     }),
   );
 
@@ -163,7 +170,9 @@ export const listChildTenants = createServerFn({ method: "POST" })
         .order("display_name");
       const out: ChildSummary[] = [];
       for (const k of kids ?? []) {
-        const { data: specs } = await env.caller.rpc("effective_specifications", { p_tenant: k.id });
+        const { data: specs } = await env.caller.rpc("effective_specifications", {
+          p_tenant: k.id,
+        });
         const st = await stats(env.caller, k.id);
         out.push({
           id: k.id,
@@ -183,7 +192,9 @@ export const listChildTenants = createServerFn({ method: "POST" })
 /** Group admin only: a child's settings and counts, read-only. */
 export const getChildView = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: { tenantId: string }) => z.object({ tenantId: z.string().min(1).max(64) }).parse(i))
+  .inputValidator((i: { tenantId: string }) =>
+    z.object({ tenantId: z.string().min(1).max(64) }).parse(i),
+  )
   .handler(async ({ data, context }): Promise<SeamResult<ConfigView & { stats: StatRow[] }>> =>
     runRead(context, "config.child", null, async (env) => {
       if (env.role !== "master_admin") return forbidden();
@@ -205,16 +216,30 @@ export const getChildView = createServerFn({ method: "POST" })
 export const specUsage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: { code: string }) => z.object({ code: z.string().min(1).max(64) }).parse(i))
-  .handler(async ({ data, context }): Promise<SeamResult<{ children: number; overridden: number }>> =>
-    runRead(context, "config.usage", null, async (env) => {
-      if (env.role !== "master_admin") return forbidden();
-      const { data: kids } = await env.caller.from("tenants").select("id").eq("parent_tenant_id", env.tenantId);
-      const ids = (kids ?? []).map((k) => k.id);
-      const { data: own } = ids.length
-        ? await env.caller.from("document_specifications").select("tenant_id").eq("code", data.code).in("tenant_id", ids)
-        : { data: [] };
-      return { ok: true, data: { children: ids.length, overridden: new Set((own ?? []).map((o) => o.tenant_id)).size } };
-    }),
+  .handler(
+    async ({ data, context }): Promise<SeamResult<{ children: number; overridden: number }>> =>
+      runRead(context, "config.usage", null, async (env) => {
+        if (env.role !== "master_admin") return forbidden();
+        const { data: kids } = await env.caller
+          .from("tenants")
+          .select("id")
+          .eq("parent_tenant_id", env.tenantId);
+        const ids = (kids ?? []).map((k) => k.id);
+        const { data: own } = ids.length
+          ? await env.caller
+              .from("document_specifications")
+              .select("tenant_id")
+              .eq("code", data.code)
+              .in("tenant_id", ids)
+          : { data: [] };
+        return {
+          ok: true,
+          data: {
+            children: ids.length,
+            overridden: new Set((own ?? []).map((o) => o.tenant_id)).size,
+          },
+        };
+      }),
   );
 
 const settingValue = z.union([z.string().max(64), z.boolean()]);
@@ -236,67 +261,83 @@ export const saveSpecification = createServerFn({ method: "POST" })
   .inputValidator((i: z.input<typeof saveSchema>) => saveSchema.parse(i))
   .handler(async ({ data, context }) => {
     const { idempotencyKey, ...body } = data;
-    return runWrite(context, await adminClient(), { op: "config.saveSpecification", idempotencyKey, body, documentId: null }, async (env) => {
-      const view = await loadView(env.caller, env.tenantId);
-      if (!view) return { ok: false, error: seamError("tenant.notFound", "notFound") };
-      const t = view.tenant;
-      const current = view.specs.find((s) => s.code === data.code);
-      const fromGroup = !!current && current.definedIn === "master" || !!current?.overridden;
-      const retRef = data.changes.retentionPolicyRef;
-      const policy = typeof retRef === "string" ? view.retention.find((r) => r.id === retRef) : undefined;
-      if (typeof retRef === "string" && !policy) return { ok: false, error: seamError("config.unknownPolicy", "validation", "fixInput") };
-      if (data.locked !== undefined && !t.isGroup) return forbidden();
-      const blocker = configChangeBlocker({
-        role: env.role,
-        isGroupTenant: t.isGroup,
-        specMode: t.inheritance["documentSpecifications"]?.mode,
-        locked: !!current?.locked,
-        fromGroup,
-        changes: data.changes,
-        retentionDays: policy?.retainDays ?? null,
-        floors: t.floors,
-        groupName: t.groupName,
-      });
-      if (blocker) return { ok: false, error: blocker };
-
-      // Group edits its own row; a country writes its own override (or a new type).
-      const { data: own } = await env.admin
-        .from("document_specifications")
-        .select("id, definition, name")
-        .eq("tenant_id", env.tenantId)
-        .eq("code", data.code)
-        .maybeSingle();
-      const before = (own?.definition ?? {}) as { [k: string]: Json | undefined };
-      const after = { ...before, ...data.changes };
-      if (own) {
-        await env.admin
-          .from("document_specifications")
-          .update({
-            definition: after as Json,
-            ...(data.name ? { name: data.name } : {}),
-            ...(data.locked !== undefined ? { locked: data.locked } : {}),
-          })
-          .eq("id", own.id);
-      } else {
-        await env.admin.from("document_specifications").insert({
-          id: `spec-${env.tenantId}-${data.code}`.slice(0, 80),
-          tenant_id: env.tenantId,
-          code: data.code,
-          name: data.name ?? current?.name ?? data.code,
-          definition: after as Json,
-          locked: false,
+    return runWrite(
+      context,
+      await adminClient(),
+      { op: "config.saveSpecification", idempotencyKey, body, documentId: null },
+      async (env) => {
+        const view = await loadView(env.caller, env.tenantId);
+        if (!view) return { ok: false, error: seamError("tenant.notFound", "notFound") };
+        const t = view.tenant;
+        const current = view.specs.find((s) => s.code === data.code);
+        const fromGroup = (!!current && current.definedIn === "master") || !!current?.overridden;
+        const retRef = data.changes.retentionPolicyRef;
+        const policy =
+          typeof retRef === "string" ? view.retention.find((r) => r.id === retRef) : undefined;
+        if (typeof retRef === "string" && !policy)
+          return { ok: false, error: seamError("config.unknownPolicy", "validation", "fixInput") };
+        if (data.locked !== undefined && !t.isGroup) return forbidden();
+        const blocker = configChangeBlocker({
+          role: env.role,
+          isGroupTenant: t.isGroup,
+          specMode: t.inheritance["documentSpecifications"]?.mode,
+          locked: !!current?.locked,
+          fromGroup,
+          changes: data.changes,
+          retentionDays: policy?.retainDays ?? null,
+          floors: t.floors,
+          groupName: t.groupName,
         });
-      }
-      const effective = current?.definition ?? {};
-      for (const [k, v] of Object.entries(data.changes)) {
-        await audit(env, "configChange", null, `${data.code}.${k}: ${describe(effective[k])} to ${describe(v)}`);
-      }
-      if (data.locked !== undefined) await audit(env, "configChange", null, `${data.code}.locked: ${data.locked}`);
-      return { ok: true, data: { code: data.code } };
-    });
+        if (blocker) return { ok: false, error: blocker };
+
+        // Group edits its own row; a country writes its own override (or a new type).
+        const { data: own } = await env.admin
+          .from("document_specifications")
+          .select("id, definition, name")
+          .eq("tenant_id", env.tenantId)
+          .eq("code", data.code)
+          .maybeSingle();
+        const before = (own?.definition ?? {}) as { [k: string]: Json | undefined };
+        const after = { ...before, ...data.changes };
+        if (own) {
+          await env.admin
+            .from("document_specifications")
+            .update({
+              definition: after as Json,
+              ...(data.name ? { name: data.name } : {}),
+              ...(data.locked !== undefined ? { locked: data.locked } : {}),
+            })
+            .eq("id", own.id);
+        } else {
+          await env.admin.from("document_specifications").insert({
+            id: `spec-${env.tenantId}-${data.code}`.slice(0, 80),
+            tenant_id: env.tenantId,
+            code: data.code,
+            name: data.name ?? current?.name ?? data.code,
+            definition: after as Json,
+            locked: false,
+          });
+        }
+        const effective = current?.definition ?? {};
+        for (const [k, v] of Object.entries(data.changes)) {
+          await audit(
+            env,
+            "configChange",
+            null,
+            `${data.code}.${k}: ${describe(effective[k])} to ${describe(v)}`,
+          );
+        }
+        if (data.locked !== undefined)
+          await audit(env, "configChange", null, `${data.code}.locked: ${data.locked}`);
+        return { ok: true, data: { code: data.code } };
+      },
+    );
   });
 
-const resetSchema = z.object({ idempotencyKey: z.string().min(8).max(128), code: z.string().min(1).max(64) });
+const resetSchema = z.object({
+  idempotencyKey: z.string().min(8).max(128),
+  code: z.string().min(1).max(64),
+});
 
 /** Removes a country's override so the group's version applies again. */
 export const resetSpecification = createServerFn({ method: "POST" })
@@ -304,20 +345,29 @@ export const resetSpecification = createServerFn({ method: "POST" })
   .inputValidator((i: z.input<typeof resetSchema>) => resetSchema.parse(i))
   .handler(async ({ data, context }) => {
     const { idempotencyKey, ...body } = data;
-    return runWrite(context, await adminClient(), { op: "config.resetSpecification", idempotencyKey, body, documentId: null }, async (env) => {
-      if (!isAdmin(env.role)) return forbidden();
-      const t = await loadTenant(env.caller, env.tenantId);
-      if (!t || t.isGroup) return forbidden();
-      const { data: groupRow } = await env.caller
-        .from("document_specifications")
-        .select("id")
-        .eq("tenant_id", t.groupId ?? "")
-        .eq("code", data.code)
-        .maybeSingle();
-      // Only overrides can be reset; a country's own type has no group version.
-      if (!groupRow) return { ok: false, error: seamError("config.notOverridden", "validation") };
-      await env.admin.from("document_specifications").delete().eq("tenant_id", env.tenantId).eq("code", data.code);
-      await audit(env, "configChange", null, `${data.code}: reset to group`);
-      return { ok: true, data: { code: data.code } };
-    });
+    return runWrite(
+      context,
+      await adminClient(),
+      { op: "config.resetSpecification", idempotencyKey, body, documentId: null },
+      async (env) => {
+        if (!isAdmin(env.role)) return forbidden();
+        const t = await loadTenant(env.caller, env.tenantId);
+        if (!t || t.isGroup) return forbidden();
+        const { data: groupRow } = await env.caller
+          .from("document_specifications")
+          .select("id")
+          .eq("tenant_id", t.groupId ?? "")
+          .eq("code", data.code)
+          .maybeSingle();
+        // Only overrides can be reset; a country's own type has no group version.
+        if (!groupRow) return { ok: false, error: seamError("config.notOverridden", "validation") };
+        await env.admin
+          .from("document_specifications")
+          .delete()
+          .eq("tenant_id", env.tenantId)
+          .eq("code", data.code);
+        await audit(env, "configChange", null, `${data.code}: reset to group`);
+        return { ok: true, data: { code: data.code } };
+      },
+    );
   });

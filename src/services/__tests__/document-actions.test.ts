@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { deleteState, editState, nextStep, purgeState, sendBackState } from "@/services/document-actions";
+import {
+  deleteState,
+  editState,
+  nextStep,
+  purgeState,
+  sendBackState,
+} from "@/services/document-actions";
 
 describe("document actions", () => {
   it("should offer approve to a manager when the document is in review", () => {
@@ -36,7 +42,9 @@ describe("purgeState", () => {
     expect(purgeState("tenant_admin", true, null, "2026-11-10").available).toBe(false);
   });
   it("should block permanent deletion before the keep-until date", () => {
-    expect(purgeState("tenant_admin", false, "2036-07-01", "2026-11-10").reason).toBe("This document must be kept until 2036-07-01.");
+    expect(purgeState("tenant_admin", false, "2036-07-01", "2026-11-10").reason).toBe(
+      "This document must be kept until 2036-07-01.",
+    );
   });
   it("should allow only administrators", () => {
     expect(purgeState("manager", false, null, "2026-11-10").available).toBe(false);
@@ -60,9 +68,17 @@ describe("sharedOnlyRole", () => {
 import { approvedSummary } from "@/services/document-actions";
 
 describe("approvedSummary", () => {
-  const d = (id: string, status: "draft" | "in_review" | "approved" | "effective" | "expired") => ({ id, status });
+  const d = (id: string, status: "draft" | "in_review" | "approved" | "effective" | "expired") => ({
+    id,
+    status,
+  });
   it("should show only approved and effective documents when a record has mixed statuses", () => {
-    const s = approvedSummary([d("a", "draft"), d("b", "effective"), d("c", "approved"), d("e", "expired")]);
+    const s = approvedSummary([
+      d("a", "draft"),
+      d("b", "effective"),
+      d("c", "approved"),
+      d("e", "expired"),
+    ]);
     expect(s.shown.map((x) => x.id)).toEqual(["b", "c"]);
     expect(s.more).toBe(0);
   });

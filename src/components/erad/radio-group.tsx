@@ -21,7 +21,10 @@ export function RadioGroup({ label, options, ...props }: RadioGroupProps) {
       <legend className="type-label-14 mb-1">{label}</legend>
       <RadioPrimitive.Root className="flex flex-col gap-2" {...props}>
         {options.map((o) => (
-          <label key={o.value} className="type-label-14 inline-flex min-h-6 cursor-pointer items-center gap-2">
+          <label
+            key={o.value}
+            className="type-label-14 inline-flex min-h-6 cursor-pointer items-center gap-2"
+          >
             <RadioPrimitive.Item
               value={o.value}
               disabled={o.disabled ?? false}

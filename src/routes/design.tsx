@@ -18,7 +18,14 @@ import { NavTabs, TextTabs } from "@/components/erad/tabs";
 import { Breadcrumb } from "@/components/erad/breadcrumb";
 import { EmptyState } from "@/components/erad/empty-state";
 import { Banner } from "@/components/erad/banner";
-import { Avatar, Divider, ProgressBar, Skeleton, SkeletonRow, Spinner } from "@/components/erad/misc";
+import {
+  Avatar,
+  Divider,
+  ProgressBar,
+  Skeleton,
+  SkeletonRow,
+  Spinner,
+} from "@/components/erad/misc";
 
 // Dev-only review page for every ERAD primitive and state.
 export const Route = createFileRoute("/design")({
@@ -47,7 +54,12 @@ function DesignPage() {
 }
 
 const ROWS = [
-  { id: "1", name: "Master Service Agreement – Nordlys Retail AB", type: "Contract", status: "Effective" },
+  {
+    id: "1",
+    name: "Master Service Agreement – Nordlys Retail AB",
+    type: "Contract",
+    status: "Effective",
+  },
   { id: "2", name: "Quote Q-2026-0412.pdf", type: "Quote", status: "In review" },
   { id: "3", name: "invoice_copy_final.pdf", type: "Order attachment", status: "Quarantined" },
 ];
@@ -66,7 +78,10 @@ function Board({ theme }: { theme: "light" | "dark" }) {
   const [collapsed, setCollapsed] = useState(false);
   const [tab, setTab] = useState("docs");
   const [sel, setSel] = useState<Set<string>>(new Set(["2"]));
-  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" }>({ key: "name", dir: "asc" });
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" }>({
+    key: "name",
+    dir: "asc",
+  });
 
   return (
     <div data-theme={theme} className="flex flex-col gap-6 bg-layer-content p-4">
@@ -75,26 +90,57 @@ function Board({ theme }: { theme: "light" | "dark" }) {
       <Section title="Buttons">
         <Button>Default</Button>
         <Button variant="primary">Primary</Button>
-        <Button variant="destructive"><Trash2 aria-hidden="true" />Delete</Button>
-        <Button variant="ai-primary"><Sparkles aria-hidden="true" />Read with AI</Button>
-        <Button variant="ai-default"><Sparkles aria-hidden="true" />Suggest</Button>
-        <Button size="icon" aria-label="Download"><Download aria-hidden="true" /></Button>
+        <Button variant="destructive">
+          <Trash2 aria-hidden="true" />
+          Delete
+        </Button>
+        <Button variant="ai-primary">
+          <Sparkles aria-hidden="true" />
+          Read with AI
+        </Button>
+        <Button variant="ai-default">
+          <Sparkles aria-hidden="true" />
+          Suggest
+        </Button>
+        <Button size="icon" aria-label="Download">
+          <Download aria-hidden="true" />
+        </Button>
         <div className="flex flex-col gap-1">
-          <Button variant="primary" unavailable aria-describedby={`r-${theme}`}>Approve</Button>
-          <span id={`r-${theme}`} className="type-label-12 text-text-secondary">2 required details need checking</span>
+          <Button variant="primary" unavailable aria-describedby={`r-${theme}`}>
+            Approve
+          </Button>
+          <span id={`r-${theme}`} className="type-label-12 text-text-secondary">
+            2 required details need checking
+          </span>
         </div>
       </Section>
 
       <Section title="Fields">
         <TextField label="Contract number" placeholder="MSA-SE-…" helper="As printed on page 1" />
-        <TextField label="Counterparty" defaultValue="Fjärrvärme Syd AS" error="The page says “AB”, not “AS”." />
+        <TextField
+          label="Counterparty"
+          defaultValue="Fjärrvärme Syd AS"
+          error="The page says “AB”, not “AS”."
+        />
         <TextField label="Read only" defaultValue="Aurora Mobile Sweden" readOnly />
         <Select
           label="Type"
           placeholder="Choose a type"
           groups={[
-            { label: "Commercial", options: [{ value: "quote", label: "Quote" }, { value: "contract", label: "Contract" }] },
-            { label: "Other", options: [{ value: "tech", label: "Technical document" }, { value: "kyc", label: "KYC outcome", disabled: true }] },
+            {
+              label: "Commercial",
+              options: [
+                { value: "quote", label: "Quote" },
+                { value: "contract", label: "Contract" },
+              ],
+            },
+            {
+              label: "Other",
+              options: [
+                { value: "tech", label: "Technical document" },
+                { value: "kyc", label: "KYC outcome", disabled: true },
+              ],
+            },
           ]}
         />
       </Section>
@@ -124,7 +170,9 @@ function Board({ theme }: { theme: "light" | "dark" }) {
         <Tag tone="minor">On hold</Tag>
         <Tag tone="critical">Quarantined</Tag>
         <Tag tone="indeterminate">Draft</Tag>
-        <Tag tone="warning" small>2 to check</Tag>
+        <Tag tone="warning" small>
+          2 to check
+        </Tag>
         <Pill label="Type: Contract" onRemove={() => undefined} />
         <Pill label="Signed" selected={false} onToggle={() => undefined} />
         <Tooltip content="Delete unavailable: legal hold DSP-2026-031">
@@ -139,15 +187,42 @@ function Board({ theme }: { theme: "light" | "dark" }) {
             columns={[
               { key: "name", header: "Name", sortable: true, cell: (r) => r.name },
               { key: "type", header: "Type", cell: (r) => r.type },
-              { key: "status", header: "Status", cell: (r) => <Tag tone={r.status === "Quarantined" ? "critical" : r.status === "Effective" ? "cleared" : "warning"}>{r.status}</Tag> },
+              {
+                key: "status",
+                header: "Status",
+                cell: (r) => (
+                  <Tag
+                    tone={
+                      r.status === "Quarantined"
+                        ? "critical"
+                        : r.status === "Effective"
+                          ? "cleared"
+                          : "warning"
+                    }
+                  >
+                    {r.status}
+                  </Tag>
+                ),
+              },
             ]}
             rows={ROWS}
             rowId={(r) => r.id}
             selected={sel}
-            onToggleRow={(id) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; })}
+            onToggleRow={(id) =>
+              setSel((s) => {
+                const n = new Set(s);
+                if (n.has(id)) n.delete(id);
+                else n.add(id);
+                return n;
+              })
+            }
             sort={sort}
             onSort={(k) => setSort((s) => ({ key: k, dir: s.dir === "asc" ? "desc" : "asc" }))}
-            rowActions={() => <Button size="icon" aria-label="Download"><Download aria-hidden="true" /></Button>}
+            rowActions={() => (
+              <Button size="icon" aria-label="Download">
+                <Download aria-hidden="true" />
+              </Button>
+            )}
             striped
           />
           <SkeletonRow columns={3} />
@@ -155,23 +230,46 @@ function Board({ theme }: { theme: "light" | "dark" }) {
       </Section>
 
       <Section title="Tabs and breadcrumb">
-        <NavTabs label="Record" value={tab} onValueChange={setTab} items={[
-          { value: "docs", caption: "Documents", icon: FileText },
-          { value: "act", caption: "Activity", icon: History },
-        ]} />
+        <NavTabs
+          label="Record"
+          value={tab}
+          onValueChange={setTab}
+          items={[
+            { value: "docs", caption: "Documents", icon: FileText },
+            { value: "act", caption: "Activity", icon: History },
+          ]}
+        />
         <div className="w-full">
-          <TextTabs label="Record sections" defaultValue="d" tabs={[
-            { value: "o", label: "Overview", content: <p className="type-paragraph-14">Overview</p> },
-            { value: "d", label: "Documents 10 · 2 need attention", content: <p className="type-paragraph-14">Documents</p> },
-          ]} />
+          <TextTabs
+            label="Record sections"
+            defaultValue="d"
+            tabs={[
+              {
+                value: "o",
+                label: "Overview",
+                content: <p className="type-paragraph-14">Overview</p>,
+              },
+              {
+                value: "d",
+                label: "Documents 10 · 2 need attention",
+                content: <p className="type-paragraph-14">Documents</p>,
+              },
+            ]}
+          />
         </div>
-        <Breadcrumb items={[{ label: "Accounts" }, { label: "Nordlys Retail AB" }, { label: "Documents" }]} />
+        <Breadcrumb
+          items={[{ label: "Accounts" }, { label: "Nordlys Retail AB" }, { label: "Documents" }]}
+        />
       </Section>
 
       <Section title="Card, banner, panel">
-        <Card title="Key facts" actions={<Button>Open</Button>}>Signed (qualified) · Ends 29 Feb 2028 · Renews automatically</Card>
+        <Card title="Key facts" actions={<Button>Open</Button>}>
+          Signed (qualified) · Ends 29 Feb 2028 · Renews automatically
+        </Card>
         <div className="w-full">
-          <Banner tone="minor" status="On hold">Delete unavailable: legal hold DSP-2026-031.</Banner>
+          <Banner tone="minor" status="On hold">
+            Delete unavailable: legal hold DSP-2026-031.
+          </Banner>
         </div>
         <div className="relative flex h-48 w-full border border-border-subtle">
           <div className="flex-1 p-4 type-paragraph-14">Content</div>
@@ -186,10 +284,17 @@ function Board({ theme }: { theme: "light" | "dark" }) {
         <Button onClick={() => toast("Version 4 added")}>Show toast</Button>
         <Spinner />
         <Skeleton className="w-40" />
-        <div className="w-40"><ProgressBar value={60} label="Uploading" /></div>
+        <div className="w-40">
+          <ProgressBar value={60} label="Uploading" />
+        </div>
         <Avatar name="Elin Bergqvist" />
         <Divider />
-        <EmptyState icon={Inbox} title="No documents yet" cause="Documents added to this record will show here." action={<Button variant="primary">Add documents</Button>} />
+        <EmptyState
+          icon={Inbox}
+          title="No documents yet"
+          cause="Documents added to this record will show here."
+          action={<Button variant="primary">Add documents</Button>}
+        />
       </Section>
 
       <Dialog
@@ -197,7 +302,14 @@ function Board({ theme }: { theme: "light" | "dark" }) {
         onOpenChange={setDialog}
         title="Delete document?"
         description="You can restore it from Deleted for 30 days."
-        actions={<><Button onClick={() => setDialog(false)}>Keep</Button><Button variant="destructive" onClick={() => setDialog(false)}>Delete</Button></>}
+        actions={
+          <>
+            <Button onClick={() => setDialog(false)}>Keep</Button>
+            <Button variant="destructive" onClick={() => setDialog(false)}>
+              Delete
+            </Button>
+          </>
+        }
       />
     </div>
   );

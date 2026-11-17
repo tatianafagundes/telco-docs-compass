@@ -25,26 +25,77 @@ describe("review-flow-rules", () => {
   });
 
   it("should offer Next detail while details remain", () => {
-    expect(footerAction({ role: "manager", status: "in_review", toCheck: 1, gate: { pending: 1, reason: "x" }, own: false })).toEqual({ kind: "next", label: "Next detail" });
+    expect(
+      footerAction({
+        role: "manager",
+        status: "in_review",
+        toCheck: 1,
+        gate: { pending: 1, reason: "x" },
+        own: false,
+      }),
+    ).toEqual({ kind: "next", label: "Next detail" });
   });
   it("should offer Approve document once everything is checked", () => {
-    expect(footerAction({ role: "manager", status: "in_review", toCheck: 0, gate: { pending: 0 }, own: false })).toEqual({ kind: "transition", to: "approved", label: "Approve document", available: true });
+    expect(
+      footerAction({
+        role: "manager",
+        status: "in_review",
+        toCheck: 0,
+        gate: { pending: 0 },
+        own: false,
+      }),
+    ).toEqual({ kind: "transition", to: "approved", label: "Approve document", available: true });
   });
   it("should block the author from approving their own document", () => {
-    const a = footerAction({ role: "manager", status: "in_review", toCheck: 0, gate: { pending: 0 }, own: true });
+    const a = footerAction({
+      role: "manager",
+      status: "in_review",
+      toCheck: 0,
+      gate: { pending: 0 },
+      own: true,
+    });
     expect(a).toMatchObject({ available: false, reason: AUTHOR_APPROVE_REASON });
     expect(isOwnDocument("u1", "u1")).toBe(true);
     expect(isOwnDocument(null, "u1")).toBe(false);
     expect(isOwnDocument("u2", "u1")).toBe(false);
   });
   it("should keep approval closed while required details are unconfirmed", () => {
-    expect(footerAction({ role: "manager", status: "in_review", toCheck: 0, gate: { pending: 1, reason: "1 required detail needs checking" }, own: false })).toMatchObject({ available: false, reason: "1 required detail needs checking" });
+    expect(
+      footerAction({
+        role: "manager",
+        status: "in_review",
+        toCheck: 0,
+        gate: { pending: 1, reason: "1 required detail needs checking" },
+        own: false,
+      }),
+    ).toMatchObject({ available: false, reason: "1 required detail needs checking" });
   });
   it("should offer Send for approval on a draft", () => {
-    expect(footerAction({ role: "contributor", status: "draft", toCheck: 0, gate: { pending: 0 }, own: true })).toMatchObject({ kind: "transition", to: "in_review", label: "Send for approval", available: true });
+    expect(
+      footerAction({
+        role: "contributor",
+        status: "draft",
+        toCheck: 0,
+        gate: { pending: 0 },
+        own: true,
+      }),
+    ).toMatchObject({
+      kind: "transition",
+      to: "in_review",
+      label: "Send for approval",
+      available: true,
+    });
   });
   it("should let a viewer only go back", () => {
-    expect(footerAction({ role: "viewer", status: "effective", toCheck: 0, gate: { pending: 0 }, own: false })).toEqual({ kind: "done", label: "Back to document" });
+    expect(
+      footerAction({
+        role: "viewer",
+        status: "effective",
+        toCheck: 0,
+        gate: { pending: 0 },
+        own: false,
+      }),
+    ).toEqual({ kind: "done", label: "Back to document" });
   });
 
   it("should say whether a quote number matches the record without exposing it", () => {
@@ -87,9 +138,13 @@ describe("review-flow-rules", () => {
     ];
     expect(mostUrgent(f, () => false)).toBe(0);
     expect(mostUrgent(f, (n) => n === "b")).toBe(1);
-    expect(mostUrgent([{ name: "a", status: "accepted" as const, band: null }], () => false)).toBe(-1);
+    expect(mostUrgent([{ name: "a", status: "accepted" as const, band: null }], () => false)).toBe(
+      -1,
+    );
   });
   it("should summarise the outcome", () => {
-    expect(outcomeSummary([{ status: "accepted" }, { status: "accepted" }, { status: "edited" }])).toBe("All details checked: 2 confirmed, 1 corrected.");
+    expect(
+      outcomeSummary([{ status: "accepted" }, { status: "accepted" }, { status: "edited" }]),
+    ).toBe("All details checked: 2 confirmed, 1 corrected.");
   });
 });

@@ -10,7 +10,10 @@ export const accessQuery = (docId: string) =>
     queryFn: async () => (await api.listAccess(docId)) as AccessItem[],
   });
 
-export const entitiesQuery = queryOptions({ queryKey: ["entities"], queryFn: () => api.listEntities() });
+export const entitiesQuery = queryOptions({
+  queryKey: ["entities"],
+  queryFn: () => api.listEntities(),
+});
 
 export function usePeopleSearch(query: string) {
   return useQuery({
@@ -26,16 +29,29 @@ export function useAccessChanges(docId: string) {
     void qc.invalidateQueries({ queryKey: ["access", docId] });
     void qc.invalidateQueries({ queryKey: ["document", docId] });
   };
-  const onError = (e: unknown) => toast.error(friendlyError(e instanceof SeamFailure ? e.code : undefined));
+  const onError = (e: unknown) =>
+    toast.error(friendlyError(e instanceof SeamFailure ? e.code : undefined));
   const grant = useMutation({
     mutationFn: (v: { userId: string; level: "view" | "edit"; expiresAt?: string }) =>
-      api.grantAccess({ id: docId, subject: { type: "user", id: v.userId }, level: v.level, ...(v.expiresAt ? { expiresAt: v.expiresAt } : {}) }),
-    onSuccess: () => { toast.success("Access added"); refresh(); },
+      api.grantAccess({
+        id: docId,
+        subject: { type: "user", id: v.userId },
+        level: v.level,
+        ...(v.expiresAt ? { expiresAt: v.expiresAt } : {}),
+      }),
+    onSuccess: () => {
+      toast.success("Access added");
+      refresh();
+    },
     onError,
   });
   const revoke = useMutation({
-    mutationFn: (userId: string) => api.revokeAccess({ id: docId, subject: { type: "user", id: userId } }),
-    onSuccess: () => { toast.success("Access removed"); refresh(); },
+    mutationFn: (userId: string) =>
+      api.revokeAccess({ id: docId, subject: { type: "user", id: userId } }),
+    onSuccess: () => {
+      toast.success("Access removed");
+      refresh();
+    },
     onError,
   });
   return { grant, revoke };

@@ -20,14 +20,29 @@ export const ORDER_ATTACHMENT = "orderAttachment";
 export const CONTRACT = "contract";
 
 /** Default type: never one whose required fields the person must type. */
-export function defaultType(entityKind: string, fileName: string, specs: UploadSpec[]): DefaultTypeChoice {
-  const usable = (code: string) => specs.find((s) => s.code === code && s.requiredFields.length === 0);
+export function defaultType(
+  entityKind: string,
+  fileName: string,
+  specs: UploadSpec[],
+): DefaultTypeChoice {
+  const usable = (code: string) =>
+    specs.find((s) => s.code === code && s.requiredFields.length === 0);
   const lower = fileName.toLowerCase();
-  if (entityKind === "account" && CONTRACT_WORDS.some((w) => lower.includes(w)) && usable(CONTRACT)) {
+  if (
+    entityKind === "account" &&
+    CONTRACT_WORDS.some((w) => lower.includes(w)) &&
+    usable(CONTRACT)
+  ) {
     return { code: CONTRACT, reason: "Based on: the file name mentions a contract" };
   }
   if (usable(ORDER_ATTACHMENT)) {
-    return { code: ORDER_ATTACHMENT, reason: entityKind === "order" ? "Based on: added to an order" : "Based on: the safest general type" };
+    return {
+      code: ORDER_ATTACHMENT,
+      reason:
+        entityKind === "order"
+          ? "Based on: added to an order"
+          : "Based on: the safest general type",
+    };
   }
   return { code: null, reason: "Choose a type for this file" };
 }
@@ -43,17 +58,36 @@ export interface FileFacts {
   mimeType: string;
 }
 
-export function fileIssues(file: FileFacts, spec: UploadSpec | undefined, existing: { id: string; name: string }[]): FileIssue[] {
+export function fileIssues(
+  file: FileFacts,
+  spec: UploadSpec | undefined,
+  existing: { id: string; name: string }[],
+): FileIssue[] {
   const issues: FileIssue[] = [];
-  if (spec && spec.acceptedMimeTypes.length > 0 && !spec.acceptedMimeTypes.includes(file.mimeType)) {
-    issues.push({ kind: "type", message: `${spec.name} accepts ${acceptedLabel(spec.acceptedMimeTypes)} files. Choose another type, or another file.` });
+  if (
+    spec &&
+    spec.acceptedMimeTypes.length > 0 &&
+    !spec.acceptedMimeTypes.includes(file.mimeType)
+  ) {
+    issues.push({
+      kind: "type",
+      message: `${spec.name} accepts ${acceptedLabel(spec.acceptedMimeTypes)} files. Choose another type, or another file.`,
+    });
   }
   if (spec?.maxSizeMb && file.size > spec.maxSizeMb * 1024 * 1024) {
-    issues.push({ kind: "size", message: `This file is ${formatSize(file.size)}. ${spec.name} files can be up to ${spec.maxSizeMb} MB.` });
+    issues.push({
+      kind: "size",
+      message: `This file is ${formatSize(file.size)}. ${spec.name} files can be up to ${spec.maxSizeMb} MB.`,
+    });
   }
   const dup = existing.find((d) => d.name.toLowerCase() === file.name.toLowerCase());
   if (dup) {
-    issues.push({ kind: "duplicate", message: `A document called ${dup.name} is already here.`, existingId: dup.id, existingName: dup.name });
+    issues.push({
+      kind: "duplicate",
+      message: `A document called ${dup.name} is already here.`,
+      existingId: dup.id,
+      existingName: dup.name,
+    });
   }
   return issues;
 }
@@ -72,7 +106,9 @@ const MIME_SHORT: Record<string, string> = {
 };
 function acceptedLabel(types: string[]): string {
   const names = types.map((t) => MIME_SHORT[t] ?? t);
-  return names.length > 1 ? `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}` : (names[0] ?? "");
+  return names.length > 1
+    ? `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`
+    : (names[0] ?? "");
 }
 
 export function formatSize(bytes: number): string {
@@ -100,14 +136,21 @@ export function shortEntityId(id: string): string {
 }
 
 /** Test hooks: what the simulated scan and reading decide for a file. */
-export function simulatedOutcome(fileName: string, text: string): "quarantined" | "unreadable" | "ready" {
-  if (fileName.toLowerCase().endsWith(".exe") || text.includes("TEST-QUARANTINE")) return "quarantined";
+export function simulatedOutcome(
+  fileName: string,
+  text: string,
+): "quarantined" | "unreadable" | "ready" {
+  if (fileName.toLowerCase().endsWith(".exe") || text.includes("TEST-QUARANTINE"))
+    return "quarantined";
   if (text.includes("TEST-UNREADABLE")) return "unreadable";
   return "ready";
 }
 
 /** Next pipeline step. Reading always fails again on retry for unreadable files. */
-export function nextPipelineState(current: PipelineState, outcome: ReturnType<typeof simulatedOutcome>): PipelineState {
+export function nextPipelineState(
+  current: PipelineState,
+  outcome: ReturnType<typeof simulatedOutcome>,
+): PipelineState {
   switch (current) {
     case "uploading":
       return "scanning";
@@ -122,14 +165,21 @@ export function nextPipelineState(current: PipelineState, outcome: ReturnType<ty
 
 export type BatchFileState = "uploading" | "checking" | "ready" | "attention" | "cancelled";
 
-export function batchSummary(states: BatchFileState[]): { done: boolean; line: string; attention: number } {
+export function batchSummary(states: BatchFileState[]): {
+  done: boolean;
+  line: string;
+  attention: number;
+} {
   const live = states.filter((s) => s !== "cancelled");
   const ready = live.filter((s) => s === "ready").length;
   const attention = live.filter((s) => s === "attention").length;
   const done = live.every((s) => s === "ready" || s === "attention");
   const n = live.length;
   const added = `${n} added`;
-  const parts = [ready ? `${ready} ready` : null, attention ? `${attention} need${attention === 1 ? "s" : ""} attention` : null].filter(Boolean);
+  const parts = [
+    ready ? `${ready} ready` : null,
+    attention ? `${attention} need${attention === 1 ? "s" : ""} attention` : null,
+  ].filter(Boolean);
   return { done, attention, line: parts.length ? `${added}: ${parts.join(", ")}` : added };
 }
 

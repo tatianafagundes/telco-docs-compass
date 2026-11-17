@@ -7,9 +7,17 @@ export const Route = createFileRoute("/_authenticated/admin/policies")({
   head: () => ({
     meta: [
       { title: "Policies · Admin" },
-      { name: "description", content: "How this organisation relates to the group's retention, sensitivity, access and approval settings." },
+      {
+        name: "description",
+        content:
+          "How this organisation relates to the group's retention, sensitivity, access and approval settings.",
+      },
       { property: "og:title", content: "Policies · Admin" },
-      { property: "og:description", content: "How this organisation relates to the group's retention, sensitivity, access and approval settings." },
+      {
+        property: "og:description",
+        content:
+          "How this organisation relates to the group's retention, sensitivity, access and approval settings.",
+      },
     ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(configQuery),

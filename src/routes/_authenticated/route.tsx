@@ -27,12 +27,18 @@ function AuthenticatedLayout() {
   if (!me.access) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-layer-content px-4">
-        <p className="type-paragraph-14" role="status">No access assigned. Ask an administrator.</p>
+        <p className="type-paragraph-14" role="status">
+          No access assigned. Ask an administrator.
+        </p>
       </main>
     );
   }
   return (
-    <AppShell tenantName={me.access.tenantName} userName={me.access.displayName} role={me.access.role}>
+    <AppShell
+      tenantName={me.access.tenantName}
+      userName={me.access.displayName}
+      role={me.access.role}
+    >
       <Outlet />
     </AppShell>
   );

@@ -55,7 +55,9 @@ export const get = createServerFn({ method: "POST" })
     const { data: doc, error } = await context.supabase
       .from("documents")
       // Explicit columns: the search index column is not for the screen.
-      .select("id, tenant_id, name, description, document_type, status, pipeline_state, pipeline_detail, sensitivity, signature_level, effective_date, valid_to, expiry_date, origin, generated_from_spec, bundle_id, bundle_role, retention_policy_id, retain_until, legal_hold, hold_reason, hold_set_by, hold_reference, hold_since, characteristic, current_version_id, created_by, created_at, updated_at, deleted_at, purged_at")
+      .select(
+        "id, tenant_id, name, description, document_type, status, pipeline_state, pipeline_detail, sensitivity, signature_level, effective_date, valid_to, expiry_date, origin, generated_from_spec, bundle_id, bundle_role, retention_policy_id, retain_until, legal_hold, hold_reason, hold_set_by, hold_reference, hold_since, characteristic, current_version_id, created_by, created_at, updated_at, deleted_at, purged_at",
+      )
       .eq("id", data.id)
       .maybeSingle();
     if (error) throw new Error("documents.loadFailed");
@@ -68,7 +70,9 @@ export const listVersions = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: rows, error } = await context.supabase
       .from("document_versions")
-      .select("id, label, is_named, note, mime_type, size_bytes, content_hash, sample_pages, supersedes, created_at")
+      .select(
+        "id, label, is_named, note, mime_type, size_bytes, content_hash, sample_pages, supersedes, created_at",
+      )
       .eq("document_id", data.id)
       .order("created_at", { ascending: false });
     if (error) throw new Error("versions.loadFailed");
@@ -81,7 +85,9 @@ export const getExtraction = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: rows, error } = await context.supabase
       .from("extraction_fields")
-      .select("id, version_id, name, value, original_value, confidence, band, source, status, spot_check, reviewed_at")
+      .select(
+        "id, version_id, name, value, original_value, confidence, band, source, status, spot_check, reviewed_at",
+      )
       .eq("document_id", data.id);
     if (error) throw new Error("extraction.loadFailed");
     return rows;
@@ -102,7 +108,9 @@ export const getTenantPolicy = createServerFn({ method: "POST" })
     if (!tenantId) throw new Error("access.none");
     const { data, error } = await context.supabase
       .from("tenants")
-      .select("id, display_name, role, parent_tenant_id, cross_tenant_share, master_supervision, hard_floors, inheritance")
+      .select(
+        "id, display_name, role, parent_tenant_id, cross_tenant_share, master_supervision, hard_floors, inheritance",
+      )
       .eq("id", tenantId)
       .maybeSingle();
     if (error || !data) throw new Error("tenant.loadFailed");
@@ -127,13 +135,21 @@ export const recordAccess = createServerFn({ method: "POST" })
     if (!tenantId) throw new Error("access.none");
     if (!visible) {
       await supabaseAdmin.from("document_events").insert({
-        tenant_id: tenantId, document_id: null, actor: context.userId, action: "accessDenied", detail: data.action,
+        tenant_id: tenantId,
+        document_id: null,
+        actor: context.userId,
+        action: "accessDenied",
+        detail: data.action,
       });
       throw new Error("access.denied");
     }
     await supabaseAdmin.from("document_events").insert({
-      tenant_id: tenantId, document_id: data.id, version_id: data.versionId ?? null,
-      actor: context.userId, action: data.action, detail: null,
+      tenant_id: tenantId,
+      document_id: data.id,
+      version_id: data.versionId ?? null,
+      actor: context.userId,
+      action: data.action,
+      detail: null,
     });
     return { ok: true };
   });
@@ -184,9 +200,16 @@ export const listSharedWithMe = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const nowIso = new Date().toISOString();
     const size = 20;
-    const { data: rows, error, count } = await supabase
+    const {
+      data: rows,
+      error,
+      count,
+    } = await supabase
       .from("document_access_exceptions")
-      .select("document_id, level, granted_by, expires_at, documents!inner(id, name, document_type, status, created_at, updated_at)", { count: "exact" })
+      .select(
+        "document_id, level, granted_by, expires_at, documents!inner(id, name, document_type, status, created_at, updated_at)",
+        { count: "exact" },
+      )
       .eq("user_id", userId)
       .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
       .order("expires_at", { ascending: false, nullsFirst: true })
@@ -195,17 +218,32 @@ export const listSharedWithMe = createServerFn({ method: "POST" })
     const docIds = rows.map((r) => r.document_id);
     const granters = [...new Set(rows.map((r) => r.granted_by).filter((g): g is string => !!g))];
     const [rel, people] = await Promise.all([
-      docIds.length ? supabase.from("document_relations").select("document_id, entity_id").in("document_id", docIds) : Promise.resolve({ data: [] as { document_id: string; entity_id: string }[] }),
-      granters.length ? supabase.from("profiles").select("user_id, display_name").in("user_id", granters) : Promise.resolve({ data: [] as { user_id: string; display_name: string }[] }),
+      docIds.length
+        ? supabase
+            .from("document_relations")
+            .select("document_id, entity_id")
+            .in("document_id", docIds)
+        : Promise.resolve({ data: [] as { document_id: string; entity_id: string }[] }),
+      granters.length
+        ? supabase.from("profiles").select("user_id, display_name").in("user_id", granters)
+        : Promise.resolve({ data: [] as { user_id: string; display_name: string }[] }),
     ]);
     const entityIds = [...new Set((rel.data ?? []).map((r) => r.entity_id))];
     const visible = entityIds.length
-      ? (await supabase.from("business_entities").select("id").in("id", entityIds)).data ?? []
+      ? ((await supabase.from("business_entities").select("id").in("id", entityIds)).data ?? [])
       : [];
     const visibleSet = new Set(visible.map((v) => v.id));
     const items = rows.map((r) => {
-      const d = r.documents as unknown as { id: string; name: string; document_type: string; status: string; updated_at: string };
-      const entityId = (rel.data ?? []).find((x) => x.document_id === r.document_id && visibleSet.has(x.entity_id))?.entity_id ?? null;
+      const d = r.documents as unknown as {
+        id: string;
+        name: string;
+        document_type: string;
+        status: string;
+        updated_at: string;
+      };
+      const entityId =
+        (rel.data ?? []).find((x) => x.document_id === r.document_id && visibleSet.has(x.entity_id))
+          ?.entity_id ?? null;
       return {
         id: d.id,
         name: d.name,

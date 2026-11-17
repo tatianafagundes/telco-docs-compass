@@ -27,14 +27,29 @@ export interface CallerContext {
   userId: string;
 }
 
-export async function loadRole(caller: Db, userId: string): Promise<{ tenantId: string; role: AppRole } | null> {
-  const { data } = await caller.from("user_roles").select("tenant_id, role").eq("user_id", userId).maybeSingle();
+export async function loadRole(
+  caller: Db,
+  userId: string,
+): Promise<{ tenantId: string; role: AppRole } | null> {
+  const { data } = await caller
+    .from("user_roles")
+    .select("tenant_id, role")
+    .eq("user_id", userId)
+    .maybeSingle();
   return data ? { tenantId: data.tenant_id, role: data.role } : null;
 }
 
 /** Only operation, tenant, document, status and duration are ever logged. */
-function logOp(op: string, tenantId: string | null, documentId: string | null, status: string, started: number) {
-  console.info(JSON.stringify({ op, tenant: tenantId, documentId, status, ms: Date.now() - started }));
+function logOp(
+  op: string,
+  tenantId: string | null,
+  documentId: string | null,
+  status: string,
+  started: number,
+) {
+  console.info(
+    JSON.stringify({ op, tenant: tenantId, documentId, status, ms: Date.now() - started }),
+  );
 }
 
 export async function audit(
@@ -72,7 +87,12 @@ export async function runRead<T>(
   const r = await loadRole(ctx.supabase, ctx.userId);
   if (!r) return { ok: false, error: seamError("access.none", "rejected", "contactSupport") };
   try {
-    const res = await fn({ caller: ctx.supabase, userId: ctx.userId, tenantId: r.tenantId, role: r.role });
+    const res = await fn({
+      caller: ctx.supabase,
+      userId: ctx.userId,
+      tenantId: r.tenantId,
+      role: r.role,
+    });
     logOp(op, r.tenantId, documentId, res.ok ? "ok" : res.error.code, started);
     return res;
   } catch {
@@ -90,7 +110,13 @@ export async function runWrite<T>(
   const started = Date.now();
   const r = await loadRole(ctx.supabase, ctx.userId);
   if (!r) return { ok: false, error: seamError("access.none", "rejected", "contactSupport") };
-  const env: WriteEnv = { caller: ctx.supabase, admin, userId: ctx.userId, tenantId: r.tenantId, role: r.role };
+  const env: WriteEnv = {
+    caller: ctx.supabase,
+    admin,
+    userId: ctx.userId,
+    tenantId: r.tenantId,
+    role: r.role,
+  };
   const operation = `document.${opts.op}`;
 
   try {
@@ -117,7 +143,9 @@ export async function runWrite<T>(
     }
 
     if (opts.documentId) {
-      const { data: visible } = await ctx.supabase.rpc("can_see_document", { _doc: opts.documentId });
+      const { data: visible } = await ctx.supabase.rpc("can_see_document", {
+        _doc: opts.documentId,
+      });
       if (!visible) {
         await audit(env, "accessDenied", null, operation);
         logOp(opts.op, env.tenantId, opts.documentId, "notFound", started);

@@ -30,7 +30,12 @@ describe("tenant-rules", () => {
   });
 
   it("should read changed fields from overridden_fields", () => {
-    const row = { locked: false, definedIn: "tenant", overriddenFields: ["specCharacteristic"], isGroupTenant: false };
+    const row = {
+      locked: false,
+      definedIn: "tenant",
+      overriddenFields: ["specCharacteristic"],
+      isGroupTenant: false,
+    };
     expect(settingSource(row, "specCharacteristic")).toBe("changed");
     expect(settingSource(row, "requiresReview")).toBe("inherited");
     expect(settingSource({ ...row, locked: true }, "requiresReview")).toBe("locked");
@@ -39,7 +44,9 @@ describe("tenant-rules", () => {
   it("should reject retention below the group floor with a sentence naming it", () => {
     const err = configChangeBlocker({ ...base, retentionDays: 365 });
     expect(err?.code).toBe("config.belowFloor");
-    expect(err?.customerFacing?.detail).toBe("Retention cannot be shorter than 5 years. Set by Aurora Telecom Group.");
+    expect(err?.customerFacing?.detail).toBe(
+      "Retention cannot be shorter than 5 years. Set by Aurora Telecom Group.",
+    );
   });
 
   it("should reject changes to a locked type", () => {
@@ -52,7 +59,14 @@ describe("tenant-rules", () => {
 
   it("should allow only additive changes in extend mode", () => {
     expect(configChangeBlocker({ ...base, specMode: "extend" })?.code).toBe("config.extendOnly");
-    expect(configChangeBlocker({ ...base, specMode: "extend", changes: { containsPersonalData: true }, retentionDays: null })).toBeNull();
+    expect(
+      configChangeBlocker({
+        ...base,
+        specMode: "extend",
+        changes: { containsPersonalData: true },
+        retentionDays: null,
+      }),
+    ).toBeNull();
   });
 
   it("should allow a valid override", () => {
@@ -60,12 +74,17 @@ describe("tenant-rules", () => {
   });
 
   it("should describe impact on children", () => {
-    expect(impactText(2, 1)).toBe("Applies to 2 tenants. 1 tenant has overridden this and keeps its version.");
+    expect(impactText(2, 1)).toBe(
+      "Applies to 2 tenants. 1 tenant has overridden this and keeps its version.",
+    );
     expect(impactText(2, 0)).toBe("Applies to 2 tenants.");
   });
 
   it("should raise a shorter local retention to the group minimum", () => {
-    expect(effectiveRetentionDays(1095, { minRetentionDays: 2190 })).toEqual({ days: 2190, raised: true });
+    expect(effectiveRetentionDays(1095, { minRetentionDays: 2190 })).toEqual({
+      days: 2190,
+      raised: true,
+    });
   });
 
   it("should describe inheritance modes in one sentence", () => {

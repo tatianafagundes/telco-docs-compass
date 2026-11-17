@@ -31,7 +31,10 @@ export function Skeleton({ className }: { className?: string }) {
 
 export function SkeletonRow({ columns = 5 }: { columns?: number }) {
   return (
-    <div aria-hidden="true" className="flex h-12 items-center gap-4 border-b border-border-cell px-4">
+    <div
+      aria-hidden="true"
+      className="flex h-12 items-center gap-4 border-b border-border-cell px-4"
+    >
       {Array.from({ length: columns }, (_, i) => (
         <Skeleton key={i} className={i === 0 ? "w-48" : "w-20"} />
       ))}

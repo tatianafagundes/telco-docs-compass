@@ -7,7 +7,12 @@ import { SourceTag } from "@/components/admin/source-tag";
 import { specFacts } from "@/components/admin/spec-table";
 import { api } from "@/services/api";
 import type { ConfigView, EffectiveSpec } from "@/services/tenant-config.functions";
-import { configChangeBlocker, impactText, settingSource, type SpecSetting } from "@/services/tenant-rules";
+import {
+  configChangeBlocker,
+  impactText,
+  settingSource,
+  type SpecSetting,
+} from "@/services/tenant-rules";
 
 export type Draft = Partial<Record<SpecSetting, string | boolean>>;
 
@@ -68,26 +73,47 @@ export function SpecPanel(p: SpecPanelProps) {
           label={LABEL[f]}
           checked={v === true}
           aria-disabled={reason ? true : undefined}
-          onCheckedChange={(c) => { if (!reason) p.onChange(f, c === true); }}
+          onCheckedChange={(c) => {
+            if (!reason) p.onChange(f, c === true);
+          }}
         />
       ) : f === "retentionPolicyRef" ? (
         <Select
           label={LABEL[f]}
           value={typeof v === "string" ? v : ""}
           placeholder="Not set"
-          groups={[{ options: view.retention.map((r) => ({ value: r.id, label: r.name, disabled: !!reason })) }]}
-          onValueChange={(nv) => { if (!reason) p.onChange(f, nv); }}
+          groups={[
+            {
+              options: view.retention.map((r) => ({
+                value: r.id,
+                label: r.name,
+                disabled: !!reason,
+              })),
+            },
+          ]}
+          onValueChange={(nv) => {
+            if (!reason) p.onChange(f, nv);
+          }}
         />
       ) : (
         <Select
           label={LABEL[f]}
           value={typeof v === "string" ? v : "none"}
-          groups={[{
-            options: (f === "signatureRequired" ? ["none", "simple", "advanced", "qualified"] : ["public", "internal", "confidential", "restricted"]).map(
-              (o) => ({ value: o, label: o[0]?.toUpperCase() + o.slice(1), disabled: !!reason }),
-            ),
-          }]}
-          onValueChange={(nv) => { if (!reason) p.onChange(f, nv); }}
+          groups={[
+            {
+              options: (f === "signatureRequired"
+                ? ["none", "simple", "advanced", "qualified"]
+                : ["public", "internal", "confidential", "restricted"]
+              ).map((o) => ({
+                value: o,
+                label: o[0]?.toUpperCase() + o.slice(1),
+                disabled: !!reason,
+              })),
+            },
+          ]}
+          onValueChange={(nv) => {
+            if (!reason) p.onChange(f, nv);
+          }}
         />
       );
     return (
@@ -107,7 +133,17 @@ export function SpecPanel(p: SpecPanelProps) {
         <h3 className="type-title-16-medium">{spec.name}</h3>
         <code className="type-label-12 text-text-secondary">{spec.code}</code>
       </div>
-      <ul className="flex flex-col gap-4">{(["retentionPolicyRef", "signatureRequired", "requiresReview", "containsPersonalData", "defaultSensitivity"] as const).map(control)}</ul>
+      <ul className="flex flex-col gap-4">
+        {(
+          [
+            "retentionPolicyRef",
+            "signatureRequired",
+            "requiresReview",
+            "containsPersonalData",
+            "defaultSensitivity",
+          ] as const
+        ).map(control)}
+      </ul>
       <BusinessProcess spec={spec} />
       {isGroup && !p.readOnly ? (
         <div className="flex flex-col gap-2">
@@ -117,7 +153,9 @@ export function SpecPanel(p: SpecPanelProps) {
             onCheckedChange={(c) => p.onLock(c === true)}
           />
           {usage.data ? (
-            <p className="type-paragraph-14 text-text-secondary">{impactText(usage.data.children, usage.data.overridden)}</p>
+            <p className="type-paragraph-14 text-text-secondary">
+              {impactText(usage.data.children, usage.data.overridden)}
+            </p>
           ) : null}
         </div>
       ) : null}

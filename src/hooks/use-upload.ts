@@ -33,7 +33,8 @@ export function batchState(row: UploadRow): BatchFileState {
   if (row.state === "cancelled") return "cancelled";
   if (row.state === "uploading" && !row.uploaded) return "uploading";
   if (row.state === "ready") return "ready";
-  if (row.state === "failed" || row.state === "quarantined" || row.state === "error") return "attention";
+  if (row.state === "failed" || row.state === "quarantined" || row.state === "error")
+    return "attention";
   return "checking";
 }
 
@@ -42,15 +43,22 @@ export function useUpload(entityId: string) {
   const qc = useQueryClient();
   const [rows, setRows] = useState<UploadRow[]>([]);
   const cancelled = useRef(new Set<string>());
-  const refresh = useCallback(() => void qc.invalidateQueries({ queryKey: ["documents", { entityId }] }), [qc, entityId]);
-  const patch = (key: string, p: Partial<UploadRow>) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...p } : r)));
+  const refresh = useCallback(
+    () => void qc.invalidateQueries({ queryKey: ["documents", { entityId }] }),
+    [qc, entityId],
+  );
+  const patch = (key: string, p: Partial<UploadRow>) =>
+    setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...p } : r)));
 
   const walk = useCallback(
     async (key: string, docId: string, retry = false) => {
       let first = true;
       for (let i = 0; i < 6; i++) {
         await wait(STEP_DELAY_MS);
-        const res = await api.advancePipeline({ id: docId, ...(retry && first ? { retry: true } : {}) });
+        const res = await api.advancePipeline({
+          id: docId,
+          ...(retry && first ? { retry: true } : {}),
+        });
         first = false;
         patch(key, { state: res.state, ...(retry ? { retried: true } : {}) });
         refresh();
@@ -85,7 +93,11 @@ export function useUpload(entityId: string) {
               return;
             }
             try {
-              await api.uploadContent(`${doc.tenant_id}/${reg.upload.versionId}`, reg.upload.token, row.file);
+              await api.uploadContent(
+                `${doc.tenant_id}/${reg.upload.versionId}`,
+                reg.upload.token,
+                row.file,
+              );
             } catch (e) {
               // "Nothing was added": take the half-registered document back out.
               await api.delete({ id: docId }).catch(() => undefined);
@@ -116,7 +128,10 @@ export function useUpload(entityId: string) {
         retried: false,
         uploaded: false,
       }));
-      setRows((rs) => [...fresh, ...rs.filter((r) => batchState(r) !== "ready" && batchState(r) !== "cancelled")]);
+      setRows((rs) => [
+        ...fresh,
+        ...rs.filter((r) => batchState(r) !== "ready" && batchState(r) !== "cancelled"),
+      ]);
       fresh.forEach((r) => void runOne(r));
     },
     [runOne],

@@ -20,7 +20,9 @@ async function token(email: string): Promise<string> {
 
 async function rows(email: string, path: string): Promise<Record<string, unknown>[]> {
   const t = await token(email);
-  const res = await fetch(`${URL_}/rest/v1/${path}`, { headers: { apikey: KEY ?? "", Authorization: `Bearer ${t}` } });
+  const res = await fetch(`${URL_}/rest/v1/${path}`, {
+    headers: { apikey: KEY ?? "", Authorization: `Bearer ${t}` },
+  });
   const body: unknown = await res.json();
   if (!Array.isArray(body)) throw new Error(`query failed: ${JSON.stringify(body)}`);
   return body as Record<string, unknown>[];
@@ -41,14 +43,18 @@ describe.runIf(enabled)("access rules", () => {
   });
 
   it("should limit the Sweden viewer to order ord-se-7731", async () => {
-    expect(ids(await rows("se.viewer@example.test", "business_entities?select=id"))).toEqual(["ord-se-7731"]);
+    expect(ids(await rows("se.viewer@example.test", "business_entities?select=id"))).toEqual([
+      "ord-se-7731",
+    ]);
   });
 
   it("should never show Sweden documents to the Norway manager", async () => {
     const docs = await rows("no.manager@example.test", "documents?select=id,tenant_id");
     expect(docs.length).toBe(3);
     expect(docs.every((d) => d["tenant_id"] === "aurora-no")).toBe(true);
-    expect(await rows("no.manager@example.test", "business_entities?select=id&tenant_id=eq.aurora-se")).toEqual([]);
+    expect(
+      await rows("no.manager@example.test", "business_entities?select=id&tenant_id=eq.aurora-se"),
+    ).toEqual([]);
   });
 
   it("should give the master admin no tenant records", async () => {
@@ -60,7 +66,12 @@ describe.runIf(enabled)("access rules", () => {
     const t = await token("se.admin@example.test");
     const res = await fetch(`${URL_}/rest/v1/documents?tenant_id=eq.aurora-se`, {
       method: "PATCH",
-      headers: { apikey: KEY ?? "", Authorization: `Bearer ${t}`, "content-type": "application/json", Prefer: "return=representation" },
+      headers: {
+        apikey: KEY ?? "",
+        Authorization: `Bearer ${t}`,
+        "content-type": "application/json",
+        Prefer: "return=representation",
+      },
       body: JSON.stringify({ name: "tampered" }),
     });
     const body: unknown = await res.json();
@@ -71,19 +82,32 @@ describe.runIf(enabled)("access rules", () => {
 describe.runIf(enabled)("country isolation for files and counts", () => {
   it("should show the Sweden viewer only documents on order ord-se-7731", async () => {
     // A document may also be linked elsewhere; each visible one must be linked to the viewer's order.
-    const r = await rows("se.viewer@example.test", "document_relations?select=document_id,entity_id");
+    const r = await rows(
+      "se.viewer@example.test",
+      "document_relations?select=document_id,entity_id",
+    );
     const docs = new Set(r.map((x) => x["document_id"]));
-    const onOrder = new Set(r.filter((x) => x["entity_id"] === "ord-se-7731").map((x) => x["document_id"]));
+    const onOrder = new Set(
+      r.filter((x) => x["entity_id"] === "ord-se-7731").map((x) => x["document_id"]),
+    );
     expect(docs.size).toBeGreaterThan(0);
     expect(onOrder).toEqual(docs);
   });
 
   it("should not let any account list stored files directly", async () => {
-    for (const email of ["no.manager@example.test", "se.viewer@example.test", "master.admin@example.test"]) {
+    for (const email of [
+      "no.manager@example.test",
+      "se.viewer@example.test",
+      "master.admin@example.test",
+    ]) {
       const t = await token(email);
       const res = await fetch(`${URL_}/storage/v1/object/list/documents`, {
         method: "POST",
-        headers: { apikey: KEY ?? "", Authorization: `Bearer ${t}`, "content-type": "application/json" },
+        headers: {
+          apikey: KEY ?? "",
+          Authorization: `Bearer ${t}`,
+          "content-type": "application/json",
+        },
         body: JSON.stringify({ prefix: "aurora-se", limit: 10 }),
       });
       const body: unknown = await res.json();

@@ -12,7 +12,14 @@ export const DOC_STATUSES = [
   "expired",
   "archived",
 ] as const;
-export const PIPELINE_STATES = ["uploading", "scanning", "reading", "ready", "failed", "quarantined"] as const;
+export const PIPELINE_STATES = [
+  "uploading",
+  "scanning",
+  "reading",
+  "ready",
+  "failed",
+  "quarantined",
+] as const;
 export const SENSITIVITIES = ["public", "internal", "confidential", "restricted"] as const;
 
 export const docStatusSchema = z.enum(DOC_STATUSES);
@@ -58,7 +65,10 @@ export const updateMetadataSchema = z.object({
       name: z.string().trim().min(1).max(255).optional(),
       description: z.string().max(2000).optional(),
       sensitivity: z.enum(SENSITIVITIES).optional(),
-      expiryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      expiryDate: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional(),
       characteristic: characteristic.optional(),
     })
     .strict(),
@@ -100,7 +110,11 @@ export const setHoldSchema = z
   // Placing and releasing a hold both need a reason.
   .refine((v) => Boolean(v.reason), { message: "reason is required to place or release a hold" });
 
-export const purgeSchema = z.object({ idempotencyKey, id: docId, reason: z.string().trim().min(1).max(120) });
+export const purgeSchema = z.object({
+  idempotencyKey,
+  id: docId,
+  reason: z.string().trim().min(1).max(120),
+});
 export const pageSchema = z.object({ page: z.number().int().min(0).max(1000).default(0) });
 
 export const docWriteSchema = z.object({ idempotencyKey, id: docId });
@@ -138,4 +152,6 @@ export const reviewExtractionSchema = z
     decision: z.enum(["accept", "edit", "reject"]),
     value: z.unknown().optional(),
   })
-  .refine((v) => v.decision !== "edit" || v.value !== undefined, { message: "value is required to edit" });
+  .refine((v) => v.decision !== "edit" || v.value !== undefined, {
+    message: "value is required to edit",
+  });

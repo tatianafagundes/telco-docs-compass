@@ -14,12 +14,38 @@ export function DeletionTab() {
   const q = useQuery({ queryKey: ["deletions"], queryFn: () => api.deletionHistory() });
   const restore = useMutation({
     mutationFn: (id: string) => api.restoreDeleted({ id }),
-    onSuccess: () => { toast.success("Document restored"); void qc.invalidateQueries({ queryKey: ["deletions"] }); void qc.invalidateQueries({ queryKey: ["documents"] }); },
+    onSuccess: () => {
+      toast.success("Document restored");
+      void qc.invalidateQueries({ queryKey: ["deletions"] });
+      void qc.invalidateQueries({ queryKey: ["documents"] });
+    },
     onError: (e) => toast.error(failureText(e)),
   });
-  if (q.isPending) return <table className="w-full"><tbody><SkeletonRow columns={4} /></tbody></table>;
-  if (q.isError) return <EmptyState icon={History} title="History didn't load" cause="Something interrupted the connection." action={<Button onClick={() => q.refetch()}>Try again</Button>} />;
-  if (q.data.length === 0) return <EmptyState icon={History} title="Nothing deleted in the last 30 days" cause="Deleted documents appear here for 30 days, so you can restore them." />;
+  if (q.isPending)
+    return (
+      <table className="w-full">
+        <tbody>
+          <SkeletonRow columns={4} />
+        </tbody>
+      </table>
+    );
+  if (q.isError)
+    return (
+      <EmptyState
+        icon={History}
+        title="History didn't load"
+        cause="Something interrupted the connection."
+        action={<Button onClick={() => q.refetch()}>Try again</Button>}
+      />
+    );
+  if (q.data.length === 0)
+    return (
+      <EmptyState
+        icon={History}
+        title="Nothing deleted in the last 30 days"
+        cause="Deleted documents appear here for 30 days, so you can restore them."
+      />
+    );
   return (
     <div className="overflow-x-auto">
       <DataTable
@@ -27,12 +53,20 @@ export function DeletionTab() {
         rows={q.data}
         rowId={(r) => String(r.id)}
         columns={[
-          { key: "date", header: "Date", cell: (r) => format(new Date(r.date), "d MMM yyyy, HH:mm") },
+          {
+            key: "date",
+            header: "Date",
+            cell: (r) => format(new Date(r.date), "d MMM yyyy, HH:mm"),
+          },
           { key: "by", header: "Requested by", cell: (r) => r.requestedBy },
           { key: "doc", header: "Document", cell: (r) => r.document },
           { key: "res", header: "Result", cell: (r) => r.result },
         ]}
-        rowActions={(r) => (r.restorable && r.documentId ? <Button onClick={() => restore.mutate(r.documentId as string)}>Restore</Button> : null)}
+        rowActions={(r) =>
+          r.restorable && r.documentId ? (
+            <Button onClick={() => restore.mutate(r.documentId as string)}>Restore</Button>
+          ) : null
+        }
       />
     </div>
   );

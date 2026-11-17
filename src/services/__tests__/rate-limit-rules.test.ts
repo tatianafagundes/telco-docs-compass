@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { decideRate, isValidLimit, rateHeaders, rateKind, retryGuidance } from "@/services/rate-limit-rules";
+import {
+  decideRate,
+  isValidLimit,
+  rateHeaders,
+  rateKind,
+  retryGuidance,
+} from "@/services/rate-limit-rules";
 
 const at = (s: number) => new Date(Date.UTC(2026, 10, 10, 13, 0, s));
 

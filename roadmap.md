@@ -1,4 +1,5 @@
 # Roadmap
+
 - [x] Phase 1 – tokens, ERAD primitives, shell, /design review page
 - [x] Phase 2a – schema, seed, private file bucket, sign-in, sign-ups off, read operations + recordAccess
 - [x] Phase 2b – demo users, access checks (RUN_ACCESS_TESTS=1), setup helper removed

@@ -11,13 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export type TagTone =
-  | "critical"
-  | "major"
-  | "minor"
-  | "warning"
-  | "cleared"
-  | "indeterminate"
-  | "purple";
+  "critical" | "major" | "minor" | "warning" | "cleared" | "indeterminate" | "purple";
 
 const TONE_CLASS: Record<TagTone, string> = {
   critical: "[--tone:var(--status-critical)]",
@@ -59,7 +53,9 @@ export function Tag({ tone = "indeterminate", children, icon, small, className }
         className,
       )}
     >
-      {icon === false || small ? null : (icon ?? <Icon aria-hidden="true" className="size-4 shrink-0" />)}
+      {icon === false || small
+        ? null
+        : (icon ?? <Icon aria-hidden="true" className="size-4 shrink-0" />)}
       {children}
     </span>
   );

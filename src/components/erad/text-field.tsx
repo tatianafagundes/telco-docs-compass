@@ -1,7 +1,10 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-export interface TextFieldProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "prefix"> {
+export interface TextFieldProps extends Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  "prefix"
+> {
   label: string;
   helper?: string | undefined;
   error?: string | undefined;
@@ -30,7 +33,9 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
           )}
         >
           {prefix ? (
-            <span className="flex items-center bg-input-prefix px-2 text-text-secondary">{prefix}</span>
+            <span className="flex items-center bg-input-prefix px-2 text-text-secondary">
+              {prefix}
+            </span>
           ) : null}
           <input
             ref={ref}
@@ -41,7 +46,9 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
             className="type-label-14 min-w-0 flex-1 bg-transparent px-2 text-text-main outline-none placeholder:text-text-secondary"
             {...props}
           />
-          {suffix ? <span className="flex items-center px-2 text-text-secondary">{suffix}</span> : null}
+          {suffix ? (
+            <span className="flex items-center px-2 text-text-secondary">{suffix}</span>
+          ) : null}
         </div>
         {hasDesc ? (
           <span

@@ -20,18 +20,35 @@ async function main(): Promise<unknown> {
     case "mint": {
       const [tenant, name, scopes] = args;
       const bytes = crypto.getRandomValues(new Uint8Array(30));
-      const key = `erad_${btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")}`;
+      const key = `erad_${btoa(String.fromCharCode(...bytes))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "")}`;
       const { data, error } = await admin
         .from("integration_clients")
-        .insert({ tenant_id: tenant ?? "", name: name ?? "TMF test", system_kind: "other", scopes: (scopes ?? "read").split(","), key_prefix: key.slice(0, 10), key_hash: await sha256Hex(key), expires_at: new Date(Date.now() + 86_400_000).toISOString() })
+        .insert({
+          tenant_id: tenant ?? "",
+          name: name ?? "TMF test",
+          system_kind: "other",
+          scopes: (scopes ?? "read").split(","),
+          key_prefix: key.slice(0, 10),
+          key_hash: await sha256Hex(key),
+          expires_at: new Date(Date.now() + 86_400_000).toISOString(),
+        })
         .select("id")
         .single();
       if (error) throw new Error(error.message);
       return { id: data.id, key };
     }
     case "revoke":
-      await admin.from("event_subscriptions").delete().eq("client_id", args[0] ?? "");
-      await admin.from("integration_clients").update({ revoked_at: new Date().toISOString() }).eq("id", args[0] ?? "");
+      await admin
+        .from("event_subscriptions")
+        .delete()
+        .eq("client_id", args[0] ?? "");
+      await admin
+        .from("integration_clients")
+        .update({ revoked_at: new Date().toISOString() })
+        .eq("id", args[0] ?? "");
       return { ok: true };
     case "due-now": {
       const { data } = await admin
@@ -51,7 +68,9 @@ async function main(): Promise<unknown> {
     case "status": {
       const { data } = await admin
         .from("event_deliveries")
-        .select("event_id, attempts, next_attempt_at, delivered_at, gave_up_at, last_status, last_error")
+        .select(
+          "event_id, attempts, next_attempt_at, delivered_at, gave_up_at, last_status, last_error",
+        )
         .eq("subscription_id", args[0] ?? "")
         .order("event_id");
       return data ?? [];

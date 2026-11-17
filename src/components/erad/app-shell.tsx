@@ -77,7 +77,11 @@ export function AppShell({ tenantName, userName, role, children }: AppShellProps
               <Avatar name={userName} />
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
-              <DropdownMenu.Content align="end" sideOffset={4} className="shadow-elev-1 z-50 min-w-48 bg-item text-text-main">
+              <DropdownMenu.Content
+                align="end"
+                sideOffset={4}
+                className="shadow-elev-1 z-50 min-w-48 bg-item text-text-main"
+              >
                 <div className="flex flex-col px-2 py-2">
                   <span className="type-label-14-medium">{userName}</span>
                   <span className="type-label-12 text-text-secondary">{`${tenantName} · ${ROLE_LABEL[role] ?? role}`}</span>
@@ -90,17 +94,29 @@ export function AppShell({ tenantName, userName, role, children }: AppShellProps
                         <Building2 className="size-4" aria-hidden="true" /> Tenants
                       </DropdownMenu.SubTrigger>
                       <DropdownMenu.Portal>
-                        <DropdownMenu.SubContent sideOffset={4} className="shadow-elev-1 z-50 min-w-48 bg-item text-text-main">
+                        <DropdownMenu.SubContent
+                          sideOffset={4}
+                          className="shadow-elev-1 z-50 min-w-48 bg-item text-text-main"
+                        >
                           {(kids.data ?? []).map((k) => (
                             <DropdownMenu.Item
                               key={k.id}
-                              onSelect={() => navigate({ to: "/admin/tenants/$tenantId", params: { tenantId: k.id } })}
+                              onSelect={() =>
+                                navigate({
+                                  to: "/admin/tenants/$tenantId",
+                                  params: { tenantId: k.id },
+                                })
+                              }
                               className="type-label-14 flex h-8 cursor-pointer items-center px-2 outline-none data-[highlighted]:bg-item-hover"
                             >
                               {k.displayName}
                             </DropdownMenu.Item>
                           ))}
-                          {kids.data?.length === 0 ? <div className="type-label-14 px-2 py-2 text-text-secondary">No organisations yet</div> : null}
+                          {kids.data?.length === 0 ? (
+                            <div className="type-label-14 px-2 py-2 text-text-secondary">
+                              No organisations yet
+                            </div>
+                          ) : null}
                         </DropdownMenu.SubContent>
                       </DropdownMenu.Portal>
                     </DropdownMenu.Sub>
@@ -128,7 +144,10 @@ export function AppShell({ tenantName, userName, role, children }: AppShellProps
                   to={to}
                   aria-label={label}
                   className="focus-ring type-label-14 flex h-10 items-center justify-center gap-2 px-4 text-text-main hover:bg-item-hover xl:justify-start"
-                  activeProps={{ className: "bg-item-selected text-text-on-primary hover:bg-item-selected-hover", "aria-current": "page" }}
+                  activeProps={{
+                    className: "bg-item-selected text-text-on-primary hover:bg-item-selected-hover",
+                    "aria-current": "page",
+                  }}
                 >
                   <Icon className="size-4 shrink-0" aria-hidden="true" />
                   <span className="hidden xl:inline">{label}</span>

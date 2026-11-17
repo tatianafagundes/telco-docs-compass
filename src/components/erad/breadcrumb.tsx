@@ -19,7 +19,9 @@ export function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
               ) : (
                 <span className="text-text-link">{it.render ? it.render(it.label) : it.label}</span>
               )}
-              {last ? null : <ChevronRight aria-hidden="true" className="size-4 text-text-secondary" />}
+              {last ? null : (
+                <ChevronRight aria-hidden="true" className="size-4 text-text-secondary" />
+              )}
             </li>
           );
         })}

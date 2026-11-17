@@ -8,9 +8,15 @@ export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
     meta: [
       { title: "Admin · Documents" },
-      { name: "description", content: "Document types, policies and organisations shared across the group." },
+      {
+        name: "description",
+        content: "Document types, policies and organisations shared across the group.",
+      },
       { property: "og:title", content: "Admin · Documents" },
-      { property: "og:description", content: "Document types, policies and organisations shared across the group." },
+      {
+        property: "og:description",
+        content: "Document types, policies and organisations shared across the group.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -34,7 +40,9 @@ function AdminLayout() {
     { to: "/admin/types", label: "Document types" },
     { to: "/admin/policies", label: "Policies" },
     { to: "/admin/holds", label: "Holds and retention" },
-    ...(role === "tenant_admin" ? [{ to: "/admin/systems", label: "Connected systems" } as const] : []),
+    ...(role === "tenant_admin"
+      ? [{ to: "/admin/systems", label: "Connected systems" } as const]
+      : []),
     ...(role === "master_admin" ? [{ to: "/admin/tenants", label: "Tenants" } as const] : []),
   ] as const;
   return (
@@ -46,7 +54,10 @@ function AdminLayout() {
             key={t.to}
             to={t.to}
             className="focus-ring type-label-14 flex h-8 items-center border-b-2 px-1 hover:text-text-main"
-            activeProps={{ className: "border-border-selected text-text-main", "aria-current": "page" }}
+            activeProps={{
+              className: "border-border-selected text-text-main",
+              "aria-current": "page",
+            }}
             inactiveProps={{ className: "border-transparent text-text-secondary" }}
           >
             {t.label}

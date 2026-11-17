@@ -36,20 +36,41 @@ async function fanOut(admin: Db): Promise<number> {
     .in("tenant_id", tenants)
     .is("integration_clients.revoked_at", null);
   const docIds = [...new Set(events.map((e) => e.document_id))];
-  const { data: docs } = await admin.from("documents").select("id, status, document_type").in("id", docIds);
-  const facts = new Map((docs ?? []).map((d) => [d.id, { status: d.status as DocStatus, documentType: d.document_type }]));
+  const { data: docs } = await admin
+    .from("documents")
+    .select("id, status, document_type")
+    .in("id", docIds);
+  const facts = new Map(
+    (docs ?? []).map((d) => [
+      d.id,
+      { status: d.status as DocStatus, documentType: d.document_type },
+    ]),
+  );
 
   const rows = events.flatMap((e) =>
     (subs ?? [])
-      .filter((s) => s.tenant_id === e.tenant_id && subscribedBefore(s.created_at, e.created_at) && eventMatches(s.query, e.event_type, facts.get(e.document_id)))
+      .filter(
+        (s) =>
+          s.tenant_id === e.tenant_id &&
+          subscribedBefore(s.created_at, e.created_at) &&
+          eventMatches(s.query, e.event_type, facts.get(e.document_id)),
+      )
       .map((s) => ({ event_id: e.id, subscription_id: s.id, tenant_id: e.tenant_id })),
   );
   if (rows.length > 0) {
-    const { error } = await admin.from("event_deliveries").upsert(rows, { onConflict: "event_id,subscription_id", ignoreDuplicates: true });
+    const { error } = await admin
+      .from("event_deliveries")
+      .upsert(rows, { onConflict: "event_id,subscription_id", ignoreDuplicates: true });
     if (error) return 0; // leave the events pending; the next pass fans them out again
   }
   // The outbox's delivered_at now means "handed to every subscriber's delivery queue".
-  await admin.from("event_outbox").update({ delivered_at: new Date().toISOString() }).in("id", events.map((e) => e.id));
+  await admin
+    .from("event_outbox")
+    .update({ delivered_at: new Date().toISOString() })
+    .in(
+      "id",
+      events.map((e) => e.id),
+    );
   return rows.length;
 }
 
@@ -57,7 +78,10 @@ export async function deliverPending(admin: Db, origin: string): Promise<Deliver
   const fannedOut = await fanOut(admin);
   const result: DeliveryPassResult = { fannedOut, delivered: 0, retrying: 0, gaveUp: 0 };
 
-  const { data: claimed } = await admin.rpc("claim_event_deliveries", { p_limit: DELIVERY_BATCH, p_lock_seconds: 60 });
+  const { data: claimed } = await admin.rpc("claim_event_deliveries", {
+    p_limit: DELIVERY_BATCH,
+    p_lock_seconds: 60,
+  });
   if (!claimed || claimed.length === 0) return result;
 
   const { data: events } = await admin
@@ -78,7 +102,14 @@ export async function deliverPending(admin: Db, origin: string): Promise<Deliver
     const key = { event_id: d.event_id, subscription_id: d.subscription_id };
     // Defence in depth: never send across tenants even if a record were wrong.
     if (!e || !s || e.tenant_id !== s.tenant_id || d.tenant_id !== s.tenant_id) {
-      await admin.from("event_deliveries").update({ gave_up_at: new Date().toISOString(), last_error: "subscription or event no longer matches", locked_until: null }).match(key);
+      await admin
+        .from("event_deliveries")
+        .update({
+          gave_up_at: new Date().toISOString(),
+          last_error: "subscription or event no longer matches",
+          locked_until: null,
+        })
+        .match(key);
       result.gaveUp++;
       continue;
     }
@@ -118,14 +149,41 @@ export async function deliverPending(admin: Db, origin: string): Promise<Deliver
     const outcome = outcomeAfter(attempt, status, retryAfter);
     const now = new Date();
     if (outcome.kind === "delivered") {
-      await admin.from("event_deliveries").update({ attempts: attempt, delivered_at: now.toISOString(), last_status: status, last_error: null, locked_until: null }).match(key);
+      await admin
+        .from("event_deliveries")
+        .update({
+          attempts: attempt,
+          delivered_at: now.toISOString(),
+          last_status: status,
+          last_error: null,
+          locked_until: null,
+        })
+        .match(key);
       result.delivered++;
     } else if (outcome.kind === "retry") {
       const next = new Date(now.getTime() + outcome.waitSeconds * 1000).toISOString();
-      await admin.from("event_deliveries").update({ attempts: attempt, next_attempt_at: next, last_status: status, last_error: error, locked_until: null }).match(key);
+      await admin
+        .from("event_deliveries")
+        .update({
+          attempts: attempt,
+          next_attempt_at: next,
+          last_status: status,
+          last_error: error,
+          locked_until: null,
+        })
+        .match(key);
       result.retrying++;
     } else {
-      await admin.from("event_deliveries").update({ attempts: attempt, gave_up_at: now.toISOString(), last_status: status, last_error: error, locked_until: null }).match(key);
+      await admin
+        .from("event_deliveries")
+        .update({
+          attempts: attempt,
+          gave_up_at: now.toISOString(),
+          last_status: status,
+          last_error: error,
+          locked_until: null,
+        })
+        .match(key);
       result.gaveUp++;
     }
   }

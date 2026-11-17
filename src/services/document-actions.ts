@@ -1,6 +1,12 @@
 // Pure view rules: which actions a person sees for a document, and why one is unavailable.
 import type { DocStatus } from "@/schemas/document";
-import { can, contentProtected, isFrozen, transitionCapability, type AppRole } from "@/services/document-rules";
+import {
+  can,
+  contentProtected,
+  isFrozen,
+  transitionCapability,
+  type AppRole,
+} from "@/services/document-rules";
 
 export interface ActionState {
   available: boolean;
@@ -32,16 +38,23 @@ export function nextStep(role: AppRole, status: DocStatus): NextStep | null {
   const n = NEXT[status];
   if (!n) return null;
   const cap = transitionCapability(n.to);
-  return can(role, cap) ? { ...n, available: true } : { ...n, available: false, reason: ROLE_REASON[cap] };
+  return can(role, cap)
+    ? { ...n, available: true }
+    : { ...n, available: false, reason: ROLE_REASON[cap] };
 }
 
 export function editState(role: AppRole, status: DocStatus): ActionState {
   if (!can(role, "edit")) return { available: false, reason: ROLE_REASON.edit };
-  if (isFrozen(status)) return { available: false, reason: "This document is closed, so its details are kept as they are." };
+  if (isFrozen(status))
+    return {
+      available: false,
+      reason: "This document is closed, so its details are kept as they are.",
+    };
   return { available: true };
 }
 
-export const APPROVED_CONTENT_REASON = "This document is approved, so its content stays as it was approved. You can still rename it or update its description.";
+export const APPROVED_CONTENT_REASON =
+  "This document is approved, so its content stays as it was approved. You can still rename it or update its description.";
 
 /** Content (file, confirmed details, dates) can change only before approval. */
 export function contentEditState(role: AppRole, status: DocStatus): ActionState {
@@ -53,26 +66,51 @@ export function contentEditState(role: AppRole, status: DocStatus): ActionState 
 
 export function sendBackState(role: AppRole, status: DocStatus): ActionState | null {
   if (status !== "in_review") return null;
-  return can(role, "review") ? { available: true } : { available: false, reason: ROLE_REASON.review };
+  return can(role, "review")
+    ? { available: true }
+    : { available: false, reason: ROLE_REASON.review };
 }
 
 export function manageState(role: AppRole): ActionState {
-  return can(role, "manage") ? { available: true } : { available: false, reason: ROLE_REASON.manage };
+  return can(role, "manage")
+    ? { available: true }
+    : { available: false, reason: ROLE_REASON.manage };
 }
 
 /** "Delete permanently": admins only, no hold, and past the keep-until date. */
-export function purgeState(role: AppRole, legalHold: boolean, retainUntil: string | null, today: string): ActionState {
-  if (role !== "tenant_admin" && role !== "master_admin") return { available: false, reason: "Only administrators can delete permanently." };
-  if (legalHold) return { available: false, reason: "A legal hold blocks permanent deletion. Release the hold first." };
-  if (retainUntil && retainUntil >= today) return { available: false, reason: `This document must be kept until ${retainUntil}.` };
+export function purgeState(
+  role: AppRole,
+  legalHold: boolean,
+  retainUntil: string | null,
+  today: string,
+): ActionState {
+  if (role !== "tenant_admin" && role !== "master_admin")
+    return { available: false, reason: "Only administrators can delete permanently." };
+  if (legalHold)
+    return {
+      available: false,
+      reason: "A legal hold blocks permanent deletion. Release the hold first.",
+    };
+  if (retainUntil && retainUntil >= today)
+    return { available: false, reason: `This document must be kept until ${retainUntil}.` };
   return { available: true };
 }
 
-export function deleteState(role: AppRole, legalHold: boolean, retainUntil: string | null, today: string): ActionState {
+export function deleteState(
+  role: AppRole,
+  legalHold: boolean,
+  retainUntil: string | null,
+  today: string,
+): ActionState {
   const m = manageState(role);
   if (!m.available) return m;
-  if (legalHold) return { available: false, reason: "A legal hold keeps this document safe. Release the hold first." };
-  if (retainUntil && retainUntil > today) return { available: false, reason: `This document must be kept until ${retainUntil}.` };
+  if (legalHold)
+    return {
+      available: false,
+      reason: "A legal hold keeps this document safe. Release the hold first.",
+    };
+  if (retainUntil && retainUntil > today)
+    return { available: false, reason: `This document must be kept until ${retainUntil}.` };
   return { available: true };
 }
 

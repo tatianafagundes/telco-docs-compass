@@ -16,7 +16,13 @@ import { SystemLimitsDialog } from "@/components/admin/system-limits-dialog";
 import { failureText } from "@/hooks/use-config";
 import { api } from "@/services/api";
 import type { ConnectedSystem } from "@/services/integration-clients.functions";
-import { SCOPES, SYSTEM_KINDS, TMF_BASE_PATH, type Scope, type SystemKind } from "@/services/tmf667-mapper";
+import {
+  SCOPES,
+  SYSTEM_KINDS,
+  TMF_BASE_PATH,
+  type Scope,
+  type SystemKind,
+} from "@/services/tmf667-mapper";
 
 const KIND_LABEL: Record<SystemKind, string> = {
   orderCare: "Order care (TMF622)",
@@ -57,7 +63,8 @@ export function ConnectedSystems() {
   const [limiting, setLimiting] = useState<ConnectedSystem | null>(null);
 
   const rotate = useMutation({
-    mutationFn: (s: ConnectedSystem) => api.rotateSystemKey(s.id).then((r) => ({ ...r, name: s.name })),
+    mutationFn: (s: ConnectedSystem) =>
+      api.rotateSystemKey(s.id).then((r) => ({ ...r, name: s.name })),
     onSuccess: (r) => {
       setShownKey({ name: r.name, key: r.key });
       void qc.invalidateQueries({ queryKey: systemsKey });
@@ -78,7 +85,9 @@ export function ConnectedSystems() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <p className="type-paragraph-14 max-w-[640px] text-text-secondary">
-          Let Order care, Ticket management, CRM or CPQ work with your documents through the TM Forum Document Management API (TMF667). Each system gets its own key, sees only this organisation, and every action it takes appears in the document's activity.
+          Let Order care, Ticket management, CRM or CPQ work with your documents through the TM
+          Forum Document Management API (TMF667). Each system gets its own key, sees only this
+          organisation, and every action it takes appears in the document's activity.
         </p>
         <Button variant="primary" onClick={() => setAdding(true)}>
           <Plug aria-hidden="true" />
@@ -87,7 +96,9 @@ export function ConnectedSystems() {
       </div>
 
       {list.isPending ? (
-        <p className="type-paragraph-14 text-text-secondary" role="status">Loading connected systems…</p>
+        <p className="type-paragraph-14 text-text-secondary" role="status">
+          Loading connected systems…
+        </p>
       ) : list.isError ? (
         <Card>
           <div className="flex flex-col items-start gap-2">
@@ -97,7 +108,11 @@ export function ConnectedSystems() {
         </Card>
       ) : list.data.length === 0 ? (
         <Card>
-          <EmptyState icon={Plug} title="No systems connected yet" cause="Connect Order care first so it can fetch the approved contract for any order in one call." />
+          <EmptyState
+            icon={Plug}
+            title="No systems connected yet"
+            cause="Connect Order care first so it can fetch the approved contract for any order in one call."
+          />
         </Card>
       ) : (
         <ul className="flex flex-col gap-3" aria-label="Connected systems">
@@ -126,15 +141,32 @@ export function ConnectedSystems() {
               >
                 <div className="flex flex-col gap-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="type-label-14 text-text-secondary">{KIND_LABEL[s.systemKind as SystemKind] ?? s.systemKind}</span>
-                    {s.revokedAt ? <Tag tone="critical" small>Disconnected</Tag> : <Tag tone="cleared" small>Connected</Tag>}
+                    <span className="type-label-14 text-text-secondary">
+                      {KIND_LABEL[s.systemKind as SystemKind] ?? s.systemKind}
+                    </span>
+                    {s.revokedAt ? (
+                      <Tag tone="critical" small>
+                        Disconnected
+                      </Tag>
+                    ) : (
+                      <Tag tone="cleared" small>
+                        Connected
+                      </Tag>
+                    )}
                   </div>
                   <p className="type-paragraph-14">
                     Key starting <code className="type-code-14">{s.keyPrefix}…</code> ·{" "}
-                    {s.lastUsedAt ? `last used ${format(new Date(s.lastUsedAt), "d MMM yyyy, HH:mm")}` : "not used yet"}
+                    {s.lastUsedAt
+                      ? `last used ${format(new Date(s.lastUsedAt), "d MMM yyyy, HH:mm")}`
+                      : "not used yet"}
                   </p>
                   {!s.revokedAt && s.expiresAt ? (
-                    <p className={cn("type-paragraph-14", expiresSoon(s.expiresAt) ? "text-status-major" : "text-text-secondary")}>
+                    <p
+                      className={cn(
+                        "type-paragraph-14",
+                        expiresSoon(s.expiresAt) ? "text-status-major" : "text-text-secondary",
+                      )}
+                    >
                       {new Date(s.expiresAt) <= new Date()
                         ? "This key has expired. You can issue a new key to reconnect."
                         : expiresSoon(s.expiresAt)
@@ -143,12 +175,21 @@ export function ConnectedSystems() {
                     </p>
                   ) : null}
                   <p className="type-paragraph-14 text-text-secondary">
-                    Allowance: {s.readLimitPerMinute} reads and {s.writeLimitPerMinute} changes per minute
+                    Allowance: {s.readLimitPerMinute} reads and {s.writeLimitPerMinute} changes per
+                    minute
                   </p>
                   {s.lastRateLimitedAt ? (
-                    <p className="type-paragraph-14 text-text-secondary">Last slowed down for sending too many requests: {format(new Date(s.lastRateLimitedAt), "d MMM yyyy, HH:mm")}</p>
+                    <p className="type-paragraph-14 text-text-secondary">
+                      Last slowed down for sending too many requests:{" "}
+                      {format(new Date(s.lastRateLimitedAt), "d MMM yyyy, HH:mm")}
+                    </p>
                   ) : null}
-                  <p className="type-paragraph-14 text-text-secondary">Can: {s.scopes.map((x) => (SCOPE_LABEL[x as Scope]?.split(" (")[0] ?? x).toLowerCase()).join(" · ")}</p>
+                  <p className="type-paragraph-14 text-text-secondary">
+                    Can:{" "}
+                    {s.scopes
+                      .map((x) => (SCOPE_LABEL[x as Scope]?.split(" (")[0] ?? x).toLowerCase())
+                      .join(" · ")}
+                  </p>
                 </div>
               </Card>
             </li>
@@ -159,13 +200,22 @@ export function ConnectedSystems() {
       <Card title="For your integration team">
         <div className="flex flex-col gap-1">
           <p className="type-paragraph-14">
-            Address: <code className="type-code-14">{TMF_BASE_PATH}</code> on this site. Send the key as <code className="type-code-14">Authorization: Bearer …</code> and an <code className="type-code-14">Idempotency-Key</code> on every change.
+            Address: <code className="type-code-14">{TMF_BASE_PATH}</code> on this site. Send the
+            key as <code className="type-code-14">Authorization: Bearer …</code> and an{" "}
+            <code className="type-code-14">Idempotency-Key</code> on every change.
           </p>
           <p className="type-paragraph-14 text-text-secondary">
-            Current approved contract for an order: <code className="type-code-14">GET /document?relatedEntity.id=ORDER_ID&amp;status=approved,published</code>
+            Current approved contract for an order:{" "}
+            <code className="type-code-14">
+              GET /document?relatedEntity.id=ORDER_ID&amp;status=approved,published
+            </code>
           </p>
           <p className="type-paragraph-14 text-text-secondary">
-            TM Forum TMF667 v4. Each system has its own request limits (usually 120 reads and 30 changes per minute). Over the limit, it gets 429 with Retry-After and RateLimit headers. Systems that use OAuth can swap the key for a 15-minute token at <code className="type-code-14">/api/public/tmf-api/oauth/token</code>. The earlier address ending in documentManagement/v4 keeps working until 10 May 2027.
+            TM Forum TMF667 v4. Each system has its own request limits (usually 120 reads and 30
+            changes per minute). Over the limit, it gets 429 with Retry-After and RateLimit headers.
+            Systems that use OAuth can swap the key for a 15-minute token at{" "}
+            <code className="type-code-14">/api/public/tmf-api/oauth/token</code>. The earlier
+            address ending in documentManagement/v4 keeps working until 10 May 2027.
           </p>
         </div>
       </Card>
@@ -185,14 +235,23 @@ export function ConnectedSystems() {
         onOpenChange={(o) => !o && setShownKey(null)}
         title="Copy this key now"
         description={`This is the only time the key for ${shownKey?.name ?? ""} is shown. Store it in that system's secure settings.`}
-        actions={<Button variant="primary" onClick={() => setShownKey(null)}>I've stored it</Button>}
+        actions={
+          <Button variant="primary" onClick={() => setShownKey(null)}>
+            I've stored it
+          </Button>
+        }
       >
         <div className="flex items-center gap-2">
           <KeyRound aria-hidden="true" className="size-4 shrink-0 text-text-secondary" />
-          <code className="type-code-14 min-w-0 flex-1 break-all" aria-label="System key">{shownKey?.key}</code>
+          <code className="type-code-14 min-w-0 flex-1 break-all" aria-label="System key">
+            {shownKey?.key}
+          </code>
           <Button
             onClick={() => {
-              if (shownKey) void navigator.clipboard.writeText(shownKey.key).then(() => toast.success("Key copied."));
+              if (shownKey)
+                void navigator.clipboard
+                  .writeText(shownKey.key)
+                  .then(() => toast.success("Key copied."));
             }}
           >
             <Copy aria-hidden="true" />
@@ -218,7 +277,11 @@ export function ConnectedSystems() {
         actions={
           <>
             <Button onClick={() => setRevoking(null)}>Keep connected</Button>
-            <Button variant="destructive" onClick={() => revoking && revoke.mutate(revoking)} unavailable={revoke.isPending}>
+            <Button
+              variant="destructive"
+              onClick={() => revoking && revoke.mutate(revoking)}
+              unavailable={revoke.isPending}
+            >
               Disconnect
             </Button>
           </>
@@ -230,7 +293,15 @@ export function ConnectedSystems() {
   );
 }
 
-function AddSystemDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (o: boolean) => void; onCreated: (name: string, key: string) => void }) {
+function AddSystemDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  onCreated: (name: string, key: string) => void;
+}) {
   const [kind, setKind] = useState<SystemKind>("orderCare");
   const [name, setName] = useState("Order care");
   const [scopes, setScopes] = useState<Scope[]>(DEFAULT_SCOPES.orderCare);
@@ -239,7 +310,12 @@ function AddSystemDialog({ open, onOpenChange, onCreated }: { open: boolean; onO
     onSuccess: (r) => onCreated(r.system.name, r.key),
     onError: (e) => toast.error(failureText(e)),
   });
-  const reason = name.trim().length < 2 ? "Give the system a name." : scopes.length === 0 ? "Choose at least one thing it can do." : null;
+  const reason =
+    name.trim().length < 2
+      ? "Give the system a name."
+      : scopes.length === 0
+        ? "Choose at least one thing it can do."
+        : null;
   return (
     <Dialog
       open={open}
@@ -250,7 +326,11 @@ function AddSystemDialog({ open, onOpenChange, onCreated }: { open: boolean; onO
         <>
           {reason ? <span className="type-paragraph-14 text-text-secondary">{reason}</span> : null}
           <Button onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button variant="primary" unavailable={reason !== null || create.isPending} onClick={() => create.mutate()}>
+          <Button
+            variant="primary"
+            unavailable={reason !== null || create.isPending}
+            onClick={() => create.mutate()}
+          >
             {create.isPending ? "Connecting…" : "Connect and show key"}
           </Button>
         </>
@@ -268,7 +348,12 @@ function AddSystemDialog({ open, onOpenChange, onCreated }: { open: boolean; onO
           }}
           groups={[{ options: SYSTEM_KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] })) }]}
         />
-        <TextField label="Name shown in activity" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
+        <TextField
+          label="Name shown in activity"
+          value={name}
+          maxLength={80}
+          onChange={(e) => setName(e.target.value)}
+        />
         <fieldset className="flex flex-col gap-2">
           <legend className="type-label-14 mb-1">What it can do</legend>
           {SCOPES.map((s) => (
@@ -276,7 +361,9 @@ function AddSystemDialog({ open, onOpenChange, onCreated }: { open: boolean; onO
               key={s}
               label={SCOPE_LABEL[s]}
               checked={scopes.includes(s)}
-              onCheckedChange={(c) => setScopes((prev) => (c === true ? [...prev, s] : prev.filter((x) => x !== s)))}
+              onCheckedChange={(c) =>
+                setScopes((prev) => (c === true ? [...prev, s] : prev.filter((x) => x !== s)))
+              }
             />
           ))}
         </fieldset>

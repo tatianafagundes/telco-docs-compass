@@ -17,28 +17,46 @@ export function useDocumentActions(entityId: string, docId: string) {
   };
 
   const updateDetails = useMutation({
-    mutationFn: (patch: { name?: string; description?: string; expiryDate?: string }) => api.updateMetadata({ id: docId, patch }),
-    onSuccess: () => { toast.success("Details saved"); refresh(); },
+    mutationFn: (patch: { name?: string; description?: string; expiryDate?: string }) =>
+      api.updateMetadata({ id: docId, patch }),
+    onSuccess: () => {
+      toast.success("Details saved");
+      refresh();
+    },
     onError,
   });
   const transition = useMutation({
     mutationFn: (v: { to: DocStatus; comment?: string }) => api.transition({ id: docId, ...v }),
-    onSuccess: () => { toast.success("Status updated"); refresh(); },
+    onSuccess: () => {
+      toast.success("Status updated");
+      refresh();
+    },
     onError,
   });
   const reportProblem = useMutation({
-    mutationFn: (v: { kind: "security" | "unreadable" | "sendBack"; reason: "threat" | "wrongDocument" | "wrongEntity" | "unreadablePages" | "other"; comment?: string }) =>
-      api.reportProblem({ id: docId, ...v }),
-    onSuccess: (_d, v) => { toast.success(v.kind === "sendBack" ? "Sent back to draft" : "Thanks, we've noted the problem"); refresh(); },
+    mutationFn: (v: {
+      kind: "security" | "unreadable" | "sendBack";
+      reason: "threat" | "wrongDocument" | "wrongEntity" | "unreadablePages" | "other";
+      comment?: string;
+    }) => api.reportProblem({ id: docId, ...v }),
+    onSuccess: (_d, v) => {
+      toast.success(
+        v.kind === "sendBack" ? "Sent back to draft" : "Thanks, we've noted the problem",
+      );
+      refresh();
+    },
     onError,
   });
   const setHold = useMutation({
-    mutationFn: (v: { active: boolean; reason: string; reference?: string }) => api.setHold({ id: docId, ...v }),
+    mutationFn: (v: { active: boolean; reason: string; reference?: string }) =>
+      api.setHold({ id: docId, ...v }),
     onSuccess: (d, v) => {
       toast.success(
         v.active ? "Legal hold placed" : "Legal hold released",
         v.active
-          ? { description: `Hold applied to this record and all ${d.versionsCovered} ${d.versionsCovered === 1 ? "version" : "versions"}. The content store is not locked in this prototype.` }
+          ? {
+              description: `Hold applied to this record and all ${d.versionsCovered} ${d.versionsCovered === 1 ? "version" : "versions"}. The content store is not locked in this prototype.`,
+            }
           : undefined,
       );
       refresh();
@@ -47,21 +65,29 @@ export function useDocumentActions(entityId: string, docId: string) {
   });
   const restore = useMutation({
     mutationFn: () => api.restoreDeleted({ id: docId }),
-    onSuccess: () => { toast.success("Document restored"); refresh(); },
+    onSuccess: () => {
+      toast.success("Document restored");
+      refresh();
+    },
     onError,
   });
   const remove = useMutation({
     mutationFn: () => api.delete({ id: docId }),
     onSuccess: () => {
       refresh();
-      toast.success("Document deleted", { action: { label: "Undo", onClick: () => restore.mutate() } });
+      toast.success("Document deleted", {
+        action: { label: "Undo", onClick: () => restore.mutate() },
+      });
     },
     onError,
   });
 
   const purge = useMutation({
     mutationFn: (reason: string) => api.purge({ id: docId, reason }),
-    onSuccess: () => { toast.success("Document deleted permanently"); refresh(); },
+    onSuccess: () => {
+      toast.success("Document deleted permanently");
+      refresh();
+    },
     onError,
   });
 

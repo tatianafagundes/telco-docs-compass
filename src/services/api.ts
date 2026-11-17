@@ -69,28 +69,41 @@ export const api = {
   recordAccess: (id: string, action: "view" | "download", versionId?: string) =>
     reads.recordAccess({ data: { id, action, ...(versionId ? { versionId } : {}) } }),
   // writes (idempotency key generated here unless the caller retries with its own)
-  register: (i: WithoutKey<Parameters<typeof writes.register>[0]["data"]>) => write(writes.register, "register", i),
-  updateMetadata: (i: WithoutKey<Parameters<typeof writes.updateMetadata>[0]["data"]>) => write(writes.updateMetadata, "updateMetadata", i),
-  addVersion: (i: WithoutKey<Parameters<typeof writes.addVersion>[0]["data"]>) => write(writes.addVersion, "addVersion", i),
-  transition: (i: WithoutKey<Parameters<typeof writes.transition>[0]["data"]>) => write(writes.transition, "transition", i),
-  setHold: (i: WithoutKey<Parameters<typeof writes.setHold>[0]["data"]>) => write(writes.setHold, "setHold", i),
-  delete: (i: WithoutKey<Parameters<typeof writes.deleteDocument>[0]["data"]>) => write(writes.deleteDocument, "delete", i),
-  restoreDeleted: (i: WithoutKey<Parameters<typeof writes.restoreDeleted>[0]["data"]>) => write(writes.restoreDeleted, "restoreDeleted", i),
-  reportProblem: (i: WithoutKey<Parameters<typeof writes.reportProblem>[0]["data"]>) => write(writes.reportProblem, "reportProblem", i),
-  grantAccess: (i: WithoutKey<Parameters<typeof writes.grantAccess>[0]["data"]>) => write(writes.grantAccess, "grantAccess", i),
-  revokeAccess: (i: WithoutKey<Parameters<typeof writes.revokeAccess>[0]["data"]>) => write(writes.revokeAccess, "revokeAccess", i),
-  reviewExtraction: (i: WithoutKey<Parameters<typeof writes.reviewExtraction>[0]["data"]>) => write(writes.reviewExtraction, "reviewExtraction", i),
+  register: (i: WithoutKey<Parameters<typeof writes.register>[0]["data"]>) =>
+    write(writes.register, "register", i),
+  updateMetadata: (i: WithoutKey<Parameters<typeof writes.updateMetadata>[0]["data"]>) =>
+    write(writes.updateMetadata, "updateMetadata", i),
+  addVersion: (i: WithoutKey<Parameters<typeof writes.addVersion>[0]["data"]>) =>
+    write(writes.addVersion, "addVersion", i),
+  transition: (i: WithoutKey<Parameters<typeof writes.transition>[0]["data"]>) =>
+    write(writes.transition, "transition", i),
+  setHold: (i: WithoutKey<Parameters<typeof writes.setHold>[0]["data"]>) =>
+    write(writes.setHold, "setHold", i),
+  delete: (i: WithoutKey<Parameters<typeof writes.deleteDocument>[0]["data"]>) =>
+    write(writes.deleteDocument, "delete", i),
+  restoreDeleted: (i: WithoutKey<Parameters<typeof writes.restoreDeleted>[0]["data"]>) =>
+    write(writes.restoreDeleted, "restoreDeleted", i),
+  reportProblem: (i: WithoutKey<Parameters<typeof writes.reportProblem>[0]["data"]>) =>
+    write(writes.reportProblem, "reportProblem", i),
+  grantAccess: (i: WithoutKey<Parameters<typeof writes.grantAccess>[0]["data"]>) =>
+    write(writes.grantAccess, "grantAccess", i),
+  revokeAccess: (i: WithoutKey<Parameters<typeof writes.revokeAccess>[0]["data"]>) =>
+    write(writes.revokeAccess, "revokeAccess", i),
+  reviewExtraction: (i: WithoutKey<Parameters<typeof writes.reviewExtraction>[0]["data"]>) =>
+    write(writes.reviewExtraction, "reviewExtraction", i),
   // holds and retention
   listHolds: async (page: number) => unwrap(await retention.listHolds({ data: { page } })),
   retentionOverview: async () => unwrap(await retention.retentionOverview()),
   deletionHistory: async () => unwrap(await retention.deletionHistory()),
   verifyHolds: async () => unwrap(await retention.verifyHolds()),
   retentionFor: async (id: string) => unwrap(await retention.retentionFor({ data: { id } })),
-  purge: (i: WithoutKey<Parameters<typeof retention.purgeDocument>[0]["data"]>) => write(retention.purgeDocument, "purge", i),
+  purge: (i: WithoutKey<Parameters<typeof retention.purgeDocument>[0]["data"]>) =>
+    write(retention.purgeDocument, "purge", i),
   // shared configuration (group and countries)
   getConfig: async () => unwrap(await config.getConfig()),
   listChildTenants: async () => unwrap(await config.listChildTenants()),
-  getChildView: async (tenantId: string) => unwrap(await config.getChildView({ data: { tenantId } })),
+  getChildView: async (tenantId: string) =>
+    unwrap(await config.getChildView({ data: { tenantId } })),
   specUsage: async (code: string) => unwrap(await config.specUsage({ data: { code } })),
   saveSpecification: (i: WithoutKey<Parameters<typeof config.saveSpecification>[0]["data"]>) =>
     write(config.saveSpecification, "config.saveSpecification", i),
@@ -101,24 +114,37 @@ export const api = {
     write(pipeline.advancePipeline, "advancePipeline", i),
   /** Sends the file bytes with the one-time ticket from register(). */
   uploadContent: async (storagePath: string, token: string, file: File) => {
-    const { error } = await supabase.storage.from("documents").uploadToSignedUrl(storagePath, token, file, { contentType: file.type });
-    if (error) throw new SeamFailure({ code: "upload.failed", category: "unavailable", retryable: true });
+    const { error } = await supabase.storage
+      .from("documents")
+      .uploadToSignedUrl(storagePath, token, file, { contentType: file.type });
+    if (error)
+      throw new SeamFailure({ code: "upload.failed", category: "unavailable", retryable: true });
   },
   resetTestData: async () => unwrap(await pipeline.resetTestData()),
   // search at scale, saved views, bulk jobs
-  searchDocuments: async (i: Parameters<typeof search.searchDocuments>[0]["data"]) => unwrap(await search.searchDocuments({ data: i })),
-  countDocuments: async (filters: SearchFilters) => unwrap(await search.countDocuments({ data: { filters } })),
-  facetDocuments: async (filters: SearchFilters) => unwrap(await search.facetDocuments({ data: { filters } })),
+  searchDocuments: async (i: Parameters<typeof search.searchDocuments>[0]["data"]) =>
+    unwrap(await search.searchDocuments({ data: i })),
+  countDocuments: async (filters: SearchFilters) =>
+    unwrap(await search.countDocuments({ data: { filters } })),
+  facetDocuments: async (filters: SearchFilters) =>
+    unwrap(await search.facetDocuments({ data: { filters } })),
   findRecord: async (q: string) => unwrap(await search.findRecord({ data: { q } })),
   listSavedViews: async () => unwrap(await search.listSavedViews()),
-  saveView: async (i: Parameters<typeof search.saveView>[0]["data"]) => unwrap(await search.saveView({ data: i })),
+  saveView: async (i: Parameters<typeof search.saveView>[0]["data"]) =>
+    unwrap(await search.saveView({ data: i })),
   deleteView: async (id: string) => unwrap(await search.deleteView({ data: { id } })),
-  startBulkJob: async (i: Parameters<typeof search.startBulkJob>[0]["data"]) => unwrap(await search.startBulkJob({ data: i })),
+  startBulkJob: async (i: Parameters<typeof search.startBulkJob>[0]["data"]) =>
+    unwrap(await search.startBulkJob({ data: i })),
   getBulkJob: async (id: string) => unwrap(await search.getBulkJob({ data: { id } })),
   // connected systems (TMF667 API keys)
   listSystems: async () => unwrap(await systems.listSystems()),
-  createSystem: async (i: Parameters<typeof systems.createSystem>[0]["data"]) => unwrap(await systems.createSystem({ data: i })),
+  createSystem: async (i: Parameters<typeof systems.createSystem>[0]["data"]) =>
+    unwrap(await systems.createSystem({ data: i })),
   rotateSystemKey: async (id: string) => unwrap(await systems.rotateSystemKey({ data: { id } })),
   revokeSystem: async (id: string) => unwrap(await systems.revokeSystem({ data: { id } })),
-  updateSystemLimits: async (input: { id: string; readLimitPerMinute: number; writeLimitPerMinute: number }) => unwrap(await systems.updateSystemLimits({ data: input })),
+  updateSystemLimits: async (input: {
+    id: string;
+    readLimitPerMinute: number;
+    writeLimitPerMinute: number;
+  }) => unwrap(await systems.updateSystemLimits({ data: input })),
 };

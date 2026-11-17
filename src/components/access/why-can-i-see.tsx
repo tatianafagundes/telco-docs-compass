@@ -7,23 +7,45 @@ import { whyCanISee } from "@/services/review-rules";
 import { Spinner } from "@/components/erad/misc";
 
 /** A small explanation of the signed-in person's own access. */
-export function WhyCanISee({ docId, initiallyOpen = false }: { docId: string; initiallyOpen?: boolean }) {
+export function WhyCanISee({
+  docId,
+  initiallyOpen = false,
+}: {
+  docId: string;
+  initiallyOpen?: boolean;
+}) {
   const [open, setOpen] = useState(initiallyOpen);
   const access = useQuery({ ...accessQuery(docId), enabled: open });
   const entities = useQuery({ ...entitiesQuery, enabled: open });
   const me = useQuery(meQuery);
-  const entityName = (id: string) => entities.data?.find((e) => e.id === id)?.display_name ?? "this record";
+  const entityName = (id: string) =>
+    entities.data?.find((e) => e.id === id)?.display_name ?? "this record";
 
   return (
     <div className="flex flex-col gap-1">
-      <button type="button" aria-expanded={open} className="focus-ring type-label-12 inline-flex min-h-6 items-center self-start underline" onClick={() => setOpen(!open)}>
+      <button
+        type="button"
+        aria-expanded={open}
+        className="focus-ring type-label-12 inline-flex min-h-6 items-center self-start underline"
+        onClick={() => setOpen(!open)}
+      >
         Why can I see this?
       </button>
       {open ? (
         <div role="status" className="type-paragraph-14">
-          {access.isPending || entities.isPending ? <Spinner label="Checking your access" /> :
-            access.isError ? "You no longer have access to this document." :
-            whyCanISee(access.data, me.data?.userId ?? "", entityName, (iso) => format(new Date(iso), "d MMM"), new Date())}
+          {access.isPending || entities.isPending ? (
+            <Spinner label="Checking your access" />
+          ) : access.isError ? (
+            "You no longer have access to this document."
+          ) : (
+            whyCanISee(
+              access.data,
+              me.data?.userId ?? "",
+              entityName,
+              (iso) => format(new Date(iso), "d MMM"),
+              new Date(),
+            )
+          )}
         </div>
       ) : null}
     </div>

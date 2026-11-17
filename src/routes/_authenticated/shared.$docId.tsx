@@ -30,7 +30,9 @@ function SharedDocumentPage() {
   const role = sharedOnlyRole((me.access?.role ?? "viewer") as AppRole, level);
   return (
     <div className="flex max-w-[720px] flex-col gap-4">
-      <Link to="/shared" className="focus-ring type-label-12 self-start underline">Back to Shared with me</Link>
+      <Link to="/shared" className="focus-ring type-label-12 self-start underline">
+        Back to Shared with me
+      </Link>
       <DocumentPanel id={docId} entityId={null} role={role} />
     </div>
   );

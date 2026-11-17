@@ -1,4 +1,9 @@
-import { infiniteQueryOptions, queryOptions, useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import {
+  infiniteQueryOptions,
+  queryOptions,
+  useInfiniteQuery,
+  useQuery,
+} from "@tanstack/react-query";
 import { api } from "@/services/api";
 import { normaliseFilters, type SearchFilters } from "@/services/search-rules";
 
@@ -25,17 +30,34 @@ export function useSearchPages(filters: SearchFilters) {
 }
 
 export function useDocumentCount(filters: SearchFilters) {
-  return useQuery({ queryKey: ["documents", "count", key(filters)], queryFn: () => api.countDocuments(key(filters)), staleTime: 60_000 });
+  return useQuery({
+    queryKey: ["documents", "count", key(filters)],
+    queryFn: () => api.countDocuments(key(filters)),
+    staleTime: 60_000,
+  });
 }
 
 export function useFacets(filters: SearchFilters) {
-  return useQuery({ queryKey: ["documents", "facets", key(filters)], queryFn: () => api.facetDocuments(key(filters)), staleTime: 60_000 });
+  return useQuery({
+    queryKey: ["documents", "facets", key(filters)],
+    queryFn: () => api.facetDocuments(key(filters)),
+    staleTime: 60_000,
+  });
 }
 
 export function useRecordMatches(q: string, enabled: boolean) {
-  return useQuery({ queryKey: ["records", "match", q], queryFn: () => api.findRecord(q), enabled, staleTime: 60_000 });
+  return useQuery({
+    queryKey: ["records", "match", q],
+    queryFn: () => api.findRecord(q),
+    enabled,
+    staleTime: 60_000,
+  });
 }
 
 export function useSavedViews() {
-  return useQuery({ queryKey: ["savedViews"], queryFn: () => api.listSavedViews(), staleTime: 60_000 });
+  return useQuery({
+    queryKey: ["savedViews"],
+    queryFn: () => api.listSavedViews(),
+    staleTime: 60_000,
+  });
 }

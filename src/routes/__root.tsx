@@ -86,7 +86,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Documents" },
       { name: "description", content: "Telecom document workspace prototype with synthetic data." },
       { property: "og:title", content: "Documents" },
-      { property: "og:description", content: "Telecom document workspace prototype with synthetic data." },
+      {
+        property: "og:description",
+        content: "Telecom document workspace prototype with synthetic data.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -135,7 +138,11 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
-      <Toaster toastOptions={{ className: "shadow-elev-1 rounded-none border border-border-item bg-item text-text-main" }} />
+      <Toaster
+        toastOptions={{
+          className: "shadow-elev-1 rounded-none border border-border-item bg-item text-text-main",
+        }}
+      />
     </QueryClientProvider>
   );
 }

@@ -2,7 +2,13 @@
 // Tested in __tests__/search-rules.test.ts.
 import { z } from "zod";
 import type { DocStatus } from "@/schemas/document";
-import { can, isFrozen, isTransitionAllowed, transitionCapability, type AppRole } from "@/services/document-rules";
+import {
+  can,
+  isFrozen,
+  isTransitionAllowed,
+  transitionCapability,
+  type AppRole,
+} from "@/services/document-rules";
 
 export const PAGE_SIZE = 50;
 export const COUNT_CAP = 10_000;
@@ -12,21 +18,46 @@ export const BULK_BATCH = 200;
 export const SORTS = ["updated", "name", "expiry"] as const;
 export type SortKey = (typeof SORTS)[number];
 
-export const STATUSES: DocStatus[] = ["draft", "in_review", "approved", "effective", "superseded", "expired", "archived"];
+export const STATUSES: DocStatus[] = [
+  "draft",
+  "in_review",
+  "approved",
+  "effective",
+  "superseded",
+  "expired",
+  "archived",
+];
 export const SENSITIVITIES = ["public", "internal", "confidential", "restricted"] as const;
-export const ENTITY_TYPES = ["ProductOrder", "Quote", "Agreement", "BillingAccount", "Customer", "TroubleTicket", "Site"] as const;
+export const ENTITY_TYPES = [
+  "ProductOrder",
+  "Quote",
+  "Agreement",
+  "BillingAccount",
+  "Customer",
+  "TroubleTicket",
+  "Site",
+] as const;
 
 export const searchFiltersSchema = z.object({
   q: z.string().max(200).optional(),
   types: z.array(z.string().max(64)).max(30).optional(),
-  statuses: z.array(z.enum(STATUSES as [DocStatus, ...DocStatus[]])).max(7).optional(),
+  statuses: z
+    .array(z.enum(STATUSES as [DocStatus, ...DocStatus[]]))
+    .max(7)
+    .optional(),
   sensitivity: z.array(z.enum(SENSITIVITIES)).max(4).optional(),
   entityTypes: z.array(z.string().max(64)).max(10).optional(),
   entityId: z.string().max(64).optional(),
   hold: z.boolean().optional(),
   review: z.boolean().optional(),
-  changedAfter: z.string().regex(/^\d{4}-\d{2}-\d{2}/).optional(),
-  expiringBefore: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  changedAfter: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}/)
+    .optional(),
+  expiringBefore: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   sort: z.enum(SORTS).optional(),
 });
 export type SearchFilters = z.infer<typeof searchFiltersSchema>;
@@ -74,7 +105,11 @@ export function cursorFor(sort: SortKey, row: CursorRow): Cursor {
 }
 
 /** We ask for one more row than shown; its presence means there is a next page. */
-export function splitPage<T extends CursorRow>(rows: T[], sort: SortKey, size = PAGE_SIZE): { items: T[]; next: Cursor | null } {
+export function splitPage<T extends CursorRow>(
+  rows: T[],
+  sort: SortKey,
+  size = PAGE_SIZE,
+): { items: T[]; next: Cursor | null } {
   const items = rows.slice(0, size);
   const last = items[items.length - 1];
   return { items, next: rows.length > size && last ? cursorFor(sort, last) : null };
@@ -89,7 +124,13 @@ export function countLabel(n: number): string {
 /** Looks like an order, quote, contract or ticket number rather than words. */
 export function looksLikeIdentifier(q: string): boolean {
   const t = q.trim();
-  return t.length >= 3 && t.length <= 64 && !/\s/.test(t) && /\d/.test(t) && /^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(t);
+  return (
+    t.length >= 3 &&
+    t.length <= 64 &&
+    !/\s/.test(t) &&
+    /\d/.test(t) &&
+    /^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(t)
+  );
 }
 
 // ---------- bulk ----------
@@ -97,7 +138,8 @@ export function looksLikeIdentifier(q: string): boolean {
 export const BULK_ACTIONS = ["placeHold", "releaseHold", "setSensitivity", "transition"] as const;
 export type BulkAction = (typeof BULK_ACTIONS)[number];
 
-export type SkipReason = "noPermission" | "frozen" | "notAllowed" | "detailsPending" | "notFound" | "unchanged";
+export type SkipReason =
+  "noPermission" | "frozen" | "notAllowed" | "detailsPending" | "notFound" | "unchanged";
 
 export const SKIP_LABEL: Record<SkipReason, string> = {
   noPermission: "your role can't make this change",
@@ -121,7 +163,12 @@ export interface BulkParams {
 }
 
 /** Same role and status rules as the single-document actions. Null means the change can go ahead. */
-export function bulkSkipReason(role: AppRole, action: BulkAction, params: BulkParams, d: BulkDocFacts | null): SkipReason | null {
+export function bulkSkipReason(
+  role: AppRole,
+  action: BulkAction,
+  params: BulkParams,
+  d: BulkDocFacts | null,
+): SkipReason | null {
   if (!d) return "notFound";
   if (action === "placeHold" || action === "releaseHold") {
     if (!can(role, "manage")) return "noPermission";
@@ -143,9 +190,16 @@ export function bulkSkipReason(role: AppRole, action: BulkAction, params: BulkPa
   return null;
 }
 
-export function bulkSummary(total: number, changed: number, skipped: Partial<Record<SkipReason, number>>): string {
+export function bulkSummary(
+  total: number,
+  changed: number,
+  skipped: Partial<Record<SkipReason, number>>,
+): string {
   const parts = (Object.entries(skipped) as [SkipReason, number][])
     .filter(([, n]) => n > 0)
     .map(([r, n]) => `${n.toLocaleString("en-GB")} skipped because ${SKIP_LABEL[r]}`);
-  return [`${changed.toLocaleString("en-GB")} of ${total.toLocaleString("en-GB")} changed`, ...parts].join(" · ");
+  return [
+    `${changed.toLocaleString("en-GB")} of ${total.toLocaleString("en-GB")} changed`,
+    ...parts,
+  ].join(" · ");
 }

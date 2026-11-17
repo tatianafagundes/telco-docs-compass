@@ -31,7 +31,11 @@ export function DataTable<T>(p: DataTableProps<T>) {
       <caption className="sr-only">{p.caption}</caption>
       <thead>
         <tr className="h-12 border-b border-border-cell">
-          {p.onToggleRow ? <th className="w-10 px-4" scope="col"><span className="sr-only">Select</span></th> : null}
+          {p.onToggleRow ? (
+            <th className="w-10 px-4" scope="col">
+              <span className="sr-only">Select</span>
+            </th>
+          ) : null}
           {p.columns.map((c) => {
             const active = p.sort?.key === c.key;
             const Icon = !active ? ArrowUpDown : p.sort?.dir === "asc" ? ArrowUp : ArrowDown;
@@ -39,11 +43,17 @@ export function DataTable<T>(p: DataTableProps<T>) {
               <th
                 key={c.key}
                 scope="col"
-                aria-sort={active ? (p.sort?.dir === "asc" ? "ascending" : "descending") : undefined}
+                aria-sort={
+                  active ? (p.sort?.dir === "asc" ? "ascending" : "descending") : undefined
+                }
                 className="type-label-14-medium px-4 text-left"
               >
                 {c.sortable && p.onSort ? (
-                  <button type="button" onClick={() => p.onSort?.(c.key)} className="focus-ring inline-flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => p.onSort?.(c.key)}
+                    className="focus-ring inline-flex items-center gap-1"
+                  >
                     {c.header}
                     <Icon aria-hidden="true" className="size-4 text-text-secondary" />
                   </button>
@@ -53,7 +63,11 @@ export function DataTable<T>(p: DataTableProps<T>) {
               </th>
             );
           })}
-          {p.rowActions ? <th className="px-4" scope="col"><span className="sr-only">Actions</span></th> : null}
+          {p.rowActions ? (
+            <th className="px-4" scope="col">
+              <span className="sr-only">Actions</span>
+            </th>
+          ) : null}
         </tr>
       </thead>
       <tbody>
@@ -68,7 +82,9 @@ export function DataTable<T>(p: DataTableProps<T>) {
               className={cn(
                 "group h-12 border-b border-border-cell",
                 p.striped && i % 2 === 1 && "bg-cell-striped",
-                isSel ? "bg-cell-selected shadow-[inset_3px_0_0_var(--color-border-selected)]" : "hover:bg-cell-hover",
+                isSel
+                  ? "bg-cell-selected shadow-[inset_3px_0_0_var(--color-border-selected)]"
+                  : "hover:bg-cell-hover",
                 p.onActivate && "cursor-pointer",
               )}
             >
@@ -82,7 +98,9 @@ export function DataTable<T>(p: DataTableProps<T>) {
                 </td>
               ) : null}
               {p.columns.map((c) => (
-                <td key={c.key} className="px-4">{c.cell(r)}</td>
+                <td key={c.key} className="px-4">
+                  {c.cell(r)}
+                </td>
               ))}
               {p.rowActions ? (
                 <td className="px-4 text-right" onClick={(e) => e.stopPropagation()}>

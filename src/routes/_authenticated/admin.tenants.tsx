@@ -11,9 +11,15 @@ export const Route = createFileRoute("/_authenticated/admin/tenants")({
   head: () => ({
     meta: [
       { title: "Tenants · Admin" },
-      { name: "description", content: "Document counts and settings for each organisation in the group." },
+      {
+        name: "description",
+        content: "Document counts and settings for each organisation in the group.",
+      },
       { property: "og:title", content: "Tenants · Admin" },
-      { property: "og:description", content: "Document counts and settings for each organisation in the group." },
+      {
+        property: "og:description",
+        content: "Document counts and settings for each organisation in the group.",
+      },
     ],
   }),
   component: TenantsLayout,
@@ -28,17 +34,27 @@ function TenantsPage() {
   const { data: kids } = useSuspenseQuery(childTenantsQuery);
   return (
     <div className="flex flex-col gap-4">
-      <p className="type-paragraph-14">You see counts and settings. Document names and content stay inside each tenant.</p>
+      <p className="type-paragraph-14">
+        You see counts and settings. Document names and content stay inside each tenant.
+      </p>
       <ResetTestData />
       {kids.length === 0 ? (
-        <EmptyState icon={Building2} title="No organisations yet" cause="When a country joins the group, its counts and settings appear here." />
+        <EmptyState
+          icon={Building2}
+          title="No organisations yet"
+          cause="When a country joins the group, its counts and settings appear here."
+        />
       ) : (
         kids.map((k) => (
           <Card
             key={k.id}
             title={k.displayName}
             actions={
-              <Link to="/admin/tenants/$tenantId" params={{ tenantId: k.id }} className="focus-ring type-label-14 inline-flex h-8 items-center rounded-control border border-border-btn px-3 hover:bg-btn-default-hover">
+              <Link
+                to="/admin/tenants/$tenantId"
+                params={{ tenantId: k.id }}
+                className="focus-ring type-label-14 inline-flex h-8 items-center rounded-control border border-border-btn px-3 hover:bg-btn-default-hover"
+              >
                 View settings and counts
               </Link>
             }

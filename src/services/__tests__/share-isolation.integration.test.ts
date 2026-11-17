@@ -24,7 +24,9 @@ async function token(email: string): Promise<string> {
 }
 
 async function raw(t: string, path: string): Promise<string> {
-  const res = await fetch(`${URL_}/rest/v1/${path}`, { headers: { apikey: KEY ?? "", Authorization: `Bearer ${t}` } });
+  const res = await fetch(`${URL_}/rest/v1/${path}`, {
+    headers: { apikey: KEY ?? "", Authorization: `Bearer ${t}` },
+  });
   return res.text();
 }
 
@@ -49,7 +51,10 @@ describe.runIf(enabled)("Sweden quote isolation from Norway", () => {
   }
 
   it("should still let the Sweden manager read the quote, so the checks above are meaningful", async () => {
-    const body = await raw(await token("se.manager@example.test"), `documents?select=id,name&id=eq.${QUOTE_DOC}`);
+    const body = await raw(
+      await token("se.manager@example.test"),
+      `documents?select=id,name&id=eq.${QUOTE_DOC}`,
+    );
     expect(body).toContain("Q-2026-0412");
   });
 });

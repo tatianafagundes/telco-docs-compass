@@ -13,9 +13,15 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Sign in · Documents" },
-      { name: "description", content: "Sign in to Documents, the telecom document workspace prototype." },
+      {
+        name: "description",
+        content: "Sign in to Documents, the telecom document workspace prototype.",
+      },
       { property: "og:title", content: "Sign in · Documents" },
-      { property: "og:description", content: "Sign in to Documents, the telecom document workspace prototype." },
+      {
+        property: "og:description",
+        content: "Sign in to Documents, the telecom document workspace prototype.",
+      },
     ],
   }),
   component: AuthPage,
@@ -60,10 +66,21 @@ function AuthPage() {
         aria-labelledby="auth-title"
       >
         <div className="flex flex-col gap-2">
-          <h1 id="auth-title" className="type-title-18-medium">Documents</h1>
-          <Tag tone="purple" icon={false} className="self-start">Prototype · synthetic data only</Tag>
+          <h1 id="auth-title" className="type-title-18-medium">
+            Documents
+          </h1>
+          <Tag tone="purple" icon={false} className="self-start">
+            Prototype · synthetic data only
+          </Tag>
         </div>
-        <TextField label="Email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
+        <TextField
+          label="Email"
+          type="email"
+          autoComplete="username"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
         <TextField
           label="Password"
           type="password"

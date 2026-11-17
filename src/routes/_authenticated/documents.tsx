@@ -13,32 +13,66 @@ import { BulkBar } from "@/components/search/bulk-bar";
 import { FacetPanel } from "@/components/search/facet-panel";
 import { ResultsTable } from "@/components/search/results-table";
 import { SavedViews } from "@/components/search/saved-views";
-import { filtersOf, parseDocumentsSearch, type DocumentsSearch } from "@/components/search/search-url";
+import {
+  filtersOf,
+  parseDocumentsSearch,
+  type DocumentsSearch,
+} from "@/components/search/search-url";
 import { StartLists } from "@/components/search/start-lists";
 import { useDocumentCount, useRecordMatches, useSearchPages } from "@/hooks/use-document-search";
 import { meQuery, useMe } from "@/hooks/use-me";
 import type { AppRole } from "@/services/document-rules";
-import { countLabel, hasAnyFilter, looksLikeIdentifier, type SearchFilters, type SortKey } from "@/services/search-rules";
+import {
+  countLabel,
+  hasAnyFilter,
+  looksLikeIdentifier,
+  type SearchFilters,
+  type SortKey,
+} from "@/services/search-rules";
 
 export const Route = createFileRoute("/_authenticated/documents")({
   validateSearch: (raw: Record<string, unknown>): DocumentsSearch => parseDocumentsSearch(raw),
   head: () => ({
     meta: [
       { title: "Documents" },
-      { name: "description", content: "Search, filter and change documents across orders, quotes, accounts and customers." },
+      {
+        name: "description",
+        content:
+          "Search, filter and change documents across orders, quotes, accounts and customers.",
+      },
       { property: "og:title", content: "Documents" },
-      { property: "og:description", content: "Search, filter and change documents across orders, quotes, accounts and customers." },
+      {
+        property: "og:description",
+        content:
+          "Search, filter and change documents across orders, quotes, accounts and customers.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(meQuery),
-  pendingComponent: () => <div>{Array.from({ length: 6 }, (_, i) => <SkeletonRow key={i} columns={2} />)}</div>,
-  errorComponent: () => <EmptyState icon={FileSearch} title="Documents couldn't load" cause="Something interrupted the connection. Reloading the page usually helps." />,
+  pendingComponent: () => (
+    <div>
+      {Array.from({ length: 6 }, (_, i) => (
+        <SkeletonRow key={i} columns={2} />
+      ))}
+    </div>
+  ),
+  errorComponent: () => (
+    <EmptyState
+      icon={FileSearch}
+      title="Documents couldn't load"
+      cause="Something interrupted the connection. Reloading the page usually helps."
+    />
+  ),
   component: DocumentsPage,
 });
 
-const SORT_LABEL: Record<SortKey, string> = { updated: "Recently changed", name: "Name A–Z", expiry: "Expiring soonest" };
+const SORT_LABEL: Record<SortKey, string> = {
+  updated: "Recently changed",
+  name: "Name A–Z",
+  expiry: "Expiring soonest",
+};
 
 function DocumentsPage() {
   const search = Route.useSearch();
@@ -50,10 +84,28 @@ function DocumentsPage() {
   const showResults = hasAnyFilter(filters) || Boolean(search.all);
 
   const setFilters = (f: SearchFilters, all = search.all) =>
-    void navigate({ search: { ...filtersOf(f), ...(all ? { all: true } : {}), ...(search.doc ? { doc: search.doc } : {}), ...(search.rec ? { rec: search.rec } : {}) } });
+    void navigate({
+      search: {
+        ...filtersOf(f),
+        ...(all ? { all: true } : {}),
+        ...(search.doc ? { doc: search.doc } : {}),
+        ...(search.rec ? { rec: search.rec } : {}),
+      },
+    });
   const open = (id: string, entityId: string | null) =>
-    void navigate({ search: (prev) => { const { rec: _r, ...rest } = prev; return { ...rest, doc: id, ...(entityId ? { rec: entityId } : {}) }; } });
-  const close = () => void navigate({ search: (prev) => { const { doc: _d, rec: _r, ...rest } = prev; return rest; } });
+    void navigate({
+      search: (prev) => {
+        const { rec: _r, ...rest } = prev;
+        return { ...rest, doc: id, ...(entityId ? { rec: entityId } : {}) };
+      },
+    });
+  const close = () =>
+    void navigate({
+      search: (prev) => {
+        const { doc: _d, rec: _r, ...rest } = prev;
+        return rest;
+      },
+    });
 
   return (
     <div className="flex min-h-0 flex-1 gap-4">
@@ -63,14 +115,26 @@ function DocumentsPage() {
         <SavedViews filters={filters} isAdmin={isAdmin} onApply={(f) => setFilters(f, true)} />
         {search.q && looksLikeIdentifier(search.q) ? <RecordMatches q={search.q} /> : null}
         {showResults ? (
-          <Results filters={filters} role={role} activeId={search.doc} onOpen={open} onChange={(f) => setFilters(f)} onClearAll={() => void navigate({ search: {} })} />
+          <Results
+            filters={filters}
+            role={role}
+            activeId={search.doc}
+            onOpen={open}
+            onChange={(f) => setFilters(f)}
+            onClearAll={() => void navigate({ search: {} })}
+          />
         ) : (
           <StartLists isAdmin={isAdmin} onOpen={open} onSeeAll={(f) => setFilters(f, true)} />
         )}
       </div>
       {search.doc ? (
         <SidePanel title="Document" collapsed={false} onCollapsedChange={close}>
-          <DocumentPanel key={search.doc} id={search.doc} entityId={search.rec ?? null} role={role} />
+          <DocumentPanel
+            key={search.doc}
+            id={search.doc}
+            entityId={search.rec ?? null}
+            role={role}
+          />
         </SidePanel>
       ) : null}
     </div>
@@ -86,14 +150,29 @@ function SearchBox({ value, onSearch }: { value: string; onSearch: (q: string) =
     return () => clearTimeout(t);
   }, [text, value, onSearch]);
   return (
-    <form role="search" onSubmit={(e) => { e.preventDefault(); onSearch(text); }} className="max-w-[720px]">
+    <form
+      role="search"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSearch(text);
+      }}
+      className="max-w-[720px]"
+    >
       <TextField
         label="Search documents"
         helper="Names, descriptions, confirmed details, or an order, quote or contract number."
         prefix={<Search className="size-4" aria-hidden="true" />}
         suffix={
           text ? (
-            <button type="button" aria-label="Clear search" className="focus-ring flex size-6 items-center justify-center" onClick={() => { setText(""); onSearch(""); }}>
+            <button
+              type="button"
+              aria-label="Clear search"
+              className="focus-ring flex size-6 items-center justify-center"
+              onClick={() => {
+                setText("");
+                onSearch("");
+              }}
+            >
               <X aria-hidden="true" className="size-4" />
             </button>
           ) : undefined
@@ -113,7 +192,11 @@ function RecordMatches({ q }: { q: string }) {
     <ul aria-label="Matching records" className="flex flex-wrap gap-2">
       {m.data.map((r) => (
         <li key={r.id}>
-          <Link to="/records/$entityId" params={{ entityId: r.id }} className="focus-ring type-label-14 inline-flex min-h-8 items-center gap-1 rounded-control border border-border-btn px-3 hover:bg-item-hover">
+          <Link
+            to="/records/$entityId"
+            params={{ entityId: r.id }}
+            className="focus-ring type-label-14 inline-flex min-h-8 items-center gap-1 rounded-control border border-border-btn px-3 hover:bg-item-hover"
+          >
             Go to {r.name}
             <ArrowRight aria-hidden="true" className="size-4" />
           </Link>
@@ -123,15 +206,31 @@ function RecordMatches({ q }: { q: string }) {
   );
 }
 
-function Results(p: { filters: SearchFilters; role: AppRole; activeId: string | undefined; onOpen: (id: string, entityId: string | null) => void; onChange: (f: SearchFilters) => void; onClearAll: () => void }) {
+function Results(p: {
+  filters: SearchFilters;
+  role: AppRole;
+  activeId: string | undefined;
+  onOpen: (id: string, entityId: string | null) => void;
+  onChange: (f: SearchFilters) => void;
+  onClearAll: () => void;
+}) {
   const pages = useSearchPages(p.filters);
   const count = useDocumentCount(p.filters);
   const rows = useMemo(() => pages.data?.pages.flatMap((pg) => pg.items) ?? [], [pages.data]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [matchAll, setMatchAll] = useState(false);
-  useEffect(() => { setSelected(new Set()); setMatchAll(false); }, [p.filters]);
+  useEffect(() => {
+    setSelected(new Set());
+    setMatchAll(false);
+  }, [p.filters]);
 
-  const toggle = (id: string) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const toggle = (id: string) =>
+    setSelected((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
   const allLoaded = rows.length > 0 && rows.every((r) => selected.has(r.id));
   const sort = p.filters.sort ?? "updated";
 
@@ -146,15 +245,37 @@ function Results(p: { filters: SearchFilters; role: AppRole; activeId: string | 
             {count.isPending ? "Counting…" : count.isError ? "Results" : countLabel(count.data)}
           </p>
           <div className="flex items-end gap-2">
-            {hasAnyFilter(p.filters) ? <Button variant="ghost" onClick={p.onClearAll}>Clear all</Button> : null}
-            <Select label="Sort" value={sort} onValueChange={(v) => p.onChange({ ...p.filters, sort: v as SortKey })} groups={[{ options: (Object.keys(SORT_LABEL) as SortKey[]).map((k) => ({ value: k, label: SORT_LABEL[k] })) }]} />
+            {hasAnyFilter(p.filters) ? (
+              <Button variant="ghost" onClick={p.onClearAll}>
+                Clear all
+              </Button>
+            ) : null}
+            <Select
+              label="Sort"
+              value={sort}
+              onValueChange={(v) => p.onChange({ ...p.filters, sort: v as SortKey })}
+              groups={[
+                {
+                  options: (Object.keys(SORT_LABEL) as SortKey[]).map((k) => ({
+                    value: k,
+                    label: SORT_LABEL[k],
+                  })),
+                },
+              ]}
+            />
           </div>
         </div>
 
         {selected.size > 0 || matchAll ? (
           <div className="flex flex-col gap-2">
             {allLoaded && !matchAll && count.data !== undefined && count.data > rows.length ? (
-              <Button variant="ghost" onClick={() => { setMatchAll(true); setSelected(new Set()); }}>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setMatchAll(true);
+                  setSelected(new Set());
+                }}
+              >
                 Select all {countLabel(count.data).replace(" documents", "")} matching instead
               </Button>
             ) : null}
@@ -162,13 +283,20 @@ function Results(p: { filters: SearchFilters; role: AppRole; activeId: string | 
               role={p.role}
               selectedIds={matchAll ? [] : [...selected]}
               matching={matchAll ? { filters: p.filters, count: count.data ?? 0 } : null}
-              onClear={() => { setSelected(new Set()); setMatchAll(false); }}
+              onClear={() => {
+                setSelected(new Set());
+                setMatchAll(false);
+              }}
             />
           </div>
         ) : null}
 
         {pages.isPending ? (
-          <div>{Array.from({ length: 8 }, (_, i) => <SkeletonRow key={i} columns={4} />)}</div>
+          <div>
+            {Array.from({ length: 8 }, (_, i) => (
+              <SkeletonRow key={i} columns={4} />
+            ))}
+          </div>
         ) : pages.isError ? (
           <div className="flex flex-col items-start gap-2 py-6">
             <p className="type-paragraph-14">The results couldn't load just now.</p>

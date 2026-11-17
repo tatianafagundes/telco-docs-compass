@@ -34,7 +34,10 @@ const isTenantAdmin = (role: string) => role === "tenant_admin";
 
 function newKey(): { key: string; prefix: string } {
   const bytes = crypto.getRandomValues(new Uint8Array(30));
-  const body = btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const body = btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
   const key = `erad_${body}`;
   return { key, prefix: key.slice(0, 10) };
 }
@@ -44,7 +47,20 @@ async function adminClient(): Promise<Db> {
   return supabaseAdmin;
 }
 
-const map = (r: { id: string; name: string; system_kind: string; key_prefix: string; scopes: string[]; created_at: string; last_used_at: string | null; revoked_at: string | null; expires_at: string | null; last_rate_limited_at: string | null; read_limit_per_minute: number; write_limit_per_minute: number }): ConnectedSystem => ({
+const map = (r: {
+  id: string;
+  name: string;
+  system_kind: string;
+  key_prefix: string;
+  scopes: string[];
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+  expires_at: string | null;
+  last_rate_limited_at: string | null;
+  read_limit_per_minute: number;
+  write_limit_per_minute: number;
+}): ConnectedSystem => ({
   id: r.id,
   name: r.name,
   systemKind: r.system_kind,
@@ -59,14 +75,19 @@ const map = (r: { id: string; name: string; system_kind: string; key_prefix: str
   writeLimitPerMinute: r.write_limit_per_minute,
 });
 
-const COLS = "id, name, system_kind, key_prefix, scopes, created_at, last_used_at, revoked_at, expires_at, last_rate_limited_at, read_limit_per_minute, write_limit_per_minute";
+const COLS =
+  "id, name, system_kind, key_prefix, scopes, created_at, last_used_at, revoked_at, expires_at, last_rate_limited_at, read_limit_per_minute, write_limit_per_minute";
 
 export const listSystems = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<SeamResult<ConnectedSystem[]>> =>
     runRead(context, "systems.list", null, async (env) => {
       if (!isTenantAdmin(env.role)) return forbidden();
-      const { data } = await env.caller.from("integration_clients").select(COLS).eq("tenant_id", env.tenantId).order("created_at", { ascending: false });
+      const { data } = await env.caller
+        .from("integration_clients")
+        .select(COLS)
+        .eq("tenant_id", env.tenantId)
+        .order("created_at", { ascending: false });
       return { ok: true, data: (data ?? []).map(map) };
     }),
   );
@@ -80,19 +101,30 @@ const createSchema = z.object({
 export const createSystem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: z.input<typeof createSchema>) => createSchema.parse(input))
-  .handler(async ({ data, context }): Promise<SeamResult<{ system: ConnectedSystem; key: string }>> =>
-    runRead(context, "systems.create", null, async (env) => {
-      if (!isTenantAdmin(env.role)) return forbidden();
-      const { key, prefix } = newKey();
-      const admin = await adminClient();
-      const { data: row, error } = await admin
-        .from("integration_clients")
-        .insert({ tenant_id: env.tenantId, name: data.name, system_kind: data.systemKind, scopes: [...new Set(data.scopes)], key_prefix: prefix, key_hash: await sha256Hex(key), created_by: env.userId, expires_at: expiry() })
-        .select(COLS)
-        .single();
-      if (error || !row) return { ok: false, error: seamError("seam.unavailable", "unavailable", "retry") };
-      return { ok: true, data: { system: map(row), key } };
-    }),
+  .handler(
+    async ({ data, context }): Promise<SeamResult<{ system: ConnectedSystem; key: string }>> =>
+      runRead(context, "systems.create", null, async (env) => {
+        if (!isTenantAdmin(env.role)) return forbidden();
+        const { key, prefix } = newKey();
+        const admin = await adminClient();
+        const { data: row, error } = await admin
+          .from("integration_clients")
+          .insert({
+            tenant_id: env.tenantId,
+            name: data.name,
+            system_kind: data.systemKind,
+            scopes: [...new Set(data.scopes)],
+            key_prefix: prefix,
+            key_hash: await sha256Hex(key),
+            created_by: env.userId,
+            expires_at: expiry(),
+          })
+          .select(COLS)
+          .single();
+        if (error || !row)
+          return { ok: false, error: seamError("seam.unavailable", "unavailable", "retry") };
+        return { ok: true, data: { system: map(row), key } };
+      }),
   );
 
 const idSchema = z.object({ id: z.string().uuid() });
@@ -112,7 +144,8 @@ export const rotateSystemKey = createServerFn({ method: "POST" })
         .eq("tenant_id", env.tenantId)
         .is("revoked_at", null)
         .select("id");
-      if (!rows || rows.length === 0) return { ok: false, error: seamError("system.notFound", "notFound", "none") };
+      if (!rows || rows.length === 0)
+        return { ok: false, error: seamError("system.notFound", "notFound", "none") };
       return { ok: true, data: { key } };
     }),
   );
@@ -130,7 +163,8 @@ export const revokeSystem = createServerFn({ method: "POST" })
         .eq("id", data.id)
         .eq("tenant_id", env.tenantId)
         .select("id");
-      if (!rows || rows.length === 0) return { ok: false, error: seamError("system.notFound", "notFound", "none") };
+      if (!rows || rows.length === 0)
+        return { ok: false, error: seamError("system.notFound", "notFound", "none") };
       await admin.from("event_subscriptions").delete().eq("client_id", data.id);
       return { ok: true, data: { id: data.id } };
     }),
@@ -152,7 +186,10 @@ export const updateSystemLimits = createServerFn({ method: "POST" })
       const admin = await adminClient();
       const { data: row } = await admin
         .from("integration_clients")
-        .update({ read_limit_per_minute: data.readLimitPerMinute, write_limit_per_minute: data.writeLimitPerMinute })
+        .update({
+          read_limit_per_minute: data.readLimitPerMinute,
+          write_limit_per_minute: data.writeLimitPerMinute,
+        })
         .eq("id", data.id)
         .eq("tenant_id", env.tenantId)
         .is("revoked_at", null)

@@ -58,26 +58,48 @@ describe("document-rules", () => {
 
   it("should block delete under legal hold with the hold reason", () => {
     const b = deleteBlocker({
-      legalHold: true, holdReason: "Pending dispute ref. DSP-2026-031", retainUntil: null,
-      createdAt: "2020-01-01T00:00:00Z", minRetentionDays: null, today: "2026-11-10",
+      legalHold: true,
+      holdReason: "Pending dispute ref. DSP-2026-031",
+      retainUntil: null,
+      createdAt: "2020-01-01T00:00:00Z",
+      minRetentionDays: null,
+      today: "2026-11-10",
     });
     expect(b?.code).toBe("doc.delete.legalHold");
     expect(b?.customerFacing?.detail).toBe("Pending dispute ref. DSP-2026-031");
   });
 
   it("should block delete under retention and the master 1825-day floor", () => {
-    expect(deleteBlocker({
-      legalHold: false, holdReason: null, retainUntil: "2038-02-28",
-      createdAt: "2020-01-01T00:00:00Z", minRetentionDays: null, today: "2026-11-10",
-    })?.code).toBe("doc.delete.retention");
-    expect(deleteBlocker({
-      legalHold: false, holdReason: null, retainUntil: null,
-      createdAt: "2026-11-05T00:00:00Z", minRetentionDays: 1825, today: "2026-11-10",
-    })?.code).toBe("doc.delete.retention");
-    expect(deleteBlocker({
-      legalHold: false, holdReason: null, retainUntil: null,
-      createdAt: "2019-01-01T00:00:00Z", minRetentionDays: 1825, today: "2026-11-10",
-    })).toBeNull();
+    expect(
+      deleteBlocker({
+        legalHold: false,
+        holdReason: null,
+        retainUntil: "2038-02-28",
+        createdAt: "2020-01-01T00:00:00Z",
+        minRetentionDays: null,
+        today: "2026-11-10",
+      })?.code,
+    ).toBe("doc.delete.retention");
+    expect(
+      deleteBlocker({
+        legalHold: false,
+        holdReason: null,
+        retainUntil: null,
+        createdAt: "2026-11-05T00:00:00Z",
+        minRetentionDays: 1825,
+        today: "2026-11-10",
+      })?.code,
+    ).toBe("doc.delete.retention");
+    expect(
+      deleteBlocker({
+        legalHold: false,
+        holdReason: null,
+        retainUntil: null,
+        createdAt: "2019-01-01T00:00:00Z",
+        minRetentionDays: 1825,
+        today: "2026-11-10",
+      }),
+    ).toBeNull();
   });
 
   it("should lock content while scanning or quarantined", () => {
@@ -92,8 +114,12 @@ describe("document-rules", () => {
     const h2 = await hashBody({ id: "a", to: "effective" });
     expect(h1).toBe(h1Reordered);
     expect(idempotencyOutcome(null, h1).kind).toBe("fresh");
-    expect(idempotencyOutcome({ request_hash: h1, response: { ok: true } }, h1Reordered).kind).toBe("replay");
-    expect(idempotencyOutcome({ request_hash: h1, response: { ok: true } }, h2).kind).toBe("conflict");
+    expect(idempotencyOutcome({ request_hash: h1, response: { ok: true } }, h1Reordered).kind).toBe(
+      "replay",
+    );
+    expect(idempotencyOutcome({ request_hash: h1, response: { ok: true } }, h2).kind).toBe(
+      "conflict",
+    );
   });
 
   it("should let clients record only view and download", () => {
@@ -111,10 +137,18 @@ describe("approved content protection", () => {
     expect(metadataPatchAllowed("approved", ["name"])).toEqual({ ok: true });
   });
   it("should block changing confirmed details on an effective document", () => {
-    expect(metadataPatchAllowed("effective", ["name", "characteristic"])).toEqual({ ok: false, reason: "approvedContent", blocked: ["characteristic"] });
+    expect(metadataPatchAllowed("effective", ["name", "characteristic"])).toEqual({
+      ok: false,
+      reason: "approvedContent",
+      blocked: ["characteristic"],
+    });
   });
   it("should block changing the expiry date on an approved document", () => {
-    expect(metadataPatchAllowed("approved", ["expiryDate"])).toEqual({ ok: false, reason: "approvedContent", blocked: ["expiryDate"] });
+    expect(metadataPatchAllowed("approved", ["expiryDate"])).toEqual({
+      ok: false,
+      reason: "approvedContent",
+      blocked: ["expiryDate"],
+    });
   });
   it("should allow content changes while in draft or review", () => {
     expect(metadataPatchAllowed("draft", ["characteristic", "expiryDate"])).toEqual({ ok: true });

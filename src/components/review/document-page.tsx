@@ -37,9 +37,23 @@ export function DocumentPage({ pages, fields, selectedId, onSelect }: DocumentPa
   return (
     <section aria-label="Document page" className="flex min-w-0 flex-col gap-2">
       <div className="flex items-center gap-2">
-        <Button size="icon" aria-label="Zoom out" unavailable={zoom <= 0.75} onClick={() => setZoom(Math.max(0.75, zoom - 0.25))}><Minus aria-hidden="true" /></Button>
+        <Button
+          size="icon"
+          aria-label="Zoom out"
+          unavailable={zoom <= 0.75}
+          onClick={() => setZoom(Math.max(0.75, zoom - 0.25))}
+        >
+          <Minus aria-hidden="true" />
+        </Button>
         <span className="type-label-12 w-12 text-center">{Math.round(zoom * 100)} %</span>
-        <Button size="icon" aria-label="Zoom in" unavailable={zoom >= 2} onClick={() => setZoom(Math.min(2, zoom + 0.25))}><Plus aria-hidden="true" /></Button>
+        <Button
+          size="icon"
+          aria-label="Zoom in"
+          unavailable={zoom >= 2}
+          onClick={() => setZoom(Math.min(2, zoom + 0.25))}
+        >
+          <Plus aria-hidden="true" />
+        </Button>
         {pages.length > 1 ? (
           <span className="type-label-12 ml-auto">
             Page {pageNo} of {pages.length}
@@ -48,9 +62,31 @@ export function DocumentPage({ pages, fields, selectedId, onSelect }: DocumentPa
       </div>
       <div className="overflow-auto border border-border-subtle bg-layer-application p-4">
         {page ? (
-          <div className={cn("relative mx-auto aspect-[1/1.414] bg-item text-text-main shadow-elev-1", zoom === 0.75 ? "w-3/4" : zoom === 1 ? "w-full" : zoom === 1.25 ? "w-[125%]" : zoom === 1.5 ? "w-[150%]" : zoom === 1.75 ? "w-[175%]" : "w-[200%]")}>
+          <div
+            className={cn(
+              "relative mx-auto aspect-[1/1.414] bg-item text-text-main shadow-elev-1",
+              zoom === 0.75
+                ? "w-3/4"
+                : zoom === 1
+                  ? "w-full"
+                  : zoom === 1.25
+                    ? "w-[125%]"
+                    : zoom === 1.5
+                      ? "w-[150%]"
+                      : zoom === 1.75
+                        ? "w-[175%]"
+                        : "w-[200%]",
+            )}
+          >
             {page.lines.map((l, i) => (
-              <p key={i} className={cn("absolute left-[10%] type-paragraph-14", i === 0 && "type-title-16-medium")} style={{ top: `${l.y * 100}%` }}>
+              <p
+                key={i}
+                className={cn(
+                  "absolute left-[10%] type-paragraph-14",
+                  i === 0 && "type-title-16-medium",
+                )}
+                style={{ top: `${l.y * 100}%` }}
+              >
                 {l.text}
               </p>
             ))}
@@ -67,16 +103,33 @@ export function DocumentPage({ pages, fields, selectedId, onSelect }: DocumentPa
                   aria-label={`Detail ${n}${f.status !== "pending" ? ", checked" : ""}`}
                   aria-pressed={isSel}
                   onClick={() => onSelect(f.id)}
-                  className={cn("focus-ring absolute border", isSel ? "border-2 border-focus" : f.status !== "pending" ? "border-status-cleared" : "border-status-major")}
-                  style={{ left: `${b.x * 100}%`, top: `${b.y * 100 - 1}%`, width: `${b.w * 100}%`, height: `${b.h * 100}%` }}
+                  className={cn(
+                    "focus-ring absolute border",
+                    isSel
+                      ? "border-2 border-focus"
+                      : f.status !== "pending"
+                        ? "border-status-cleared"
+                        : "border-status-major",
+                  )}
+                  style={{
+                    left: `${b.x * 100}%`,
+                    top: `${b.y * 100 - 1}%`,
+                    width: `${b.w * 100}%`,
+                    height: `${b.h * 100}%`,
+                  }}
                 >
-                  <span className="absolute -top-3 -left-3"><Marker n={n} active={isSel} /></span>
+                  <span className="absolute -top-3 -left-3">
+                    <Marker n={n} active={isSel} />
+                  </span>
                 </button>
               );
             })}
           </div>
         ) : (
-          <p className="type-paragraph-14">This page can't be shown in the prototype. The details on the right can still be checked.</p>
+          <p className="type-paragraph-14">
+            This page can't be shown in the prototype. The details on the right can still be
+            checked.
+          </p>
         )}
       </div>
     </section>

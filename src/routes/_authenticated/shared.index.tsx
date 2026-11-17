@@ -16,9 +16,15 @@ export const Route = createFileRoute("/_authenticated/shared/")({
   head: () => ({
     meta: [
       { title: "Shared with me · Documents" },
-      { name: "description", content: "Documents people in your organisation have shared with you directly." },
+      {
+        name: "description",
+        content: "Documents people in your organisation have shared with you directly.",
+      },
       { property: "og:title", content: "Shared with me · Documents" },
-      { property: "og:description", content: "Documents people in your organisation have shared with you directly." },
+      {
+        property: "og:description",
+        content: "Documents people in your organisation have shared with you directly.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -36,14 +42,22 @@ function SharedPage() {
     <div>
       <PageHeader title="Shared with me" />
       {q.isPending ? (
-        <div>{Array.from({ length: 4 }, (_, i) => <SkeletonRow key={i} columns={3} />)}</div>
+        <div>
+          {Array.from({ length: 4 }, (_, i) => (
+            <SkeletonRow key={i} columns={3} />
+          ))}
+        </div>
       ) : q.isError ? (
         <div className="flex flex-col items-start gap-2">
           <p className="type-paragraph-14">We couldn't load your shared documents just now.</p>
           <Button onClick={() => void q.refetch()}>Try again</Button>
         </div>
       ) : q.data.items.length === 0 ? (
-        <EmptyState icon={Share2} title="Nothing shared yet" cause="Nothing has been shared with you yet. When someone shares a document directly, it will appear here." />
+        <EmptyState
+          icon={Share2}
+          title="Nothing shared yet"
+          cause="Nothing has been shared with you yet. When someone shares a document directly, it will appear here."
+        />
       ) : (
         <>
           <ul className="flex flex-col divide-y divide-border-default rounded-card border border-border-default">
@@ -52,23 +66,44 @@ function SharedPage() {
                 d.level === "view" ? "Can view" : "Can edit",
                 d.sharedBy ? `Shared by ${d.sharedBy}` : null,
                 d.expiresAt ? `Until ${format(new Date(d.expiresAt), "d MMM yyyy")}` : null,
-              ].filter(Boolean).join(" · ");
-              const cls = "focus-ring flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-btn-default-hover";
+              ]
+                .filter(Boolean)
+                .join(" · ");
+              const cls =
+                "focus-ring flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-btn-default-hover";
               const body = (
                 <>
                   <span className="flex flex-col">
                     <span className="type-label-14">{d.name}</span>
-                    <span className="type-label-12 text-text-secondary">{typeLabel(d.documentType)} · {meta}</span>
+                    <span className="type-label-12 text-text-secondary">
+                      {typeLabel(d.documentType)} · {meta}
+                    </span>
                   </span>
-                  <Tag tone={STATUS_TONE[d.status as DocStatus]} small>{STATUS_LABEL[d.status as DocStatus]}</Tag>
+                  <Tag tone={STATUS_TONE[d.status as DocStatus]} small>
+                    {STATUS_LABEL[d.status as DocStatus]}
+                  </Tag>
                 </>
               );
               return (
                 <li key={d.id}>
                   {d.entityId ? (
-                    <Link to="/records/$entityId" params={{ entityId: d.entityId }} search={{ doc: d.id }} className={cls}>{body}</Link>
+                    <Link
+                      to="/records/$entityId"
+                      params={{ entityId: d.entityId }}
+                      search={{ doc: d.id }}
+                      className={cls}
+                    >
+                      {body}
+                    </Link>
                   ) : (
-                    <Link to="/shared/$docId" params={{ docId: d.id }} search={{ level: d.level === "view" ? "view" : "edit" }} className={cls}>{body}</Link>
+                    <Link
+                      to="/shared/$docId"
+                      params={{ docId: d.id }}
+                      search={{ level: d.level === "view" ? "view" : "edit" }}
+                      className={cls}
+                    >
+                      {body}
+                    </Link>
                   )}
                 </li>
               );
@@ -76,9 +111,18 @@ function SharedPage() {
           </ul>
           {q.data.total > PAGE ? (
             <div className="mt-4 flex items-center gap-2">
-              <Button aria-disabled={page === 0} onClick={() => page > 0 && setPage(page - 1)}>Previous</Button>
-              <span className="type-label-12 text-text-secondary">Page {page + 1} of {Math.ceil(q.data.total / PAGE)}</span>
-              <Button aria-disabled={(page + 1) * PAGE >= q.data.total} onClick={() => (page + 1) * PAGE < q.data.total && setPage(page + 1)}>Next</Button>
+              <Button aria-disabled={page === 0} onClick={() => page > 0 && setPage(page - 1)}>
+                Previous
+              </Button>
+              <span className="type-label-12 text-text-secondary">
+                Page {page + 1} of {Math.ceil(q.data.total / PAGE)}
+              </span>
+              <Button
+                aria-disabled={(page + 1) * PAGE >= q.data.total}
+                onClick={() => (page + 1) * PAGE < q.data.total && setPage(page + 1)}
+              >
+                Next
+              </Button>
             </div>
           ) : null}
         </>

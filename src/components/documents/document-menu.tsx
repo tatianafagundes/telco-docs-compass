@@ -1,6 +1,12 @@
 import { MoreHorizontal } from "lucide-react";
 import { Fragment } from "react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 export interface MenuEntry {
@@ -22,7 +28,10 @@ export function DocumentMenu({ entries }: { entries: MenuEntry[] }) {
       >
         <MoreHorizontal aria-hidden="true" className="size-4" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-72 rounded-card border border-border-subtle bg-layer-content p-1 text-text-main">
+      <DropdownMenuContent
+        align="end"
+        className="w-72 rounded-card border border-border-subtle bg-layer-content p-1 text-text-main"
+      >
         {entries.map((e) => (
           <Fragment key={e.label}>
             {e.separatorBefore ? <DropdownMenuSeparator className="bg-border-subtle" /> : null}
@@ -40,8 +49,17 @@ export function DocumentMenu({ entries }: { entries: MenuEntry[] }) {
                 e.reason && "cursor-not-allowed",
               )}
             >
-              <span className={cn("type-label-14", e.reason ? "text-text-disabled" : e.destructive ? "text-status-critical" : "")}>{e.label}</span>
-              {e.reason ? <span className="type-label-12 text-text-secondary">{e.reason}</span> : null}
+              <span
+                className={cn(
+                  "type-label-14",
+                  e.reason ? "text-text-disabled" : e.destructive ? "text-status-critical" : "",
+                )}
+              >
+                {e.label}
+              </span>
+              {e.reason ? (
+                <span className="type-label-12 text-text-secondary">{e.reason}</span>
+              ) : null}
             </DropdownMenuItem>
           </Fragment>
         ))}

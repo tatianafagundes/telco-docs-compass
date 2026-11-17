@@ -13,7 +13,15 @@ import { api } from "@/services/api";
 import { hasAnyFilter, type SearchFilters } from "@/services/search-rules";
 
 /** Personal views for everyone; team views are created by country admins. */
-export function SavedViews({ filters, isAdmin, onApply }: { filters: SearchFilters; isAdmin: boolean; onApply: (f: SearchFilters) => void }) {
+export function SavedViews({
+  filters,
+  isAdmin,
+  onApply,
+}: {
+  filters: SearchFilters;
+  isAdmin: boolean;
+  onApply: (f: SearchFilters) => void;
+}) {
   const qc = useQueryClient();
   const views = useSavedViews();
   const [saving, setSaving] = useState(false);
@@ -43,7 +51,9 @@ export function SavedViews({ filters, isAdmin, onApply }: { filters: SearchFilte
           label={v.shared ? `${v.name} · team` : v.name}
           selected={false}
           onToggle={() => onApply(v.filters)}
-          {...(v.mine || isAdmin ? { onRemove: () => remove.mutate(v.id), removeLabel: `Remove view ${v.name}` } : {})}
+          {...(v.mine || isAdmin
+            ? { onRemove: () => remove.mutate(v.id), removeLabel: `Remove view ${v.name}` }
+            : {})}
         />
       ))}
       {hasAnyFilter(filters) ? (
@@ -60,15 +70,31 @@ export function SavedViews({ filters, isAdmin, onApply }: { filters: SearchFilte
         actions={
           <>
             <Button onClick={() => setSaving(false)}>Cancel</Button>
-            <Button variant="primary" unavailable={name.trim().length === 0 || save.isPending} onClick={() => save.mutate()}>
+            <Button
+              variant="primary"
+              unavailable={name.trim().length === 0 || save.isPending}
+              onClick={() => save.mutate()}
+            >
               Save view
             </Button>
           </>
         }
       >
         <div className="flex flex-col gap-3">
-          <TextField label="Name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} placeholder="e.g. Contracts waiting for review" />
-          {isAdmin ? <Checkbox label="Share with everyone in this organisation" checked={shared} onCheckedChange={(c) => setShared(c === true)} /> : null}
+          <TextField
+            label="Name"
+            value={name}
+            maxLength={80}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Contracts waiting for review"
+          />
+          {isAdmin ? (
+            <Checkbox
+              label="Share with everyone in this organisation"
+              checked={shared}
+              onCheckedChange={(c) => setShared(c === true)}
+            />
+          ) : null}
         </div>
       </Dialog>
     </div>

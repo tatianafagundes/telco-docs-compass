@@ -29,47 +29,66 @@ export const advancePipeline = createServerFn({ method: "POST" })
   .inputValidator((input: z.input<typeof advanceSchema>) => advanceSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { idempotencyKey, ...body } = data;
-    return runWrite(context, await adminClient(), { op: "advancePipeline", idempotencyKey, body, documentId: data.id }, async (env) => {
-      // Seeing a document (e.g. through a share) is not enough: processing changes need edit rights in its own organisation.
-      if (!can(env.role, "edit")) return forbidden();
-      const { data: doc } = await env.admin
-        .from("documents")
-        .select("id, name, pipeline_state, pipeline_detail, current_version_id, created_by")
-        .eq("id", data.id)
-        .eq("tenant_id", env.tenantId)
-        .maybeSingle();
-      if (!doc) return { ok: false, error: seamError("doc.notFound", "notFound") };
-      // Seeded documents never change state on their own.
-      if (!doc.created_by) return fail("pipeline.seeded");
-      let current = doc.pipeline_state as PipelineState;
-      if (data.retry) {
-        if (current !== "failed") return fail("pipeline.retry.notFailed");
-        current = "reading";
-      }
-      const { data: version } = await env.admin
-        .from("document_versions")
-        .select("storage_path")
-        .eq("id", doc.current_version_id ?? "")
-        .maybeSingle();
-      let text = "";
-      if (current === "uploading") {
-        // The file must be in storage before checking starts.
-        const { data: file } = version?.storage_path ? await env.admin.storage.from(BUCKET).download(version.storage_path) : { data: null };
-        if (!file) return { ok: false, error: seamError("pipeline.notUploaded", "unavailable", "retry") };
-      } else if (current === "scanning" || current === "reading") {
-        const { data: file } = version?.storage_path ? await env.admin.storage.from(BUCKET).download(version.storage_path) : { data: null };
-        text = file ? new TextDecoder("latin1").decode(await file.arrayBuffer()) : "";
-      }
-      const next = nextPipelineState(current, simulatedOutcome(doc.name, text));
-      const detail = next === "failed" ? { reason: data.retry ? "unreadableAgain" : "unreadable" } : next === "quarantined" ? { reason: "threat" } : null;
-      await env.admin
-        .from("documents")
-        .update({ pipeline_state: next, pipeline_detail: detail, updated_at: new Date().toISOString() })
-        .eq("id", data.id)
-        .eq("tenant_id", env.tenantId);
-      await audit(env, "pipelineStateChange", data.id, `${current} to ${next}`);
-      return { ok: true, data: { id: data.id, state: next, retried: Boolean(data.retry) } };
-    });
+    return runWrite(
+      context,
+      await adminClient(),
+      { op: "advancePipeline", idempotencyKey, body, documentId: data.id },
+      async (env) => {
+        // Seeing a document (e.g. through a share) is not enough: processing changes need edit rights in its own organisation.
+        if (!can(env.role, "edit")) return forbidden();
+        const { data: doc } = await env.admin
+          .from("documents")
+          .select("id, name, pipeline_state, pipeline_detail, current_version_id, created_by")
+          .eq("id", data.id)
+          .eq("tenant_id", env.tenantId)
+          .maybeSingle();
+        if (!doc) return { ok: false, error: seamError("doc.notFound", "notFound") };
+        // Seeded documents never change state on their own.
+        if (!doc.created_by) return fail("pipeline.seeded");
+        let current = doc.pipeline_state as PipelineState;
+        if (data.retry) {
+          if (current !== "failed") return fail("pipeline.retry.notFailed");
+          current = "reading";
+        }
+        const { data: version } = await env.admin
+          .from("document_versions")
+          .select("storage_path")
+          .eq("id", doc.current_version_id ?? "")
+          .maybeSingle();
+        let text = "";
+        if (current === "uploading") {
+          // The file must be in storage before checking starts.
+          const { data: file } = version?.storage_path
+            ? await env.admin.storage.from(BUCKET).download(version.storage_path)
+            : { data: null };
+          if (!file)
+            return { ok: false, error: seamError("pipeline.notUploaded", "unavailable", "retry") };
+        } else if (current === "scanning" || current === "reading") {
+          const { data: file } = version?.storage_path
+            ? await env.admin.storage.from(BUCKET).download(version.storage_path)
+            : { data: null };
+          text = file ? new TextDecoder("latin1").decode(await file.arrayBuffer()) : "";
+        }
+        const next = nextPipelineState(current, simulatedOutcome(doc.name, text));
+        const detail =
+          next === "failed"
+            ? { reason: data.retry ? "unreadableAgain" : "unreadable" }
+            : next === "quarantined"
+              ? { reason: "threat" }
+              : null;
+        await env.admin
+          .from("documents")
+          .update({
+            pipeline_state: next,
+            pipeline_detail: detail,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", data.id)
+          .eq("tenant_id", env.tenantId);
+        await audit(env, "pipelineStateChange", data.id, `${current} to ${next}`);
+        return { ok: true, data: { id: data.id, state: next, retried: Boolean(data.retry) } };
+      },
+    );
   });
 
 /** Usability-test reset: removes every document people added (seeded rows have no creator) and their files. Group admin only. */
@@ -90,12 +109,24 @@ export const resetTestData = createServerFn({ method: "POST" })
     }
 
     // Added = created by a person, or by a connected system (no creator, but not one of the fixed seed ids).
-    const { data: added } = await admin.from("documents").select("id, created_by").in("tenant_id", tenantIds).is("purged_at", null);
-    const ids = (added ?? []).filter((d) => d.created_by !== null || !d.id.startsWith("00000000-0000-0000-0000-")).map((d) => d.id);
+    const { data: added } = await admin
+      .from("documents")
+      .select("id, created_by")
+      .in("tenant_id", tenantIds)
+      .is("purged_at", null);
+    const ids = (added ?? [])
+      .filter((d) => d.created_by !== null || !d.id.startsWith("00000000-0000-0000-0000-"))
+      .map((d) => d.id);
     const { data: versions } = ids.length
-      ? await admin.from("document_versions").select("storage_path").in("document_id", ids).in("tenant_id", tenantIds)
+      ? await admin
+          .from("document_versions")
+          .select("storage_path")
+          .in("document_id", ids)
+          .in("tenant_id", tenantIds)
       : { data: [] as { storage_path: string | null }[] };
-    const paths = (versions ?? []).map((v) => v.storage_path).filter((p): p is string => Boolean(p) && !String(p).startsWith("sample/"));
+    const paths = (versions ?? [])
+      .map((v) => v.storage_path)
+      .filter((p): p is string => Boolean(p) && !String(p).startsWith("sample/"));
     if (paths.length) await admin.storage.from(BUCKET).remove(paths);
     if (ids.length) {
       // The activity log is append-only, so added documents become purged tombstones (same as permanent deletion)
@@ -103,7 +134,12 @@ export const resetTestData = createServerFn({ method: "POST" })
       const now = new Date().toISOString();
       const steps = [
         () => admin.from("document_relations").delete().in("document_id", ids),
-        () => admin.from("documents").update({ deleted_at: now, purged_at: now }).in("id", ids).in("tenant_id", tenantIds),
+        () =>
+          admin
+            .from("documents")
+            .update({ deleted_at: now, purged_at: now })
+            .in("id", ids)
+            .in("tenant_id", tenantIds),
       ];
       for (const step of steps) {
         const { error } = await step();
@@ -114,6 +150,17 @@ export const resetTestData = createServerFn({ method: "POST" })
       }
     }
     await admin.from("idempotency_keys").delete().in("tenant_id", tenantIds);
-    const { count: remaining } = await admin.from("documents").select("id", { count: "exact", head: true }).in("tenant_id", tenantIds).is("purged_at", null);
-    return { ok: true as const, data: { documentsRemoved: ids.length, filesRemoved: paths.length, documentsRemaining: remaining ?? 0 } };
+    const { count: remaining } = await admin
+      .from("documents")
+      .select("id", { count: "exact", head: true })
+      .in("tenant_id", tenantIds)
+      .is("purged_at", null);
+    return {
+      ok: true as const,
+      data: {
+        documentsRemoved: ids.length,
+        filesRemoved: paths.length,
+        documentsRemaining: remaining ?? 0,
+      },
+    };
   });

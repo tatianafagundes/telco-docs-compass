@@ -30,7 +30,15 @@ interface Draft {
   reason: string;
 }
 
-export function UploadDialog({ open, files, specs, entityKind, existing, onCancel, onConfirm }: UploadDialogProps) {
+export function UploadDialog({
+  open,
+  files,
+  specs,
+  entityKind,
+  existing,
+  onCancel,
+  onConfirm,
+}: UploadDialogProps) {
   const [drafts, setDrafts] = useState<Draft[]>([]);
   useEffect(() => {
     setDrafts(
@@ -42,12 +50,22 @@ export function UploadDialog({ open, files, specs, entityKind, existing, onCance
   }, [files, specs, entityKind]);
 
   const typeOptions = useMemo(
-    () => [{ options: specs.filter((s) => s.requiredFields.length === 0).map((s) => ({ value: s.code, label: s.name })) }],
+    () => [
+      {
+        options: specs
+          .filter((s) => s.requiredFields.length === 0)
+          .map((s) => ({ value: s.code, label: s.name })),
+      },
+    ],
     [specs],
   );
   const checked = drafts.map((d) => ({
     ...d,
-    issues: fileIssues({ name: d.file.name, size: d.file.size, mimeType: d.file.type }, specs.find((s) => s.code === d.type), existing),
+    issues: fileIssues(
+      { name: d.file.name, size: d.file.size, mimeType: d.file.type },
+      specs.find((s) => s.code === d.type),
+      existing,
+    ),
   }));
   const addable = checked.filter((d) => d.type && !blocksAdding(d.issues));
   const n = addable.length;
@@ -66,7 +84,11 @@ export function UploadDialog({ open, files, specs, entityKind, existing, onCance
             variant="primary"
             unavailable={n === 0}
             aria-describedby={n === 0 ? "upload-none-reason" : undefined}
-            onClick={() => onConfirm(addable.map((d) => ({ key: d.key, file: d.file, documentType: d.type as string })))}
+            onClick={() =>
+              onConfirm(
+                addable.map((d) => ({ key: d.key, file: d.file, documentType: d.type as string })),
+              )
+            }
           >
             {n === 1 ? "Add 1 document" : `Add ${n} documents`}
           </Button>
@@ -77,23 +99,40 @@ export function UploadDialog({ open, files, specs, entityKind, existing, onCance
         {checked.map((d) => (
           <li key={d.key} className="flex flex-col gap-2 border-b border-border-subtle pb-3">
             <div className="flex items-baseline justify-between gap-3">
-              <span className="type-label-14 min-w-0" title={d.file.name}>{middleTruncate(d.file.name, 44)}</span>
-              <span className="type-label-12 shrink-0 text-text-secondary">{formatSize(d.file.size)}</span>
+              <span className="type-label-14 min-w-0" title={d.file.name}>
+                {middleTruncate(d.file.name, 44)}
+              </span>
+              <span className="type-label-12 shrink-0 text-text-secondary">
+                {formatSize(d.file.size)}
+              </span>
             </div>
             <Select
               label="Document type"
               groups={typeOptions}
               {...(d.type ? { value: d.type } : {})}
               placeholder="Choose a type"
-              onValueChange={(v) => setDrafts((ds) => ds.map((x) => (x.key === d.key ? { ...x, type: v, reason: "Chosen by you" } : x)))}
+              onValueChange={(v) =>
+                setDrafts((ds) =>
+                  ds.map((x) => (x.key === d.key ? { ...x, type: v, reason: "Chosen by you" } : x)),
+                )
+              }
             />
             <p className="type-label-12 text-text-secondary">{d.reason}</p>
             {d.issues.map((i) => (
-              <p key={i.kind} className="type-label-12 flex items-start gap-1 text-text-main" role={i.kind === "duplicate" ? undefined : "alert"}>
-                <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-status-major" />
+              <p
+                key={i.kind}
+                className="type-label-12 flex items-start gap-1 text-text-main"
+                role={i.kind === "duplicate" ? undefined : "alert"}
+              >
+                <AlertTriangle
+                  aria-hidden="true"
+                  className="mt-0.5 size-4 shrink-0 text-status-major"
+                />
                 <span>
                   {i.message}
-                  {i.kind === "duplicate" ? " It will be added as a separate document. To add a new version instead, open that document." : null}
+                  {i.kind === "duplicate"
+                    ? " It will be added as a separate document. To add a new version instead, open that document."
+                    : null}
                 </span>
               </p>
             ))}
@@ -101,9 +140,14 @@ export function UploadDialog({ open, files, specs, entityKind, existing, onCance
         ))}
       </ul>
       {n === 0 ? (
-        <p id="upload-none-reason" className="type-label-12 text-text-secondary">None of these files can be added yet. Choose another type or another file.</p>
+        <p id="upload-none-reason" className="type-label-12 text-text-secondary">
+          None of these files can be added yet. Choose another type or another file.
+        </p>
       ) : skipped > 0 ? (
-        <p className="type-label-12 text-text-secondary">{skipped === 1 ? "1 file will be left out" : `${skipped} files will be left out`} until its issue is solved.</p>
+        <p className="type-label-12 text-text-secondary">
+          {skipped === 1 ? "1 file will be left out" : `${skipped} files will be left out`} until
+          its issue is solved.
+        </p>
       ) : null}
     </Dialog>
   );

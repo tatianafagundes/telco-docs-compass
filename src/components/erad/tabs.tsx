@@ -9,7 +9,15 @@ export interface TextTab {
 }
 
 /** Text tab bar: 32px row, Label 14, 2px selected indicator (product gap component). */
-export function TextTabs({ tabs, defaultValue, label }: { tabs: TextTab[]; defaultValue: string; label: string }) {
+export function TextTabs({
+  tabs,
+  defaultValue,
+  label,
+}: {
+  tabs: TextTab[];
+  defaultValue: string;
+  label: string;
+}) {
   return (
     <TabsPrimitive.Root defaultValue={defaultValue} className="flex flex-col">
       <TabsPrimitive.List aria-label={label} className="flex gap-4 border-b border-border-subtle">
@@ -39,7 +47,12 @@ export interface NavTab {
 }
 
 /** ERAD tab navigation items, 80x58 with icon and caption. */
-export function NavTabs({ items, value, onValueChange, label }: {
+export function NavTabs({
+  items,
+  value,
+  onValueChange,
+  label,
+}: {
   items: NavTab[];
   value: string;
   onValueChange: (v: string) => void;

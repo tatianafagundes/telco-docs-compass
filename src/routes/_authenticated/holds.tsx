@@ -10,9 +10,15 @@ export const Route = createFileRoute("/_authenticated/holds")({
   head: () => ({
     meta: [
       { title: "Holds and retention · Documents" },
-      { name: "description", content: "Legal holds, retention policies in force and deletion history." },
+      {
+        name: "description",
+        content: "Legal holds, retention policies in force and deletion history.",
+      },
       { property: "og:title", content: "Holds and retention · Documents" },
-      { property: "og:description", content: "Legal holds, retention policies in force and deletion history." },
+      {
+        property: "og:description",
+        content: "Legal holds, retention policies in force and deletion history.",
+      },
     ],
   }),
   component: ManagerHolds,
@@ -27,7 +33,11 @@ function ManagerHolds() {
       {role && can(role, "manage") ? (
         <HoldsPage />
       ) : (
-        <EmptyState icon={Lock} title="Holds are managed by managers" cause="Your role lets you see when a document is on hold. A manager can place or release holds." />
+        <EmptyState
+          icon={Lock}
+          title="Holds are managed by managers"
+          cause="Your role lets you see when a document is on hold. A manager can place or release holds."
+        />
       )}
     </div>
   );

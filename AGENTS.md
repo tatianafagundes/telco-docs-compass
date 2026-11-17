@@ -1,4 +1,5 @@
 <!-- LOVABLE:BEGIN -->
+
 > [!IMPORTANT]
 > This project is connected to [Lovable](https://lovable.dev). Avoid rewriting
 > published git history — force pushing, or rebasing/amending/squashing commits
@@ -27,9 +28,11 @@ use the editor.
   `LOVABLE_API_KEY`. When Lovable does not provide one, users can bring their
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
+
 <!-- LOVABLE:END -->
 
 ## Project rules
+
 - Hex colour values live only in `src/styles/tokens.css`; components use ERAD token utilities from `src/styles.css`. Why: one source for both themes.
 - ERAD primitives live in `src/components/erad/`; unavailable controls use `aria-disabled` plus visible reason text, never native `disabled`. Why: the reason must stay keyboard-reachable.
 - The document seam (contracts/seams/document.openapi.yaml) is implemented as `requireSupabaseAuth` server functions in `src/services/document.functions.ts`, not edge functions. Reads run as the caller (RLS); writes use the service role after an explicit role/access check and append their own audit event. Why: TanStack Start stack, schema allows writes only via service role.

@@ -30,14 +30,16 @@ const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
   /** Unavailable but focusable: the reason must be shown nearby as text. */
   unavailable?: boolean;
 }
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, unavailable, onClick, children, type = "button", ...props }, ref) => (
+  (
+    { className, variant, size, unavailable, onClick, children, type = "button", ...props },
+    ref,
+  ) => (
     <button
       ref={ref}
       type={type}

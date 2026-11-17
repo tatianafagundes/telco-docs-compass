@@ -6,7 +6,15 @@ import { decideRate, rateHeaders, rateKind, retryGuidance } from "@/services/rat
 import { z } from "zod";
 import type { Json } from "@/integrations/supabase/types";
 import type { DocStatus } from "@/schemas/document";
-import { hashBody, idempotencyOutcome, isTransitionAllowed, metadataPatchAllowed, systemMayApprove, pendingRequiredDetails, type SpecCharacteristic } from "@/services/document-rules";
+import {
+  hashBody,
+  idempotencyOutcome,
+  isTransitionAllowed,
+  metadataPatchAllowed,
+  systemMayApprove,
+  pendingRequiredDetails,
+  type SpecCharacteristic,
+} from "@/services/document-rules";
 import { deleteState } from "@/services/document-actions";
 import type { Db } from "@/services/seam-runtime";
 import {
@@ -51,10 +59,20 @@ export interface SystemCtx {
   requestId: string;
 }
 
-function reply(status: number, body: unknown, requestId: string, extra: Record<string, string> = {}): Response {
+function reply(
+  status: number,
+  body: unknown,
+  requestId: string,
+  extra: Record<string, string> = {},
+): Response {
   return new Response(status === 204 ? null : JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json;charset=utf-8", "X-Request-ID": requestId, "Cache-Control": "no-store", ...extra },
+    headers: {
+      "Content-Type": "application/json;charset=utf-8",
+      "X-Request-ID": requestId,
+      "Cache-Control": "no-store",
+      ...extra,
+    },
   });
 }
 
@@ -72,22 +90,56 @@ const DOC_COLS =
 export async function authenticate(request: Request, needed: Scope): Promise<SystemCtx | Response> {
   const requestId = crypto.randomUUID();
   const key = readBearer(request.headers.get("authorization"));
-  if (!key) return errorReply(tmfError(401, "unauthorized", "Unauthorized", "Send a system key or access token as 'Authorization: Bearer …'."), requestId);
+  if (!key)
+    return errorReply(
+      tmfError(
+        401,
+        "unauthorized",
+        "Unauthorized",
+        "Send a system key or access token as 'Authorization: Bearer …'.",
+      ),
+      requestId,
+    );
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const admin = supabaseAdmin as Db;
   let clientId: string | null = null;
   if (key.startsWith("eradt_")) {
-    const { data: tok } = await admin.from("integration_tokens").select("client_id, expires_at").eq("token_hash", await sha256Hex(key)).maybeSingle();
+    const { data: tok } = await admin
+      .from("integration_tokens")
+      .select("client_id, expires_at")
+      .eq("token_hash", await sha256Hex(key))
+      .maybeSingle();
     if (tok && new Date(tok.expires_at) > new Date()) clientId = tok.client_id;
   }
-  const base = admin.from("integration_clients").select("id, name, tenant_id, scopes, revoked_at, expires_at, read_limit_per_minute, write_limit_per_minute");
-  const { data: client } = clientId ? await base.eq("id", clientId).maybeSingle() : key.startsWith("erad_") ? await base.eq("key_hash", await sha256Hex(key)).maybeSingle() : { data: null };
+  const base = admin
+    .from("integration_clients")
+    .select(
+      "id, name, tenant_id, scopes, revoked_at, expires_at, read_limit_per_minute, write_limit_per_minute",
+    );
+  const { data: client } = clientId
+    ? await base.eq("id", clientId).maybeSingle()
+    : key.startsWith("erad_")
+      ? await base.eq("key_hash", await sha256Hex(key)).maybeSingle()
+      : { data: null };
   const expired = client?.expires_at ? new Date(client.expires_at) <= new Date() : false;
   if (!client || client.revoked_at || expired) {
-    return errorReply(tmfError(401, "unauthorized", "Unauthorized", expired ? "This system key has expired. Ask an administrator for a new key." : "This system key is not valid."), requestId);
+    return errorReply(
+      tmfError(
+        401,
+        "unauthorized",
+        "Unauthorized",
+        expired
+          ? "This system key has expired. Ask an administrator for a new key."
+          : "This system key is not valid.",
+      ),
+      requestId,
+    );
   }
   if (!hasScope(client.scopes, needed)) {
-    return errorReply(tmfError(403, "scopeMissing", "Forbidden", `This system key does not include '${needed}'.`), requestId);
+    return errorReply(
+      tmfError(403, "scopeMissing", "Forbidden", `This system key does not include '${needed}'.`),
+      requestId,
+    );
   }
   // Each system has its own counter and allowance, so one busy system never uses up another's.
   const kind = rateKind(request.method);
@@ -95,23 +147,65 @@ export async function authenticate(request: Request, needed: Scope): Promise<Sys
   const { data: hits } = await admin.rpc("api_hit", { p_client: client.id, p_kind: kind });
   const decision = decideRate(typeof hits === "number" ? hits : 0, limit, new Date());
   if (!decision.allowed) {
-    await admin.from("integration_clients").update({ last_rate_limited_at: new Date().toISOString() }).eq("id", client.id);
-    const r = errorReply(tmfError(429, "tooManyRequests", "Too Many Requests", retryGuidance(kind, decision)), requestId);
+    await admin
+      .from("integration_clients")
+      .update({ last_rate_limited_at: new Date().toISOString() })
+      .eq("id", client.id);
+    const r = errorReply(
+      tmfError(429, "tooManyRequests", "Too Many Requests", retryGuidance(kind, decision)),
+      requestId,
+    );
     for (const [k, v] of Object.entries(rateHeaders(decision))) r.headers.set(k, v);
     return r;
   }
-  await admin.from("integration_clients").update({ last_used_at: new Date().toISOString() }).eq("id", client.id);
-  console.info(JSON.stringify({ op: "tmf", client: client.id, tenant: client.tenant_id, scope: needed, requestId }));
-  return { admin, clientId: client.id, name: client.name, tenantId: client.tenant_id, scopes: client.scopes, origin: new URL(request.url).origin, requestId };
+  await admin
+    .from("integration_clients")
+    .update({ last_used_at: new Date().toISOString() })
+    .eq("id", client.id);
+  console.info(
+    JSON.stringify({
+      op: "tmf",
+      client: client.id,
+      tenant: client.tenant_id,
+      scope: needed,
+      requestId,
+    }),
+  );
+  return {
+    admin,
+    clientId: client.id,
+    name: client.name,
+    tenantId: client.tenant_id,
+    scopes: client.scopes,
+    origin: new URL(request.url).origin,
+    requestId,
+  };
 }
 
-async function readJson(request: Request, ctx: SystemCtx, maxChars = MAX_BODY_CHARS): Promise<{ ok: true; body: unknown } | { ok: false; res: Response }> {
+async function readJson(
+  request: Request,
+  ctx: SystemCtx,
+  maxChars = MAX_BODY_CHARS,
+): Promise<{ ok: true; body: unknown } | { ok: false; res: Response }> {
   const text = await request.text();
-  if (text.length > maxChars) return { ok: false, res: errorReply(tmfError(400, "bodyTooLarge", "Bad Request", "Request body is too large."), ctx.requestId) };
+  if (text.length > maxChars)
+    return {
+      ok: false,
+      res: errorReply(
+        tmfError(400, "bodyTooLarge", "Bad Request", "Request body is too large."),
+        ctx.requestId,
+      ),
+    };
   try {
     return { ok: true, body: text ? JSON.parse(text) : {} };
   } catch {
-    return { ok: false, res: errorReply(tmfError(400, "invalidJson", "Bad Request", "Request body is not valid JSON."), ctx.requestId) };
+    return {
+      ok: false,
+      res: errorReply(
+        tmfError(400, "invalidJson", "Bad Request", "Request body is not valid JSON."),
+        ctx.requestId,
+      ),
+    };
   }
 }
 
@@ -126,10 +220,24 @@ async function audit(ctx: SystemCtx, action: string, documentId: string, detail:
 }
 
 /** Writes need an Idempotency-Key header; a replay with the same body returns the stored reply. */
-async function idempotent(request: Request, ctx: SystemCtx, operation: string, body: unknown, run: () => Promise<{ status: number; body: unknown }>): Promise<Response> {
+async function idempotent(
+  request: Request,
+  ctx: SystemCtx,
+  operation: string,
+  body: unknown,
+  run: () => Promise<{ status: number; body: unknown }>,
+): Promise<Response> {
   const key = request.headers.get("idempotency-key");
   if (!key || !/^[A-Za-z0-9_-]{8,128}$/.test(key)) {
-    return errorReply(tmfError(400, "idempotencyKeyMissing", "Bad Request", "Send an Idempotency-Key header (8–128 letters, digits, - or _)."), ctx.requestId);
+    return errorReply(
+      tmfError(
+        400,
+        "idempotencyKeyMissing",
+        "Bad Request",
+        "Send an Idempotency-Key header (8–128 letters, digits, - or _).",
+      ),
+      ctx.requestId,
+    );
   }
   const requestHash = await hashBody(body);
   const op = `tmf.${operation}`;
@@ -142,14 +250,30 @@ async function idempotent(request: Request, ctx: SystemCtx, operation: string, b
     .eq("operation", op)
     .maybeSingle();
   const outcome = idempotencyOutcome(stored, requestHash);
-  if (outcome.kind === "conflict") return errorReply(tmfError(409, "idempotencyMismatch", "Conflict", "This Idempotency-Key was used with a different body."), ctx.requestId);
+  if (outcome.kind === "conflict")
+    return errorReply(
+      tmfError(
+        409,
+        "idempotencyMismatch",
+        "Conflict",
+        "This Idempotency-Key was used with a different body.",
+      ),
+      ctx.requestId,
+    );
   if (outcome.kind === "replay") {
     const r = outcome.response as { status: number; body: unknown };
     return reply(r.status, r.body, ctx.requestId, { "Idempotent-Replay": "true" });
   }
   const res = await run();
   if (res.status < 300 || res.status === 204) {
-    await ctx.admin.from("idempotency_keys").insert({ tenant_id: ctx.tenantId, actor: ctx.clientId, key, operation: op, request_hash: requestHash, response: res as unknown as Json });
+    await ctx.admin.from("idempotency_keys").insert({
+      tenant_id: ctx.tenantId,
+      actor: ctx.clientId,
+      key,
+      operation: op,
+      request_hash: requestHash,
+      response: res as unknown as Json,
+    });
   }
   return reply(res.status, res.body, ctx.requestId);
 }
@@ -158,15 +282,35 @@ async function loadTmfDocs(ctx: SystemCtx, docs: DocRow[]) {
   const ids = docs.map((d) => d.id);
   if (ids.length === 0) return [];
   const bundles = [...new Set(docs.map((d) => d.bundle_id).filter((b): b is string => !!b))];
-  const [{ data: versions }, { data: rels }, { data: specs }, { data: siblings }] = await Promise.all([
-    ctx.admin.from("document_versions").select("id, document_id, label, mime_type, size_bytes, content_hash, created_at").in("document_id", ids).eq("tenant_id", ctx.tenantId).order("created_at"),
-    ctx.admin.from("document_relations").select("document_id, entity_id, role, business_entities!inner(referred_type, tenant_id)").in("document_id", ids).eq("business_entities.tenant_id", ctx.tenantId),
-    ctx.admin.rpc("effective_specifications", { p_tenant: ctx.tenantId }),
-    bundles.length
-      ? ctx.admin.from("documents").select("id, bundle_id, bundle_role").in("bundle_id", bundles).eq("tenant_id", ctx.tenantId).is("deleted_at", null).is("purged_at", null)
-      : Promise.resolve({ data: [] as { id: string; bundle_id: string | null; bundle_role: string | null }[] }),
-  ]);
-  const categoryByType = new Map((specs ?? []).map((s) => [s.code, categoryFromDefinition(s.definition)]));
+  const [{ data: versions }, { data: rels }, { data: specs }, { data: siblings }] =
+    await Promise.all([
+      ctx.admin
+        .from("document_versions")
+        .select("id, document_id, label, mime_type, size_bytes, content_hash, created_at")
+        .in("document_id", ids)
+        .eq("tenant_id", ctx.tenantId)
+        .order("created_at"),
+      ctx.admin
+        .from("document_relations")
+        .select("document_id, entity_id, role, business_entities!inner(referred_type, tenant_id)")
+        .in("document_id", ids)
+        .eq("business_entities.tenant_id", ctx.tenantId),
+      ctx.admin.rpc("effective_specifications", { p_tenant: ctx.tenantId }),
+      bundles.length
+        ? ctx.admin
+            .from("documents")
+            .select("id, bundle_id, bundle_role")
+            .in("bundle_id", bundles)
+            .eq("tenant_id", ctx.tenantId)
+            .is("deleted_at", null)
+            .is("purged_at", null)
+        : Promise.resolve({
+            data: [] as { id: string; bundle_id: string | null; bundle_role: string | null }[],
+          }),
+    ]);
+  const categoryByType = new Map(
+    (specs ?? []).map((s) => [s.code, categoryFromDefinition(s.definition)]),
+  );
   return docs.map((d) =>
     toTmfDocument(
       ctx.origin,
@@ -174,11 +318,17 @@ async function loadTmfDocs(ctx: SystemCtx, docs: DocRow[]) {
       (versions ?? []).filter((v) => v.document_id === d.id) as VersionRow[],
       (rels ?? [])
         .filter((r) => r.document_id === d.id)
-        .map((r): RelationRow => ({ entity_id: r.entity_id, role: r.role, referred_type: (r.business_entities as { referred_type: string }).referred_type })),
+        .map((r): RelationRow => ({
+          entity_id: r.entity_id,
+          role: r.role,
+          referred_type: (r.business_entities as { referred_type: string }).referred_type,
+        })),
       {
         category: categoryByType.get(d.document_type) ?? [],
         // Same tenant, same bundle; never links outside the key's tenant.
-        related: (siblings ?? []).filter((x) => d.bundle_id && x.bundle_id === d.bundle_id && x.id !== d.id).map((x) => ({ id: x.id, role: x.bundle_role ?? "bundleMember" })),
+        related: (siblings ?? [])
+          .filter((x) => d.bundle_id && x.bundle_id === d.bundle_id && x.id !== d.id)
+          .map((x) => ({ id: x.id, role: x.bundle_role ?? "bundleMember" })),
       },
     ),
   );
@@ -186,11 +336,19 @@ async function loadTmfDocs(ctx: SystemCtx, docs: DocRow[]) {
 
 async function findDoc(ctx: SystemCtx, id: string): Promise<DocRow | null> {
   if (!z.string().uuid().safeParse(id).success) return null;
-  const { data } = await ctx.admin.from("documents").select(DOC_COLS).eq("id", id).eq("tenant_id", ctx.tenantId).is("deleted_at", null).is("purged_at", null).maybeSingle();
+  const { data } = await ctx.admin
+    .from("documents")
+    .select(DOC_COLS)
+    .eq("id", id)
+    .eq("tenant_id", ctx.tenantId)
+    .is("deleted_at", null)
+    .is("purged_at", null)
+    .maybeSingle();
   return (data as DocRow | null) ?? null;
 }
 
-const notFound = (ctx: SystemCtx) => errorReply(tmfError(404, "notFound", "Not Found", "No document with this id."), ctx.requestId);
+const notFound = (ctx: SystemCtx) =>
+  errorReply(tmfError(404, "notFound", "Not Found", "No document with this id."), ctx.requestId);
 
 // ---------- reads ----------
 
@@ -203,22 +361,38 @@ export async function listDocuments(request: Request): Promise<Response> {
 
   let docIds: string[] | null = null;
   if (q.relatedEntityId || q.referredType) {
-    let rq = ctx.admin.from("document_relations").select("document_id, business_entities!inner(id, referred_type, tenant_id)").eq("business_entities.tenant_id", ctx.tenantId);
+    let rq = ctx.admin
+      .from("document_relations")
+      .select("document_id, business_entities!inner(id, referred_type, tenant_id)")
+      .eq("business_entities.tenant_id", ctx.tenantId);
     if (q.relatedEntityId) rq = rq.eq("entity_id", q.relatedEntityId);
     if (q.referredType) rq = rq.eq("business_entities.referred_type", q.referredType);
     const { data } = await rq.limit(1000);
     docIds = [...new Set((data ?? []).map((r) => r.document_id))];
-    if (docIds.length === 0) return reply(200, [], ctx.requestId, { "X-Total-Count": "0", "X-Result-Count": "0" });
+    if (docIds.length === 0)
+      return reply(200, [], ctx.requestId, { "X-Total-Count": "0", "X-Result-Count": "0" });
   }
-  let dq = ctx.admin.from("documents").select(DOC_COLS, { count: "exact" }).eq("tenant_id", ctx.tenantId).is("deleted_at", null).is("purged_at", null);
+  let dq = ctx.admin
+    .from("documents")
+    .select(DOC_COLS, { count: "exact" })
+    .eq("tenant_id", ctx.tenantId)
+    .is("deleted_at", null)
+    .is("purged_at", null);
   if (docIds) dq = dq.in("id", docIds);
   if (q.documentType) dq = dq.eq("document_type", q.documentType);
-  if (q.lifecycleState) dq = dq.in("status", q.lifecycleState.length ? q.lifecycleState : ["__none__" as DocStatus]);
-  if (q.externalId) dq = dq.filter("external_identifier", "cs", JSON.stringify([{ id: q.externalId }]));
-  const { data, count } = await dq.order("updated_at", { ascending: false }).range(q.offset, q.offset + q.limit - 1);
+  if (q.lifecycleState)
+    dq = dq.in("status", q.lifecycleState.length ? q.lifecycleState : ["__none__" as DocStatus]);
+  if (q.externalId)
+    dq = dq.filter("external_identifier", "cs", JSON.stringify([{ id: q.externalId }]));
+  const { data, count } = await dq
+    .order("updated_at", { ascending: false })
+    .range(q.offset, q.offset + q.limit - 1);
   const docs = await loadTmfDocs(ctx, (data ?? []) as DocRow[]);
   const body = docs.map((d) => selectFields(d as unknown as Record<string, unknown>, q.fields));
-  return reply(200, body, ctx.requestId, { "X-Total-Count": String(count ?? body.length), "X-Result-Count": String(body.length) });
+  return reply(200, body, ctx.requestId, {
+    "X-Total-Count": String(count ?? body.length),
+    "X-Result-Count": String(body.length),
+  });
 }
 
 export async function getDocument(request: Request, id: string): Promise<Response> {
@@ -229,23 +403,58 @@ export async function getDocument(request: Request, id: string): Promise<Respons
   const [tmf] = await loadTmfDocs(ctx, [doc]);
   const fields = new URL(request.url).searchParams.get("fields");
   await audit(ctx, "view", doc.id, "Read");
-  return reply(200, selectFields(tmf as unknown as Record<string, unknown>, fields ? fields.split(",") : null), ctx.requestId);
+  return reply(
+    200,
+    selectFields(tmf as unknown as Record<string, unknown>, fields ? fields.split(",") : null),
+    ctx.requestId,
+  );
 }
 
 /** Short-lived download link for one attachment (version). */
-export async function getAttachmentContent(request: Request, id: string, attachmentId: string): Promise<Response> {
+export async function getAttachmentContent(
+  request: Request,
+  id: string,
+  attachmentId: string,
+): Promise<Response> {
   const ctx = await authenticate(request, "read");
   if (ctx instanceof Response) return ctx;
   const doc = await findDoc(ctx, id);
   if (!doc) return notFound(ctx);
-  const { data: v } = await ctx.admin.from("document_versions").select("id, storage_path").eq("id", attachmentId).eq("document_id", doc.id).maybeSingle();
-  if (!v?.storage_path) return errorReply(tmfError(404, "notFound", "Not Found", "This attachment has no stored content."), ctx.requestId);
-  const { data: pipe } = await ctx.admin.from("documents").select("pipeline_state").eq("id", doc.id).single();
+  const { data: v } = await ctx.admin
+    .from("document_versions")
+    .select("id, storage_path")
+    .eq("id", attachmentId)
+    .eq("document_id", doc.id)
+    .maybeSingle();
+  if (!v?.storage_path)
+    return errorReply(
+      tmfError(404, "notFound", "Not Found", "This attachment has no stored content."),
+      ctx.requestId,
+    );
+  const { data: pipe } = await ctx.admin
+    .from("documents")
+    .select("pipeline_state")
+    .eq("id", doc.id)
+    .single();
   if (pipe && (pipe.pipeline_state === "scanning" || pipe.pipeline_state === "quarantined")) {
-    return errorReply(tmfError(409, "contentLocked", "Conflict", "Content is being checked and can't be downloaded yet."), ctx.requestId);
+    return errorReply(
+      tmfError(
+        409,
+        "contentLocked",
+        "Conflict",
+        "Content is being checked and can't be downloaded yet.",
+      ),
+      ctx.requestId,
+    );
   }
-  const { data: signed } = await ctx.admin.storage.from("documents").createSignedUrl(v.storage_path, 60);
-  if (!signed) return errorReply(tmfError(503, "unavailable", "Service Unavailable", "Try again shortly."), ctx.requestId);
+  const { data: signed } = await ctx.admin.storage
+    .from("documents")
+    .createSignedUrl(v.storage_path, 60);
+  if (!signed)
+    return errorReply(
+      tmfError(503, "unavailable", "Service Unavailable", "Try again shortly."),
+      ctx.requestId,
+    );
   await audit(ctx, "download", doc.id, "Download link");
   return reply(200, { url: signed.signedUrl, expiresInSeconds: 60 }, ctx.requestId);
 }
@@ -254,7 +463,11 @@ export async function listSpecifications(request: Request): Promise<Response> {
   const ctx = await authenticate(request, "read");
   if (ctx instanceof Response) return ctx;
   const { data } = await ctx.admin.rpc("effective_specifications", { p_tenant: ctx.tenantId });
-  return reply(200, (data ?? []).map((s) => toTmfSpecification(ctx.origin, s)), ctx.requestId);
+  return reply(
+    200,
+    (data ?? []).map((s) => toTmfSpecification(ctx.origin, s)),
+    ctx.requestId,
+  );
 }
 
 export async function getSpecification(request: Request, code: string): Promise<Response> {
@@ -262,22 +475,46 @@ export async function getSpecification(request: Request, code: string): Promise<
   if (ctx instanceof Response) return ctx;
   const { data } = await ctx.admin.rpc("effective_specifications", { p_tenant: ctx.tenantId });
   const s = (data ?? []).find((x) => x.code === code);
-  if (!s) return errorReply(tmfError(404, "notFound", "Not Found", "No document specification with this id."), ctx.requestId);
+  if (!s)
+    return errorReply(
+      tmfError(404, "notFound", "Not Found", "No document specification with this id."),
+      ctx.requestId,
+    );
   return reply(200, toTmfSpecification(ctx.origin, s), ctx.requestId);
 }
 
 // ---------- writes ----------
 
-const relatedSchema = z.object({ id: z.string().min(1).max(64), role: z.string().min(1).max(64), "@referredType": z.string().max(64).optional() });
-const extIdSchema = z.object({ id: z.string().min(1).max(100), owner: z.string().max(100).optional(), externalIdentifierType: z.string().max(64).optional() });
-const characteristicSchema = z.object({ name: z.string().min(1).max(64), value: z.union([z.string().max(500), z.number(), z.boolean()]), valueType: z.string().max(32).optional() });
+const relatedSchema = z.object({
+  id: z.string().min(1).max(64),
+  role: z.string().min(1).max(64),
+  "@referredType": z.string().max(64).optional(),
+});
+const extIdSchema = z.object({
+  id: z.string().min(1).max(100),
+  owner: z.string().max(100).optional(),
+  externalIdentifierType: z.string().max(64).optional(),
+});
+const characteristicSchema = z.object({
+  name: z.string().min(1).max(64),
+  value: z.union([z.string().max(500), z.number(), z.boolean()]),
+  valueType: z.string().max(32).optional(),
+});
 
 /** TMF AttachmentRefOrValue: file details only (we return an upload address), a url to fetch, or inline base64 content. */
 const attachmentSchema = z.object({
   mimeType: z.string().min(3).max(150),
   name: z.string().max(255).optional(),
-  size: z.union([z.number().int().nonnegative(), z.object({ amount: z.number().nonnegative(), units: z.string().max(16).optional() })]).optional(),
-  contentHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  size: z
+    .union([
+      z.number().int().nonnegative(),
+      z.object({ amount: z.number().nonnegative(), units: z.string().max(16).optional() }),
+    ])
+    .optional(),
+  contentHash: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .optional(),
   url: z.string().url().max(1000).optional(),
   content: z.string().max(MAX_INLINE_BODY_CHARS).optional(),
   attachmentType: z.string().max(64).optional(),
@@ -326,7 +563,10 @@ export async function resolvesPublic(url: string): Promise<boolean> {
   try {
     const answers: string[] = [];
     for (const type of ["A", "AAAA"]) {
-      const r = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(host)}&type=${type}`, { headers: { accept: "application/dns-json" }, signal: AbortSignal.timeout(3000) });
+      const r = await fetch(
+        `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(host)}&type=${type}`,
+        { headers: { accept: "application/dns-json" }, signal: AbortSignal.timeout(3000) },
+      );
       const j = (await r.json()) as { Answer?: { type: number; data: string }[] };
       for (const a of j.Answer ?? []) if (a.type === 1 || a.type === 28) answers.push(a.data);
     }
@@ -356,39 +596,139 @@ export async function createDocument(request: Request): Promise<Response> {
   const parsed = await readJson(request, ctx, MAX_INLINE_BODY_CHARS);
   if (!parsed.ok) return parsed.res;
   const input = createSchema.safeParse(parsed.body);
-  if (!input.success) return errorReply(tmfError(400, "invalidBody", "Bad Request", "Check name, documentType, relatedEntity and attachment (mimeType plus contentHash, url or content)."), ctx.requestId);
+  if (!input.success)
+    return errorReply(
+      tmfError(
+        400,
+        "invalidBody",
+        "Bad Request",
+        "Check name, documentType, relatedEntity and attachment (mimeType plus contentHash, url or content).",
+      ),
+      ctx.requestId,
+    );
   const d = input.data;
   const att = Array.isArray(d.attachment) ? d.attachment[0] : d.attachment;
-  if (!att) return errorReply(tmfError(400, "invalidBody", "Bad Request", "Send one attachment."), ctx.requestId);
-  if (!att.contentHash && !att.url && !att.content) return errorReply(tmfError(400, "invalidBody", "Bad Request", "attachment needs contentHash, url or content."), ctx.requestId);
+  if (!att)
+    return errorReply(
+      tmfError(400, "invalidBody", "Bad Request", "Send one attachment."),
+      ctx.requestId,
+    );
+  if (!att.contentHash && !att.url && !att.content)
+    return errorReply(
+      tmfError(400, "invalidBody", "Bad Request", "attachment needs contentHash, url or content."),
+      ctx.requestId,
+    );
   // Idempotency hashes the request without inline content to keep stored hashes small.
-  const idemBody = { ...d, attachment: { ...att, content: att.content ? `sha256:${await sha256Hex(att.content)}` : undefined } };
+  const idemBody = {
+    ...d,
+    attachment: {
+      ...att,
+      content: att.content ? `sha256:${await sha256Hex(att.content)}` : undefined,
+    },
+  };
   return idempotent(request, ctx, "createDocument", idemBody, async () => {
     const ids = d.relatedEntity.map((r) => r.id);
-    const { data: entities } = await ctx.admin.from("business_entities").select("id").in("id", ids).eq("tenant_id", ctx.tenantId);
+    const { data: entities } = await ctx.admin
+      .from("business_entities")
+      .select("id")
+      .in("id", ids)
+      .eq("tenant_id", ctx.tenantId);
     if ((entities ?? []).length !== new Set(ids).size) {
-      return { status: 404, body: tmfError(404, "relatedEntityNotFound", "Not Found", "One or more related entities don't exist for this organisation.") };
+      return {
+        status: 404,
+        body: tmfError(
+          404,
+          "relatedEntityNotFound",
+          "Not Found",
+          "One or more related entities don't exist for this organisation.",
+        ),
+      };
     }
-    const { data: specs } = await ctx.admin.rpc("effective_specifications", { p_tenant: ctx.tenantId });
+    const { data: specs } = await ctx.admin.rpc("effective_specifications", {
+      p_tenant: ctx.tenantId,
+    });
     const spec = (specs ?? []).find((s) => s.code === d.documentType);
-    if (!spec) return { status: 400, body: tmfError(400, "unknownDocumentType", "Bad Request", "This documentType isn't set up for this organisation.") };
-    const def = spec.definition as { acceptedMimeTypes?: string[]; maxSizeMb?: number; defaultSensitivity?: string; retentionPolicyRef?: string };
-    if (def.acceptedMimeTypes && !def.acceptedMimeTypes.includes(att.mimeType)) return { status: 400, body: tmfError(400, "mimeNotAccepted", "Bad Request", "This file type isn't accepted for this documentType.") };
+    if (!spec)
+      return {
+        status: 400,
+        body: tmfError(
+          400,
+          "unknownDocumentType",
+          "Bad Request",
+          "This documentType isn't set up for this organisation.",
+        ),
+      };
+    const def = spec.definition as {
+      acceptedMimeTypes?: string[];
+      maxSizeMb?: number;
+      defaultSensitivity?: string;
+      retentionPolicyRef?: string;
+    };
+    if (def.acceptedMimeTypes && !def.acceptedMimeTypes.includes(att.mimeType))
+      return {
+        status: 400,
+        body: tmfError(
+          400,
+          "mimeNotAccepted",
+          "Bad Request",
+          "This file type isn't accepted for this documentType.",
+        ),
+      };
 
     // Get the bytes when the client sent them (inline) or pointed at them (url).
     let bytes: Uint8Array<ArrayBuffer> | null = null;
     if (att.content) {
       bytes = decodeBase64(att.content);
-      if (!bytes) return { status: 400, body: tmfError(400, "invalidContent", "Bad Request", "attachment.content must be base64.") };
-      if (bytes.byteLength > MAX_INLINE_BYTES) return { status: 413, body: tmfError(413, "tooLarge", "Payload Too Large", "Inline content is limited to 5 MB; send a url or use the upload address.") };
+      if (!bytes)
+        return {
+          status: 400,
+          body: tmfError(
+            400,
+            "invalidContent",
+            "Bad Request",
+            "attachment.content must be base64.",
+          ),
+        };
+      if (bytes.byteLength > MAX_INLINE_BYTES)
+        return {
+          status: 413,
+          body: tmfError(
+            413,
+            "tooLarge",
+            "Payload Too Large",
+            "Inline content is limited to 5 MB; send a url or use the upload address.",
+          ),
+        };
     } else if (att.url) {
       bytes = await fetchBytes(att.url);
-      if (!bytes) return { status: 422, body: tmfError(422, "attachmentUnreachable", "Unprocessable Entity", "We couldn't fetch the attachment url (public https, under 25 MB).") };
+      if (!bytes)
+        return {
+          status: 422,
+          body: tmfError(
+            422,
+            "attachmentUnreachable",
+            "Unprocessable Entity",
+            "We couldn't fetch the attachment url (public https, under 25 MB).",
+          ),
+        };
     }
     const size = bytes ? bytes.byteLength : sizeBytes(att.size);
-    if (def.maxSizeMb && size && size > def.maxSizeMb * 1024 * 1024) return { status: 400, body: tmfError(400, "tooLarge", "Bad Request", "This file is larger than allowed.") };
+    if (def.maxSizeMb && size && size > def.maxSizeMb * 1024 * 1024)
+      return {
+        status: 400,
+        body: tmfError(400, "tooLarge", "Bad Request", "This file is larger than allowed."),
+      };
     const hash = bytes ? await sha256Bytes(bytes) : (att.contentHash as string);
-    if (bytes && att.contentHash && att.contentHash !== hash) return { status: 422, body: tmfError(422, "hashMismatch", "Unprocessable Entity", "The file doesn't match contentHash.") };
+    if (bytes && att.contentHash && att.contentHash !== hash)
+      return {
+        status: 422,
+        body: tmfError(
+          422,
+          "hashMismatch",
+          "Unprocessable Entity",
+          "The file doesn't match contentHash.",
+        ),
+      };
 
     const { data: doc, error } = await ctx.admin
       .from("documents")
@@ -400,7 +740,8 @@ export async function createDocument(request: Request): Promise<Response> {
         status: "draft",
         // Bytes we received are hash-checked and stored; otherwise the client still has to upload.
         pipeline_state: bytes ? "ready" : "uploading",
-        sensitivity: (def.defaultSensitivity ?? "internal") as "public" | "internal" | "confidential" | "restricted",
+        sensitivity: (def.defaultSensitivity ?? "internal") as
+          "public" | "internal" | "confidential" | "restricted",
         retention_policy_id: def.retentionPolicyRef ?? null,
         // The schema allows uploaded/generated only; the activity log records which system sent it.
         origin: "uploaded",
@@ -410,16 +751,49 @@ export async function createDocument(request: Request): Promise<Response> {
       })
       .select("id")
       .single();
-    if (error) console.error(JSON.stringify({ op: "tmf.createDocument", requestId: ctx.requestId, code: error.code, message: error.message }));
-    if (error || !doc) return { status: 503, body: tmfError(503, "unavailable", "Service Unavailable", "Try again shortly.") };
+    if (error)
+      console.error(
+        JSON.stringify({
+          op: "tmf.createDocument",
+          requestId: ctx.requestId,
+          code: error.code,
+          message: error.message,
+        }),
+      );
+    if (error || !doc)
+      return {
+        status: 503,
+        body: tmfError(503, "unavailable", "Service Unavailable", "Try again shortly."),
+      };
     const versionId = crypto.randomUUID();
     const storagePath = `${ctx.tenantId}/${versionId}`;
-    if (bytes) await ctx.admin.storage.from("documents").upload(storagePath, bytes, { contentType: att.mimeType, upsert: false });
-    await ctx.admin.from("document_versions").insert({ id: versionId, document_id: doc.id, tenant_id: ctx.tenantId, label: "1", mime_type: att.mimeType, size_bytes: size ?? null, content_hash: hash, storage_path: storagePath });
+    if (bytes)
+      await ctx.admin.storage
+        .from("documents")
+        .upload(storagePath, bytes, { contentType: att.mimeType, upsert: false });
+    await ctx.admin.from("document_versions").insert({
+      id: versionId,
+      document_id: doc.id,
+      tenant_id: ctx.tenantId,
+      label: "1",
+      mime_type: att.mimeType,
+      size_bytes: size ?? null,
+      content_hash: hash,
+      storage_path: storagePath,
+    });
     await ctx.admin.from("documents").update({ current_version_id: versionId }).eq("id", doc.id);
-    await ctx.admin.from("document_relations").insert(d.relatedEntity.map((r) => ({ document_id: doc.id, entity_id: r.id, role: r.role })));
-    const signed = bytes ? null : (await ctx.admin.storage.from("documents").createSignedUploadUrl(storagePath)).data;
-    await audit(ctx, "upload", doc.id, bytes ? (att.url ? "Version 1 (fetched from url)" : "Version 1 (sent inline)") : "Version 1");
+    await ctx.admin
+      .from("document_relations")
+      .insert(d.relatedEntity.map((r) => ({ document_id: doc.id, entity_id: r.id, role: r.role })));
+    const signed = bytes
+      ? null
+      : (await ctx.admin.storage.from("documents").createSignedUploadUrl(storagePath)).data;
+    await audit(
+      ctx,
+      "upload",
+      doc.id,
+      bytes ? (att.url ? "Version 1 (fetched from url)" : "Version 1 (sent inline)") : "Version 1",
+    );
     const created = await findDoc(ctx, doc.id);
     const [tmf] = created ? await loadTmfDocs(ctx, [created]) : [];
     return { status: 201, body: { ...tmf, ...(signed ? { uploadUrl: signed.signedUrl } : {}) } };
@@ -443,27 +817,77 @@ const patchSchema = z
 const PATCH_TYPES = ["application/merge-patch+json", "application/json"];
 
 /** Same status path, scope and approval gate as /transition. */
-async function applyTransition(ctx: SystemCtx, doc: DocRow, target: DocStatus): Promise<{ status: number; body: unknown } | null> {
-  if (!isTransitionAllowed(doc.status, target)) return { status: 409, body: tmfError(409, "transitionNotAllowed", "Conflict", `A ${doc.status} document can't move to ${target}.`) };
+async function applyTransition(
+  ctx: SystemCtx,
+  doc: DocRow,
+  target: DocStatus,
+): Promise<{ status: number; body: unknown } | null> {
+  if (!isTransitionAllowed(doc.status, target))
+    return {
+      status: 409,
+      body: tmfError(
+        409,
+        "transitionNotAllowed",
+        "Conflict",
+        `A ${doc.status} document can't move to ${target}.`,
+      ),
+    };
   if (target === "approved") {
     if (!systemMayApprove(doc.registered_by_client, ctx.clientId)) {
-      return { status: 409, body: tmfError(409, "fourEyesRequired", "Conflict", "The system that added this document can't approve it. Another system or a person in the app can.") };
+      return {
+        status: 409,
+        body: tmfError(
+          409,
+          "fourEyesRequired",
+          "Conflict",
+          "The system that added this document can't approve it. Another system or a person in the app can.",
+        ),
+      };
     }
-    const { data: specs } = await ctx.admin.rpc("effective_specifications", { p_tenant: ctx.tenantId });
-    const def = (specs ?? []).find((s) => s.code === doc.document_type)?.definition as { specCharacteristic?: SpecCharacteristic[] } | undefined;
-    const { data: fields } = await ctx.admin.from("extraction_fields").select("name, status").eq("document_id", doc.id).eq("version_id", doc.current_version_id ?? "");
+    const { data: specs } = await ctx.admin.rpc("effective_specifications", {
+      p_tenant: ctx.tenantId,
+    });
+    const def = (specs ?? []).find((s) => s.code === doc.document_type)?.definition as
+      { specCharacteristic?: SpecCharacteristic[] } | undefined;
+    const { data: fields } = await ctx.admin
+      .from("extraction_fields")
+      .select("name, status")
+      .eq("document_id", doc.id)
+      .eq("version_id", doc.current_version_id ?? "");
     const pending = pendingRequiredDetails(def?.specCharacteristic ?? [], fields ?? []);
-    if (pending.length > 0) return { status: 409, body: tmfError(409, "requiredDetailsPending", "Conflict", `${pending.length} required detail(s) still need a person to confirm them.`) };
+    if (pending.length > 0)
+      return {
+        status: 409,
+        body: tmfError(
+          409,
+          "requiredDetailsPending",
+          "Conflict",
+          `${pending.length} required detail(s) still need a person to confirm them.`,
+        ),
+      };
   }
-  await ctx.admin.from("documents").update({ status: target, updated_at: new Date().toISOString() }).eq("id", doc.id).eq("tenant_id", ctx.tenantId);
+  await ctx.admin
+    .from("documents")
+    .update({ status: target, updated_at: new Date().toISOString() })
+    .eq("id", doc.id)
+    .eq("tenant_id", ctx.tenantId);
   await audit(ctx, "statusChange", doc.id, `${doc.status} to ${target}`);
   return null;
 }
 
 export async function patchDocument(request: Request, id: string): Promise<Response> {
-  const ctype = (request.headers.get("content-type") ?? "").split(";")[0]?.trim().toLowerCase() ?? "";
+  const ctype =
+    (request.headers.get("content-type") ?? "").split(";")[0]?.trim().toLowerCase() ?? "";
   if (ctype && !PATCH_TYPES.includes(ctype)) {
-    return errorReply(tmfError(415, "unsupportedMediaType", "Unsupported Media Type", "Send application/merge-patch+json."), crypto.randomUUID());
+    return errorReply(
+      tmfError(
+        415,
+        "unsupportedMediaType",
+        "Unsupported Media Type",
+        "Send application/merge-patch+json.",
+      ),
+      crypto.randomUUID(),
+    );
   }
   const peek = await request.clone().text();
   let peekBody: Record<string, unknown> = {};
@@ -474,42 +898,107 @@ export async function patchDocument(request: Request, id: string): Promise<Respo
     peekBody = {};
   }
   // A status-only change needs the transition/approve scope; other fields need register.
-  const tmfTarget = typeof peekBody["status"] === "string" ? targetForTmfStatus(peekBody["status"]) : null;
-  const onlyStatus = Object.keys(peekBody).filter((k) => k !== "@type").length === 1 && tmfTarget !== null;
-  const ctx = await authenticate(request, onlyStatus && tmfTarget ? scopeForTransition(tmfTarget) : "register");
+  const tmfTarget =
+    typeof peekBody["status"] === "string" ? targetForTmfStatus(peekBody["status"]) : null;
+  const onlyStatus =
+    Object.keys(peekBody).filter((k) => k !== "@type").length === 1 && tmfTarget !== null;
+  const ctx = await authenticate(
+    request,
+    onlyStatus && tmfTarget ? scopeForTransition(tmfTarget) : "register",
+  );
   if (ctx instanceof Response) return ctx;
   const parsed = await readJson(request, ctx);
   if (!parsed.ok) return parsed.res;
   const input = patchSchema.safeParse(parsed.body);
-  if (!input.success) return errorReply(tmfError(400, "invalidBody", "Bad Request", "You can change name, description, status, characteristic, externalIdentifier, relatedEntity (add) and validFor.endDateTime."), ctx.requestId);
+  if (!input.success)
+    return errorReply(
+      tmfError(
+        400,
+        "invalidBody",
+        "Bad Request",
+        "You can change name, description, status, characteristic, externalIdentifier, relatedEntity (add) and validFor.endDateTime.",
+      ),
+      ctx.requestId,
+    );
   const p = input.data;
   let target: DocStatus | null = null;
   if (p.status !== undefined) {
     target = targetForTmfStatus(p.status);
-    if (!target) return errorReply(tmfError(400, "invalidStatus", "Bad Request", "status can be created, reviewed, approved, published or archived. Use DELETE to delete."), ctx.requestId);
+    if (!target)
+      return errorReply(
+        tmfError(
+          400,
+          "invalidStatus",
+          "Bad Request",
+          "status can be created, reviewed, approved, published or archived. Use DELETE to delete.",
+        ),
+        ctx.requestId,
+      );
     if (!onlyStatus && !hasScope(ctx.scopes, scopeForTransition(target))) {
-      return errorReply(tmfError(403, "scopeMissing", "Forbidden", `This system key does not include '${scopeForTransition(target)}'.`), ctx.requestId);
+      return errorReply(
+        tmfError(
+          403,
+          "scopeMissing",
+          "Forbidden",
+          `This system key does not include '${scopeForTransition(target)}'.`,
+        ),
+        ctx.requestId,
+      );
     }
   }
   return idempotent(request, ctx, `patch:${id}`, p, async () => {
     const doc = await findDoc(ctx, id);
-    if (!doc) return { status: 404, body: tmfError(404, "notFound", "Not Found", "No document with this id.") };
+    if (!doc)
+      return {
+        status: 404,
+        body: tmfError(404, "notFound", "Not Found", "No document with this id."),
+      };
     const { status: _s, "@type": _t, ...fields } = p;
     const editsFields = Object.keys(fields).length > 0;
     const check = metadataPatchAllowed(doc.status, Object.keys(fields));
-    if (!check.ok && check.reason === "frozen") return { status: 409, body: tmfError(409, "frozen", "Conflict", "This document can no longer be changed.") };
+    if (!check.ok && check.reason === "frozen")
+      return {
+        status: 409,
+        body: tmfError(409, "frozen", "Conflict", "This document can no longer be changed."),
+      };
     if (!check.ok && check.reason === "approvedContent") {
-      return { status: 409, body: tmfError(409, "approvedContentLocked", "Conflict", `This document is approved, so only name, description, externalIdentifier and relatedEntity can change. Not changed: ${check.blocked.join(", ")}.`) };
+      return {
+        status: 409,
+        body: tmfError(
+          409,
+          "approvedContentLocked",
+          "Conflict",
+          `This document is approved, so only name, description, externalIdentifier and relatedEntity can change. Not changed: ${check.blocked.join(", ")}.`,
+        ),
+      };
     }
     if (p.relatedEntity?.length) {
       const ids = p.relatedEntity.map((r) => r.id);
-      const { data: ents } = await ctx.admin.from("business_entities").select("id").in("id", ids).eq("tenant_id", ctx.tenantId);
-      if ((ents ?? []).length !== new Set(ids).size) return { status: 404, body: tmfError(404, "relatedEntityNotFound", "Not Found", "One or more related entities don't exist for this organisation.") };
+      const { data: ents } = await ctx.admin
+        .from("business_entities")
+        .select("id")
+        .in("id", ids)
+        .eq("tenant_id", ctx.tenantId);
+      if ((ents ?? []).length !== new Set(ids).size)
+        return {
+          status: 404,
+          body: tmfError(
+            404,
+            "relatedEntityNotFound",
+            "Not Found",
+            "One or more related entities don't exist for this organisation.",
+          ),
+        };
     }
     if (editsFields) {
       // Merge-patch on arrays replaces them, except relatedEntity which only adds (links are never removed by systems).
       const merged = p.characteristic
-        ? [...asCharacteristicRows(doc.characteristic).filter((c) => !p.characteristic?.some((n) => n.name === c.name)), ...p.characteristic]
+        ? [
+            ...asCharacteristicRows(doc.characteristic).filter(
+              (c) => !p.characteristic?.some((n) => n.name === c.name),
+            ),
+            ...p.characteristic,
+          ]
         : null;
       await ctx.admin
         .from("documents")
@@ -518,13 +1007,18 @@ export async function patchDocument(request: Request, id: string): Promise<Respo
           ...(p.description !== undefined ? { description: p.description } : {}),
           ...(p.validFor ? { expiry_date: p.validFor.endDateTime.slice(0, 10) } : {}),
           ...(merged ? { characteristic: merged as unknown as Json } : {}),
-          ...(p.externalIdentifier ? { external_identifier: p.externalIdentifier as unknown as Json } : {}),
+          ...(p.externalIdentifier
+            ? { external_identifier: p.externalIdentifier as unknown as Json }
+            : {}),
           updated_at: new Date().toISOString(),
         })
         .eq("id", doc.id)
         .eq("tenant_id", ctx.tenantId);
       if (p.relatedEntity?.length) {
-        await ctx.admin.from("document_relations").upsert(p.relatedEntity.map((r) => ({ document_id: doc.id, entity_id: r.id, role: r.role })), { onConflict: "document_id,entity_id,role", ignoreDuplicates: true });
+        await ctx.admin.from("document_relations").upsert(
+          p.relatedEntity.map((r) => ({ document_id: doc.id, entity_id: r.id, role: r.role })),
+          { onConflict: "document_id,entity_id,role", ignoreDuplicates: true },
+        );
       }
       // Field names only; values never reach the activity log.
       await audit(ctx, "metadataChange", doc.id, `Changed ${Object.keys(fields).join(", ")}`);
@@ -541,7 +1035,12 @@ export async function patchDocument(request: Request, id: string): Promise<Respo
 }
 
 function asCharacteristicRows(v: unknown): { name: string; value: unknown; valueType?: string }[] {
-  return Array.isArray(v) ? v.filter((c): c is { name: string; value: unknown } => typeof c === "object" && c !== null && typeof (c as { name?: unknown }).name === "string") : [];
+  return Array.isArray(v)
+    ? v.filter(
+        (c): c is { name: string; value: unknown } =>
+          typeof c === "object" && c !== null && typeof (c as { name?: unknown }).name === "string",
+      )
+    : [];
 }
 
 /** Standard DELETE: same rules as delete in the app (holds and keep-until dates block it). Soft delete; restorable by an admin. */
@@ -550,17 +1049,46 @@ export async function deleteDocument(request: Request, id: string): Promise<Resp
   if (ctx instanceof Response) return ctx;
   return idempotent(request, ctx, `delete:${id}`, { id }, async () => {
     const doc = await findDoc(ctx, id);
-    if (!doc) return { status: 404, body: tmfError(404, "notFound", "Not Found", "No document with this id.") };
+    if (!doc)
+      return {
+        status: 404,
+        body: tmfError(404, "notFound", "Not Found", "No document with this id."),
+      };
     const today = new Date().toISOString().slice(0, 10);
-    const rule = deleteState("manager", doc.legal_hold, (doc as DocRow & { retain_until?: string | null }).retain_until ?? null, today);
-    if (!rule.available) return { status: 409, body: tmfError(409, doc.legal_hold ? "legalHold" : "retention", "Conflict", rule.reason ?? "This document can't be deleted yet.") };
-    await ctx.admin.from("documents").update({ deleted_at: new Date().toISOString() }).eq("id", doc.id).eq("tenant_id", ctx.tenantId);
+    const rule = deleteState(
+      "manager",
+      doc.legal_hold,
+      (doc as DocRow & { retain_until?: string | null }).retain_until ?? null,
+      today,
+    );
+    if (!rule.available)
+      return {
+        status: 409,
+        body: tmfError(
+          409,
+          doc.legal_hold ? "legalHold" : "retention",
+          "Conflict",
+          rule.reason ?? "This document can't be deleted yet.",
+        ),
+      };
+    await ctx.admin
+      .from("documents")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", doc.id)
+      .eq("tenant_id", ctx.tenantId);
     await audit(ctx, "delete", doc.id, "Deleted");
     return { status: 204, body: null };
   });
 }
 
-const STATUS_VALUES = ["in_review", "approved", "effective", "superseded", "expired", "archived"] as const;
+const STATUS_VALUES = [
+  "in_review",
+  "approved",
+  "effective",
+  "superseded",
+  "expired",
+  "archived",
+] as const;
 const transitionSchema = z.object({ lifecycleState: z.enum(STATUS_VALUES) });
 
 /** Extension (not TMF667): explicit status task. Standard clients can PATCH status instead. */
@@ -574,11 +1102,24 @@ export async function transitionDocument(request: Request, id: string): Promise<
   }
   const ctx = await authenticate(request, to ? scopeForTransition(to) : "transition");
   if (ctx instanceof Response) return ctx;
-  if (!to) return errorReply(tmfError(400, "invalidBody", "Bad Request", `Send {"lifecycleState": one of ${STATUS_VALUES.join(", ")}}.`), ctx.requestId);
+  if (!to)
+    return errorReply(
+      tmfError(
+        400,
+        "invalidBody",
+        "Bad Request",
+        `Send {"lifecycleState": one of ${STATUS_VALUES.join(", ")}}.`,
+      ),
+      ctx.requestId,
+    );
   const target = to;
   return idempotent(request, ctx, `transition:${id}`, { to: target }, async () => {
     const doc = await findDoc(ctx, id);
-    if (!doc) return { status: 404, body: tmfError(404, "notFound", "Not Found", "No document with this id.") };
+    if (!doc)
+      return {
+        status: 404,
+        body: tmfError(404, "notFound", "Not Found", "No document with this id."),
+      };
     const fail = await applyTransition(ctx, doc, target);
     if (fail) return fail;
     const fresh = await findDoc(ctx, doc.id);
@@ -587,7 +1128,11 @@ export async function transitionDocument(request: Request, id: string): Promise<
   });
 }
 
-const holdSchema = z.object({ active: z.boolean(), reason: z.string().trim().min(1).max(500), reference: z.string().max(100).optional() });
+const holdSchema = z.object({
+  active: z.boolean(),
+  reason: z.string().trim().min(1).max(500),
+  reference: z.string().max(100).optional(),
+});
 
 export async function setLegalHold(request: Request, id: string): Promise<Response> {
   const ctx = await authenticate(request, "hold");
@@ -595,26 +1140,56 @@ export async function setLegalHold(request: Request, id: string): Promise<Respon
   const parsed = await readJson(request, ctx);
   if (!parsed.ok) return parsed.res;
   const input = holdSchema.safeParse(parsed.body);
-  if (!input.success) return errorReply(tmfError(400, "invalidBody", "Bad Request", "Send active (true/false) and a reason."), ctx.requestId);
+  if (!input.success)
+    return errorReply(
+      tmfError(400, "invalidBody", "Bad Request", "Send active (true/false) and a reason."),
+      ctx.requestId,
+    );
   const h = input.data;
   return idempotent(request, ctx, `hold:${id}`, h, async () => {
     const doc = await findDoc(ctx, id);
-    if (!doc) return { status: 404, body: tmfError(404, "notFound", "Not Found", "No document with this id.") };
+    if (!doc)
+      return {
+        status: 404,
+        body: tmfError(404, "notFound", "Not Found", "No document with this id."),
+      };
     const now = new Date().toISOString();
     await ctx.admin
       .from("documents")
-      .update({ legal_hold: h.active, hold_reason: h.active ? h.reason : null, hold_reference: h.active ? (h.reference ?? null) : null, hold_since: h.active ? now : null, hold_set_by: null, updated_at: now })
+      .update({
+        legal_hold: h.active,
+        hold_reason: h.active ? h.reason : null,
+        hold_reference: h.active ? (h.reference ?? null) : null,
+        hold_since: h.active ? now : null,
+        hold_set_by: null,
+        updated_at: now,
+      })
       .eq("id", doc.id)
       .eq("tenant_id", ctx.tenantId);
     const ref = h.reference ? ` (${h.reference})` : "";
-    await audit(ctx, "hold", doc.id, h.active ? `Hold placed${ref}: ${h.reason}` : `Hold released: ${h.reason}`);
-    return { status: 200, body: { id: doc.id, href: `${ctx.origin}${TMF_BASE_PATH}/document/${doc.id}`, legalHold: h.active } };
+    await audit(
+      ctx,
+      "hold",
+      doc.id,
+      h.active ? `Hold placed${ref}: ${h.reason}` : `Hold released: ${h.reason}`,
+    );
+    return {
+      status: 200,
+      body: {
+        id: doc.id,
+        href: `${ctx.origin}${TMF_BASE_PATH}/document/${doc.id}`,
+        legalHold: h.active,
+      },
+    };
   });
 }
 
 // ---------- events hub (TMF688 pattern) ----------
 
-const hubSchema = z.object({ callback: z.string().url().max(500), query: z.string().max(300).optional() });
+const hubSchema = z.object({
+  callback: z.string().url().max(500),
+  query: z.string().max(300).optional(),
+});
 
 export async function subscribe(request: Request): Promise<Response> {
   const ctx = await authenticate(request, "subscribe");
@@ -623,27 +1198,59 @@ export async function subscribe(request: Request): Promise<Response> {
   if (!parsed.ok) return parsed.res;
   const input = hubSchema.safeParse(parsed.body);
   if (!input.success || !(await resolvesPublic(input.data.callback))) {
-    return errorReply(tmfError(400, "invalidCallback", "Bad Request", "callback must be a public https address."), ctx.requestId);
+    return errorReply(
+      tmfError(400, "invalidCallback", "Bad Request", "callback must be a public https address."),
+      ctx.requestId,
+    );
   }
   const secretBytes = crypto.getRandomValues(new Uint8Array(32));
   const secret = Array.from(secretBytes, (b) => b.toString(16).padStart(2, "0")).join("");
   const { data } = await ctx.admin
     .from("event_subscriptions")
-    .insert({ client_id: ctx.clientId, tenant_id: ctx.tenantId, callback: input.data.callback, query: input.data.query ?? null, secret })
+    .insert({
+      client_id: ctx.clientId,
+      tenant_id: ctx.tenantId,
+      callback: input.data.callback,
+      query: input.data.query ?? null,
+      secret,
+    })
     .select("id, callback, query")
     .single();
-  if (!data) return errorReply(tmfError(503, "unavailable", "Service Unavailable", "Try again shortly."), ctx.requestId);
+  if (!data)
+    return errorReply(
+      tmfError(503, "unavailable", "Service Unavailable", "Try again shortly."),
+      ctx.requestId,
+    );
   // The signing secret is shown once; events carry X-Signature: sha256=<hmac of body>.
   // signingSecret is an extension: events carry X-Signature-Timestamp and X-Signature: sha256=HMAC(secret, "<timestamp>.<body>").
-  return reply(201, { id: data.id, callback: data.callback, query: data.query, signingSecret: secret, "@type": "EventSubscription" }, ctx.requestId);
+  return reply(
+    201,
+    {
+      id: data.id,
+      callback: data.callback,
+      query: data.query,
+      signingSecret: secret,
+      "@type": "EventSubscription",
+    },
+    ctx.requestId,
+  );
 }
 
 export async function unsubscribe(request: Request, id: string): Promise<Response> {
   const ctx = await authenticate(request, "subscribe");
   if (ctx instanceof Response) return ctx;
   if (!z.string().uuid().safeParse(id).success) return notFound(ctx);
-  const { data } = await ctx.admin.from("event_subscriptions").delete().eq("id", id).eq("client_id", ctx.clientId).select("id");
-  if (!data || data.length === 0) return errorReply(tmfError(404, "notFound", "Not Found", "No subscription with this id."), ctx.requestId);
+  const { data } = await ctx.admin
+    .from("event_subscriptions")
+    .delete()
+    .eq("id", id)
+    .eq("client_id", ctx.clientId)
+    .select("id");
+  if (!data || data.length === 0)
+    return errorReply(
+      tmfError(404, "notFound", "Not Found", "No subscription with this id."),
+      ctx.requestId,
+    );
   return reply(204, null, ctx.requestId);
 }
 
@@ -655,7 +1262,10 @@ const METHODS: HttpMethod[] = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 /** Without these, an unsupported method falls through to the app page and answers 200 HTML. */
 export function otherMethods(allowed: HttpMethod[]): Partial<Record<HttpMethod, () => Response>> {
   const res = () => {
-    const r = errorReply(tmfError(405, "methodNotAllowed", "Method Not Allowed", `Use ${allowed.join(" or ")} here.`), crypto.randomUUID());
+    const r = errorReply(
+      tmfError(405, "methodNotAllowed", "Method Not Allowed", `Use ${allowed.join(" or ")} here.`),
+      crypto.randomUUID(),
+    );
     r.headers.set("Allow", allowed.join(", "));
     return r;
   };
@@ -663,7 +1273,10 @@ export function otherMethods(allowed: HttpMethod[]): Partial<Record<HttpMethod, 
 }
 
 export function unknownPath(): Response {
-  return errorReply(tmfError(404, "notFound", "Not Found", "No API resource at this address."), crypto.randomUUID());
+  return errorReply(
+    tmfError(404, "notFound", "Not Found", "No API resource at this address."),
+    crypto.randomUUID(),
+  );
 }
 
 /** Marks replies from the earlier profile address as deprecated (RFC 9745 / RFC 8594). */
@@ -681,7 +1294,11 @@ export const TOKEN_TTL_SECONDS = 900;
 function oauthError(status: number, error: string, description: string): Response {
   return new Response(JSON.stringify({ error, error_description: description }), {
     status,
-    headers: { "Content-Type": "application/json;charset=utf-8", "Cache-Control": "no-store", Pragma: "no-cache" },
+    headers: {
+      "Content-Type": "application/json;charset=utf-8",
+      "Cache-Control": "no-store",
+      Pragma: "no-cache",
+    },
   });
 }
 
@@ -693,8 +1310,21 @@ export async function issueToken(request: Request): Promise<Response> {
   const text = await request.text();
   if (text.length > 4000) return oauthError(400, "invalid_request", "Request too large.");
   const ctype = request.headers.get("content-type") ?? "";
-  const form = ctype.includes("application/json") ? new URLSearchParams(Object.entries((() => { try { return JSON.parse(text) as Record<string, string>; } catch { return {}; } })())) : new URLSearchParams(text);
-  if (form.get("grant_type") !== "client_credentials") return oauthError(400, "unsupported_grant_type", "Use grant_type=client_credentials.");
+  const form = ctype.includes("application/json")
+    ? new URLSearchParams(
+        Object.entries(
+          (() => {
+            try {
+              return JSON.parse(text) as Record<string, string>;
+            } catch {
+              return {};
+            }
+          })(),
+        ),
+      )
+    : new URLSearchParams(text);
+  if (form.get("grant_type") !== "client_credentials")
+    return oauthError(400, "unsupported_grant_type", "Use grant_type=client_credentials.");
   let secret = form.get("client_secret");
   const basic = /^Basic\s+(.+)$/.exec(request.headers.get("authorization") ?? "");
   if (!secret && basic?.[1]) {
@@ -704,18 +1334,42 @@ export async function issueToken(request: Request): Promise<Response> {
       secret = null;
     }
   }
-  if (!secret || !/^erad_[A-Za-z0-9_-]{20,120}$/.test(secret)) return oauthError(401, "invalid_client", "Send the system key as client_secret.");
+  if (!secret || !/^erad_[A-Za-z0-9_-]{20,120}$/.test(secret))
+    return oauthError(401, "invalid_client", "Send the system key as client_secret.");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const admin = supabaseAdmin as Db;
-  const { data: client } = await admin.from("integration_clients").select("id, scopes, revoked_at, expires_at").eq("key_hash", await sha256Hex(secret)).maybeSingle();
-  if (!client || client.revoked_at || (client.expires_at && new Date(client.expires_at) <= new Date())) return oauthError(401, "invalid_client", "This system key is not valid.");
+  const { data: client } = await admin
+    .from("integration_clients")
+    .select("id, scopes, revoked_at, expires_at")
+    .eq("key_hash", await sha256Hex(secret))
+    .maybeSingle();
+  if (
+    !client ||
+    client.revoked_at ||
+    (client.expires_at && new Date(client.expires_at) <= new Date())
+  )
+    return oauthError(401, "invalid_client", "This system key is not valid.");
   const raw = crypto.getRandomValues(new Uint8Array(32));
   const token = `eradt_${Array.from(raw, (b) => b.toString(16).padStart(2, "0")).join("")}`;
   const expires = new Date(Date.now() + TOKEN_TTL_SECONDS * 1000).toISOString();
   await admin.from("integration_tokens").delete().lt("expires_at", new Date().toISOString());
-  await admin.from("integration_tokens").insert({ client_id: client.id, token_hash: await sha256Hex(token), expires_at: expires });
-  return new Response(JSON.stringify({ access_token: token, token_type: "Bearer", expires_in: TOKEN_TTL_SECONDS, scope: client.scopes.join(" ") }), {
-    status: 200,
-    headers: { "Content-Type": "application/json;charset=utf-8", "Cache-Control": "no-store", Pragma: "no-cache" },
-  });
+  await admin
+    .from("integration_tokens")
+    .insert({ client_id: client.id, token_hash: await sha256Hex(token), expires_at: expires });
+  return new Response(
+    JSON.stringify({
+      access_token: token,
+      token_type: "Bearer",
+      expires_in: TOKEN_TTL_SECONDS,
+      scope: client.scopes.join(" "),
+    }),
+    {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json;charset=utf-8",
+        "Cache-Control": "no-store",
+        Pragma: "no-cache",
+      },
+    },
+  );
 }

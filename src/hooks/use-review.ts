@@ -16,7 +16,11 @@ export const specCharacteristicsQuery = queryOptions({
   queryFn: async () => {
     const specs = await api.listSpecifications();
     return Object.fromEntries(
-      specs.map((s) => [s.code, ((s.definition ?? {}) as { specCharacteristic?: SpecCharacteristic[] }).specCharacteristic ?? []]),
+      specs.map((s) => [
+        s.code,
+        ((s.definition ?? {}) as { specCharacteristic?: SpecCharacteristic[] })
+          .specCharacteristic ?? [],
+      ]),
     ) as Record<string, SpecCharacteristic[]>;
   },
 });
@@ -25,21 +29,36 @@ export const specCharacteristicsQuery = queryOptions({
 export function useReviewState(docId: string, documentType: string, versionId: string | null) {
   const fields = useQuery(extractionQuery(docId));
   const specs = useQuery(specCharacteristicsQuery);
-  const current = (fields.data ?? []).filter((f) => !versionId || (f as ReviewField & { version_id?: string }).version_id === versionId);
+  const current = (fields.data ?? []).filter(
+    (f) => !versionId || (f as ReviewField & { version_id?: string }).version_id === versionId,
+  );
   const gate = approveGate(specs.data?.[documentType] ?? [], current);
-  return { fields: current, gate, spec: specs.data?.[documentType] ?? [], isPending: fields.isPending || specs.isPending, isError: fields.isError || specs.isError, refetch: fields.refetch };
+  return {
+    fields: current,
+    gate,
+    spec: specs.data?.[documentType] ?? [],
+    isPending: fields.isPending || specs.isPending,
+    isError: fields.isError || specs.isError,
+    refetch: fields.refetch,
+  };
 }
 
 export function useReviewField(entityId: string, docId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (v: { fieldId: string; decision: "accept" | "edit" | "reject"; value?: string }) =>
-      api.reviewExtraction({ id: docId, fieldId: v.fieldId, decision: v.decision, ...(v.value !== undefined ? { value: v.value } : {}) }),
+      api.reviewExtraction({
+        id: docId,
+        fieldId: v.fieldId,
+        decision: v.decision,
+        ...(v.value !== undefined ? { value: v.value } : {}),
+      }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["extraction", docId] });
       void qc.invalidateQueries({ queryKey: ["document", docId] });
       void qc.invalidateQueries({ queryKey: ["documents", { entityId }] });
     },
-    onError: (e: unknown) => toast.error(friendlyError(e instanceof SeamFailure ? e.code : undefined)),
+    onError: (e: unknown) =>
+      toast.error(friendlyError(e instanceof SeamFailure ? e.code : undefined)),
   });
 }

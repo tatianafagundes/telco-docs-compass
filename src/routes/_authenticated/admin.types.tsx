@@ -17,9 +17,15 @@ export const Route = createFileRoute("/_authenticated/admin/types")({
   head: () => ({
     meta: [
       { title: "Document types · Admin" },
-      { name: "description", content: "Document types this organisation uses, and where each setting comes from." },
+      {
+        name: "description",
+        content: "Document types this organisation uses, and where each setting comes from.",
+      },
       { property: "og:title", content: "Document types · Admin" },
-      { property: "og:description", content: "Document types this organisation uses, and where each setting comes from." },
+      {
+        property: "og:description",
+        content: "Document types this organisation uses, and where each setting comes from.",
+      },
     ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(configQuery),
@@ -45,18 +51,40 @@ function TypesPage() {
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["config"] });
   const save = useMutation({
-    mutationFn: () => api.saveSpecification({ code: open ?? "", changes: draft, ...(lockDraft !== undefined ? { locked: lockDraft } : {}) }),
-    onSuccess: () => { toast.success("Settings saved"); setDraft({}); setLockDraft(undefined); setError(null); void refresh(); },
+    mutationFn: () =>
+      api.saveSpecification({
+        code: open ?? "",
+        changes: draft,
+        ...(lockDraft !== undefined ? { locked: lockDraft } : {}),
+      }),
+    onSuccess: () => {
+      toast.success("Settings saved");
+      setDraft({});
+      setLockDraft(undefined);
+      setError(null);
+      void refresh();
+    },
     onError: (e) => setError(failureText(e)),
   });
   const reset = useMutation({
     mutationFn: (code: string) => api.resetSpecification({ code }),
-    onSuccess: () => { toast.success("Group settings apply again"); setDraft({}); void refresh(); },
+    onSuccess: () => {
+      toast.success("Group settings apply again");
+      setDraft({});
+      void refresh();
+    },
     onError: (e) => toast.error(failureText(e)),
   });
   const add = useMutation({
     mutationFn: () => api.saveSpecification({ code: newCode, name: newName, changes: {} }),
-    onSuccess: () => { toast.success("Document type added"); setAdding(false); setOpen(newCode); setNewCode(""); setNewName(""); void refresh(); },
+    onSuccess: () => {
+      toast.success("Document type added");
+      setAdding(false);
+      setOpen(newCode);
+      setNewCode("");
+      setNewName("");
+      void refresh();
+    },
     onError: (e) => toast.error(failureText(e)),
   });
 
@@ -71,13 +99,31 @@ function TypesPage() {
   return (
     <div className="flex flex-col gap-4">
       {dirty ? (
-        <div role="region" aria-label="Unsaved changes" className="sticky top-0 z-10 flex items-center gap-2 border border-border-item bg-item p-2">
+        <div
+          role="region"
+          aria-label="Unsaved changes"
+          className="sticky top-0 z-10 flex items-center gap-2 border border-border-item bg-item p-2"
+        >
           <span className="type-label-14-medium flex-1">Unsaved changes</span>
-          <Button onClick={() => { setDraft({}); setLockDraft(undefined); setError(null); }}>Discard</Button>
-          <Button variant="primary" onClick={() => save.mutate()} unavailable={save.isPending}>Save</Button>
+          <Button
+            onClick={() => {
+              setDraft({});
+              setLockDraft(undefined);
+              setError(null);
+            }}
+          >
+            Discard
+          </Button>
+          <Button variant="primary" onClick={() => save.mutate()} unavailable={save.isPending}>
+            Save
+          </Button>
         </div>
       ) : null}
-      {error ? <Banner tone="critical" status="Not saved">{error}</Banner> : null}
+      {error ? (
+        <Banner tone="critical" status="Not saved">
+          {error}
+        </Banner>
+      ) : null}
       <div className="flex items-center justify-between gap-2">
         <p className="type-paragraph-14 text-text-secondary">
           {view.tenant.isGroup
@@ -91,7 +137,13 @@ function TypesPage() {
           <SpecTable view={view} {...(open ? { activeCode: open } : {})} onOpen={openSpec} />
         </div>
         {spec ? (
-          <SidePanel title="Document type" collapsed={false} onCollapsedChange={() => { if (!dirty) setOpen(null); }}>
+          <SidePanel
+            title="Document type"
+            collapsed={false}
+            onCollapsedChange={() => {
+              if (!dirty) setOpen(null);
+            }}
+          >
             <SpecPanel
               view={view}
               spec={spec}
@@ -114,14 +166,23 @@ function TypesPage() {
         actions={
           <>
             <Button onClick={() => setAdding(false)}>Cancel</Button>
-            <Button variant="primary" unavailable={!newName.trim() || !/^[a-zA-Z][a-zA-Z0-9]{1,40}$/.test(newCode)} onClick={() => add.mutate()}>
+            <Button
+              variant="primary"
+              unavailable={!newName.trim() || !/^[a-zA-Z][a-zA-Z0-9]{1,40}$/.test(newCode)}
+              onClick={() => add.mutate()}
+            >
               Add type
             </Button>
           </>
         }
       >
         <TextField label="Name" value={newName} onChange={(e) => setNewName(e.target.value)} />
-        <TextField label="Code" helper="Letters and numbers, for example siteSurvey." value={newCode} onChange={(e) => setNewCode(e.target.value)} />
+        <TextField
+          label="Code"
+          helper="Letters and numbers, for example siteSurvey."
+          value={newCode}
+          onChange={(e) => setNewCode(e.target.value)}
+        />
       </Dialog>
     </div>
   );

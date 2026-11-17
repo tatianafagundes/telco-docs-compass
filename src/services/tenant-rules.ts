@@ -28,7 +28,8 @@ export function settingSource(row: EffectiveSpecFacts, field?: string): SettingS
   if (row.locked) return "locked";
   // A country-only type has no group original: nothing is inherited.
   if (row.definedIn === "tenant" && (row.overriddenFields ?? []).length === 0) return "own";
-  if (field === undefined) return row.overriddenFields && row.overriddenFields.length > 0 ? "changed" : "inherited";
+  if (field === undefined)
+    return row.overriddenFields && row.overriddenFields.length > 0 ? "changed" : "inherited";
   return row.overriddenFields?.includes(field) ? "changed" : "inherited";
 }
 
@@ -89,18 +90,35 @@ export function configChangeBlocker(f: ChangeFacts): SeamError | null {
   const isAdmin = f.role === "tenant_admin" || f.role === "master_admin";
   if (!isAdmin) return seamError("access.roleTooLow", "rejected", "contactSupport");
   if (!f.isGroupTenant) {
-    if (f.locked) return seamError("config.locked", "rejected", "none", `Locked by ${f.groupName}.`);
+    if (f.locked)
+      return seamError("config.locked", "rejected", "none", `Locked by ${f.groupName}.`);
     if (f.specMode === "locked" || f.specMode === "inherit") {
-      return seamError("config.locked", "rejected", "none", `Document types are set by ${f.groupName}.`);
+      return seamError(
+        "config.locked",
+        "rejected",
+        "none",
+        `Document types are set by ${f.groupName}.`,
+      );
     }
     if (f.fromGroup && f.specMode === "extend") {
-      const onlyAdditive = Object.keys(f.changes).every((k) => k === "containsPersonalData" || k === "requiresReview");
+      const onlyAdditive = Object.keys(f.changes).every(
+        (k) => k === "containsPersonalData" || k === "requiresReview",
+      );
       if (!onlyAdditive) {
-        return seamError("config.extendOnly", "rejected", "none", `${f.groupName} lets this organisation add to its types, not replace their settings.`);
+        return seamError(
+          "config.extendOnly",
+          "rejected",
+          "none",
+          `${f.groupName} lets this organisation add to its types, not replace their settings.`,
+        );
       }
     }
   }
-  if (f.retentionDays !== null && f.floors.minRetentionDays && f.retentionDays < f.floors.minRetentionDays) {
+  if (
+    f.retentionDays !== null &&
+    f.floors.minRetentionDays &&
+    f.retentionDays < f.floors.minRetentionDays
+  ) {
     return seamError(
       "config.belowFloor",
       "validation",
@@ -120,7 +138,10 @@ export function impactText(childCount: number, overriddenCount: number): string 
 }
 
 /** Effective retention: the group minimum raises a shorter local policy. */
-export function effectiveRetentionDays(policyDays: number, floors: HardFloors): { days: number; raised: boolean } {
+export function effectiveRetentionDays(
+  policyDays: number,
+  floors: HardFloors,
+): { days: number; raised: boolean } {
   const min = floors.minRetentionDays ?? 0;
   return policyDays < min ? { days: min, raised: true } : { days: policyDays, raised: false };
 }

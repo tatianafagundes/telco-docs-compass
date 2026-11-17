@@ -24,14 +24,20 @@ export function parseRetryAfter(value: string | null, now: Date): number | null 
   return Number.isNaN(t) ? null : Math.max(0, Math.ceil((t - now.getTime()) / 1000));
 }
 
-export type Outcome = { kind: "delivered" } | { kind: "retry"; waitSeconds: number } | { kind: "gaveUp" };
+export type Outcome =
+  { kind: "delivered" } | { kind: "retry"; waitSeconds: number } | { kind: "gaveUp" };
 
 /** `attempts` counts the attempt just made. */
-export function outcomeAfter(attempts: number, status: number | null, retryAfterSeconds: number | null): Outcome {
+export function outcomeAfter(
+  attempts: number,
+  status: number | null,
+  retryAfterSeconds: number | null,
+): Outcome {
   if (status !== null && isDelivered(status)) return { kind: "delivered" };
   if (attempts >= MAX_ATTEMPTS) return { kind: "gaveUp" };
   const base: number = BACKOFF_SECONDS[Math.min(attempts, BACKOFF_SECONDS.length) - 1] ?? 7200;
-  const asked = retryAfterSeconds === null ? 0 : Math.min(retryAfterSeconds, MAX_RETRY_AFTER_SECONDS);
+  const asked =
+    retryAfterSeconds === null ? 0 : Math.min(retryAfterSeconds, MAX_RETRY_AFTER_SECONDS);
   return { kind: "retry", waitSeconds: Math.max(base, asked) };
 }
 
@@ -44,12 +50,20 @@ export function subscribedBefore(subscriptionCreatedAt: string, eventCreatedAt: 
  * Reference check for receivers: X-Signature must equal sha256=HMAC(secret, "<timestamp>.<body>")
  * and the timestamp must be within five minutes, so a captured event cannot be replayed later.
  */
-export async function verifyEventSignature(secret: string, timestamp: string, body: string, signature: string, now: Date): Promise<boolean> {
+export async function verifyEventSignature(
+  secret: string,
+  timestamp: string,
+  body: string,
+  signature: string,
+  now: Date,
+): Promise<boolean> {
   if (!/^\d+$/.test(timestamp)) return false;
-  if (Math.abs(now.getTime() / 1000 - Number(timestamp)) > SIGNATURE_TOLERANCE_SECONDS) return false;
+  if (Math.abs(now.getTime() / 1000 - Number(timestamp)) > SIGNATURE_TOLERANCE_SECONDS)
+    return false;
   const expected = `sha256=${await hmacHex(secret, signedPayload(timestamp, body))}`;
   if (expected.length !== signature.length) return false;
   let diff = 0;
-  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
+  for (let i = 0; i < expected.length; i++)
+    diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
   return diff === 0;
 }

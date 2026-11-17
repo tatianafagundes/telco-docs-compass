@@ -6,3 +6,11 @@ pnpm-lock.yaml
 package-lock.json
 bun.lock
 routeTree.gen.ts
+# Gerados ou gerenciados pelo Lovable: não formatar (ver AGENTS.md)
+src/integrations/supabase/
+.lovable/
+# Documentação e referências: o formato é decidido pelo texto, não pelo prettier
+docs/
+contracts/
+drizzle/
+public/

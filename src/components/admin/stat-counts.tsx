@@ -10,11 +10,15 @@ function group(rows: StatRow[], key: (r: StatRow) => string): [string, number][]
 
 /** Counts only – never names or content. */
 export function StatCounts({ rows }: { rows: StatRow[] }) {
-  if (rows.length === 0) return <p className="type-paragraph-14 text-text-secondary">No documents yet.</p>;
+  if (rows.length === 0)
+    return <p className="type-paragraph-14 text-text-secondary">No documents yet.</p>;
   const blocks: [string, [string, number][]][] = [
     ["By type", group(rows, (r) => r.documentType)],
     ["By status", group(rows, (r) => STATUS_LABEL[r.status as DocStatus] ?? r.status)],
-    ["By processing", group(rows, (r) => PIPELINE_LABEL[r.pipelineState as PipelineState] ?? r.pipelineState)],
+    [
+      "By processing",
+      group(rows, (r) => PIPELINE_LABEL[r.pipelineState as PipelineState] ?? r.pipelineState),
+    ],
   ];
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">

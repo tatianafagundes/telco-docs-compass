@@ -11,7 +11,13 @@ export interface SidePanelProps {
   overlay?: boolean;
 }
 
-export function SidePanel({ title, collapsed, onCollapsedChange, children, overlay }: SidePanelProps) {
+export function SidePanel({
+  title,
+  collapsed,
+  onCollapsedChange,
+  children,
+  overlay,
+}: SidePanelProps) {
   return (
     <aside
       aria-label={title}
@@ -30,7 +36,11 @@ export function SidePanel({ title, collapsed, onCollapsedChange, children, overl
           onClick={() => onCollapsedChange(!collapsed)}
           className="focus-ring flex size-8 items-center justify-center rounded-control hover:bg-item-hover"
         >
-          {collapsed ? <PanelRightOpen className="size-4" /> : <PanelRightClose className="size-4" />}
+          {collapsed ? (
+            <PanelRightOpen className="size-4" />
+          ) : (
+            <PanelRightClose className="size-4" />
+          )}
         </button>
       </div>
       {collapsed ? null : <div className="flex-1 overflow-auto p-4">{children}</div>}

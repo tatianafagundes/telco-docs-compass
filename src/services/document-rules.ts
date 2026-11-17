@@ -1,7 +1,8 @@
 // Pure document rules (no database), shared by the server functions and covered by tests.
 import type { DocStatus, PipelineState } from "@/schemas/document";
 
-export type AppRole = "viewer" | "contributor" | "reviewer" | "manager" | "tenant_admin" | "master_admin";
+export type AppRole =
+  "viewer" | "contributor" | "reviewer" | "manager" | "tenant_admin" | "master_admin";
 
 export interface SeamError {
   code: string;
@@ -29,7 +30,12 @@ export function seamError(
     code,
     category,
     retryable: category === "unavailable",
-    customerFacing: { key: code, recoverable: nextAction !== "none", nextAction, ...(detail ? { detail } : {}) },
+    customerFacing: {
+      key: code,
+      recoverable: nextAction !== "none",
+      nextAction,
+      ...(detail ? { detail } : {}),
+    },
   };
 }
 
@@ -84,8 +90,17 @@ export const APPROVED_STATUSES: DocStatus[] = ["approved", "effective"];
 export function contentProtected(status: DocStatus): boolean {
   return APPROVED_STATUSES.includes(status);
 }
-export const ALWAYS_EDITABLE_FIELDS = ["name", "description", "sensitivity", "externalIdentifier", "relatedEntity"] as const;
-export type PatchCheck = { ok: true } | { ok: false; reason: "frozen" } | { ok: false; reason: "approvedContent"; blocked: string[] };
+export const ALWAYS_EDITABLE_FIELDS = [
+  "name",
+  "description",
+  "sensitivity",
+  "externalIdentifier",
+  "relatedEntity",
+] as const;
+export type PatchCheck =
+  | { ok: true }
+  | { ok: false; reason: "frozen" }
+  | { ok: false; reason: "approvedContent"; blocked: string[] };
 export function metadataPatchAllowed(status: DocStatus, changedFields: string[]): PatchCheck {
   if (changedFields.length === 0) return { ok: true };
   if (isFrozen(status)) return { ok: false, reason: "frozen" };
@@ -109,7 +124,12 @@ export interface FieldState {
 export function pendingRequiredDetails(spec: SpecCharacteristic[], fields: FieldState[]): string[] {
   return spec
     .filter((c) => c.required && c.extractable)
-    .filter((c) => !fields.some((f) => f.name === c.name && (f.status === "accepted" || f.status === "edited")))
+    .filter(
+      (c) =>
+        !fields.some(
+          (f) => f.name === c.name && (f.status === "accepted" || f.status === "edited"),
+        ),
+    )
     .map((c) => c.name);
 }
 
@@ -167,14 +187,17 @@ export async function hashBody(value: unknown): Promise<string> {
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-export type IdempotencyOutcome = { kind: "fresh" } | { kind: "replay"; response: unknown } | { kind: "conflict" };
+export type IdempotencyOutcome =
+  { kind: "fresh" } | { kind: "replay"; response: unknown } | { kind: "conflict" };
 
 export function idempotencyOutcome(
   stored: { request_hash: string; response: unknown } | null,
   requestHash: string,
 ): IdempotencyOutcome {
   if (!stored) return { kind: "fresh" };
-  return stored.request_hash === requestHash ? { kind: "replay", response: stored.response } : { kind: "conflict" };
+  return stored.request_hash === requestHash
+    ? { kind: "replay", response: stored.response }
+    : { kind: "conflict" };
 }
 
 export const IDEMPOTENCY_TTL_HOURS = 24;
@@ -183,6 +206,9 @@ export const IDEMPOTENCY_TTL_HOURS = 24;
  * Four-eyes over the API: a system key may not approve a document it registered itself.
  * Documents added in the app (no registering key) or by another key can be approved.
  */
-export function systemMayApprove(registeredByClient: string | null | undefined, clientId: string): boolean {
+export function systemMayApprove(
+  registeredByClient: string | null | undefined,
+  clientId: string,
+): boolean {
   return !registeredByClient || registeredByClient !== clientId;
 }
