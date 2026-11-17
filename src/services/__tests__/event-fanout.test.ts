@@ -52,6 +52,14 @@ describe("event fan-out", () => {
     expect(outboxDeliveredAt(db)).toBeNull();
   });
 
+  it("keeps the event pending when the document facts cannot be read", async () => {
+    // Without them a status/type filter on a subscription could not be applied.
+    const db = world().fail("documents", "select", "connection reset");
+    await deliverPending(db.asDb(), "https://app.example");
+    expect(outboxDeliveredAt(db)).toBeNull();
+    expect(db.rows("event_deliveries")).toEqual([]);
+  });
+
   it("keeps the event pending when queueing the deliveries fails", async () => {
     const db = world().fail("event_deliveries", "upsert", "disk full");
     await deliverPending(db.asDb(), "https://app.example");

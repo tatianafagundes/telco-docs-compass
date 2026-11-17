@@ -6,13 +6,19 @@
 // 2. Delivery: due records are claimed with a lock, so overlapping passes never send twice.
 //    Success is recorded per subscriber; failures back off and retry for that subscriber only.
 import type { Db } from "@/services/seam-runtime";
-import { outcomeAfter, parseRetryAfter, subscribedBefore } from "@/services/event-delivery-rules";
+import {
+  DELIVERY_BATCH,
+  DELIVERY_LOCK_SECONDS,
+  DELIVERY_TIMEOUT_MS,
+  outcomeAfter,
+  parseRetryAfter,
+  subscribedBefore,
+} from "@/services/event-delivery-rules";
 import { eventMatches, hmacHex, signedPayload, toTmfEvent } from "@/services/tmf667-mapper";
 import { resolvesPublic } from "@/services/tmf-gateway";
 import type { DocStatus } from "@/schemas/document";
 
 const FAN_OUT_BATCH = 200;
-const DELIVERY_BATCH = 50;
 
 export interface DeliveryPassResult {
   fannedOut: number;
@@ -30,16 +36,19 @@ async function fanOut(admin: Db): Promise<number> {
     .limit(FAN_OUT_BATCH);
   if (!events || events.length === 0) return 0;
   const tenants = [...new Set(events.map((e) => e.tenant_id))];
-  const { data: subs } = await admin
+  const { data: subs, error: subsError } = await admin
     .from("event_subscriptions")
     .select("id, tenant_id, query, created_at, integration_clients!inner(revoked_at)")
     .in("tenant_id", tenants)
     .is("integration_clients.revoked_at", null);
   const docIds = [...new Set(events.map((e) => e.document_id))];
-  const { data: docs } = await admin
+  const { data: docs, error: docsError } = await admin
     .from("documents")
     .select("id, status, document_type")
     .in("id", docIds);
+  // Fail closed: without the subscribers or the document facts we cannot tell who should get the
+  // event, and marking it handed over would lose it. Leave it pending; the next pass retries.
+  if (subsError || docsError) return 0;
   const facts = new Map(
     (docs ?? []).map((d) => [
       d.id,
@@ -64,13 +73,14 @@ async function fanOut(admin: Db): Promise<number> {
     if (error) return 0; // leave the events pending; the next pass fans them out again
   }
   // The outbox's delivered_at now means "handed to every subscriber's delivery queue".
-  await admin
+  const { error: markError } = await admin
     .from("event_outbox")
     .update({ delivered_at: new Date().toISOString() })
     .in(
       "id",
       events.map((e) => e.id),
     );
+  if (markError) return 0; // fanned out already; the next pass repeats it harmlessly (upsert ignores duplicates)
   return rows.length;
 }
 
@@ -80,7 +90,7 @@ export async function deliverPending(admin: Db, origin: string): Promise<Deliver
 
   const { data: claimed } = await admin.rpc("claim_event_deliveries", {
     p_limit: DELIVERY_BATCH,
-    p_lock_seconds: 60,
+    p_lock_seconds: DELIVERY_LOCK_SECONDS,
   });
   if (!claimed || claimed.length === 0) return result;
 
@@ -137,7 +147,7 @@ export async function deliverPending(admin: Db, origin: string): Promise<Deliver
           },
           redirect: "error",
           body,
-          signal: AbortSignal.timeout(5000),
+          signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS),
         });
         status = res.status;
         retryAfter = parseRetryAfter(res.headers.get("retry-after"), new Date());

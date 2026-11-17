@@ -8,6 +8,22 @@ import { hmacHex, SIGNATURE_TOLERANCE_SECONDS, signedPayload } from "@/services/
 export const MAX_ATTEMPTS = 6;
 /** Wait after the 1st, 2nd, … failed attempt. */
 export const BACKOFF_SECONDS = [30, 120, 600, 1800, 7200] as const;
+/** Deliveries claimed per pass. */
+export const DELIVERY_BATCH = 20;
+/** Time limit for one POST to a subscriber. */
+export const DELIVERY_TIMEOUT_MS = 5_000;
+/** resolvesPublic does up to two DNS lookups of 3 s each (tmf-gateway.ts), once per callback host. */
+export const DNS_CHECK_WORST_CASE_MS = 6_000;
+/** Seconds a pass can take if every delivery is slow. */
+export function worstCasePassSeconds(batch: number = DELIVERY_BATCH): number {
+  return Math.ceil((batch * (DELIVERY_TIMEOUT_MS + DNS_CHECK_WORST_CASE_MS)) / 1000);
+}
+/**
+ * How long claimed rows stay locked. It must outlast the slowest pass: if the lock expired while
+ * a pass was still sending, the next pass would claim the same rows and the subscriber would get
+ * the same event twice. Checked by a test (worstCasePassSeconds <= this).
+ */
+export const DELIVERY_LOCK_SECONDS = 300;
 /** A subscriber's Retry-After is honoured up to one hour. */
 export const MAX_RETRY_AFTER_SECONDS = 3600;
 

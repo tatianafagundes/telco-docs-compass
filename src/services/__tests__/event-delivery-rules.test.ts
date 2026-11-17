@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  DELIVERY_LOCK_SECONDS,
   MAX_ATTEMPTS,
   outcomeAfter,
   parseRetryAfter,
   subscribedBefore,
   verifyEventSignature,
+  worstCasePassSeconds,
 } from "@/services/event-delivery-rules";
 import { hmacHex, signedPayload } from "@/services/tmf667-mapper";
 
@@ -53,5 +55,12 @@ describe("event-delivery-rules", () => {
       await verifyEventSignature("s3cret", ts, body, sig, new Date(now.getTime() + 301_000)),
     ).toBe(false);
     expect(await verifyEventSignature("s3cret", "abc", body, sig, now)).toBe(false);
+  });
+});
+
+describe("delivery pass timing", () => {
+  it("locks claimed rows for longer than the slowest possible pass", () => {
+    // Otherwise a second pass could claim rows still being sent and deliver the same event twice.
+    expect(worstCasePassSeconds()).toBeLessThanOrEqual(DELIVERY_LOCK_SECONDS);
   });
 });
