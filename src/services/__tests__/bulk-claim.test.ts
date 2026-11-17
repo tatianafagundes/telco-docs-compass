@@ -1,4 +1,3 @@
-// Spec telco-docs-compass-hardening, tasks 1.x and 2.4 (R3.4).
 //
 // Rule: a batch of a bulk job is applied once, even when two processors pick the job up at the
 // same time (the inline run after "start" and the scheduled run can overlap).

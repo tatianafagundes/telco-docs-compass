@@ -1,4 +1,3 @@
-// Spec telco-docs-compass-hardening, tasks 1.1 and 2.1 (R1.1, R1.2, R1.3).
 //
 // Rule: a write may only touch a document that belongs to the caller's own tenant. Being able to
 // SEE a document (a read-only share from another tenant) never lets you change it, and revoked
@@ -37,7 +36,7 @@ function world(callerTenant: string, canSee: boolean | "unknown" = true) {
 
 /**
  * The single place that knows how to call the write pipeline for a document.
- * Uses the required `scope` (task 2.1); the assertions below did not change when it was introduced.
+ * Uses the required `scope`; the assertions below did not change when it was introduced.
  */
 async function writeTo(
   w: ReturnType<typeof world>,

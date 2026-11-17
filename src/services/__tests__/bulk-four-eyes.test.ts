@@ -1,4 +1,3 @@
-// Spec telco-docs-compass-hardening, tasks 1.2 and 2.3 (R2.1).
 //
 // Rule (four-eyes): the person who added a document cannot approve it. The single-document
 // path enforces this; the bulk path must too, otherwise "approve selected" is a way around it.

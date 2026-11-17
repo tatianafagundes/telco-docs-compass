@@ -1,4 +1,3 @@
-// Spec telco-docs-compass-hardening, tasks 1.3 and 2.5 (R4.1).
 //
 // Rule: an event leaves the outbox (delivered_at set) only after it was handed to every matching
 // subscriber's delivery queue. If we could not even read the subscribers, the event must stay
