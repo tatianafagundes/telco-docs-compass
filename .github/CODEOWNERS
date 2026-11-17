@@ -1,0 +1,6 @@
+# Files that change how people and AI assistants work in this repository.
+# Review is only enforced when branch protection requires code owner approval.
+/.kiro/ @tatianafagundes
+/AGENTS.md @tatianafagundes
+/docs/architecture/ @tatianafagundes
+/.github/CODEOWNERS @tatianafagundes
