@@ -30,3 +30,25 @@ describe("masterRetentionFloor", () => {
     await expect(masterRetentionFloor(d.asDb(), "t")).rejects.toBeInstanceOf(DatabaseError);
   });
 });
+
+describe("masterRetentionFloor with bad data", () => {
+  it("throws when the parent points at nothing", async () => {
+    await expect(
+      masterRetentionFloor(db([{ id: "t", parent_tenant_id: "ghost" }]).asDb(), "t"),
+    ).rejects.toBeInstanceOf(DatabaseError);
+  });
+  it.each([["30"], [-5], [1.5], [true]])("throws for a floor of %j", async (bad) => {
+    const d = db([
+      { id: "t", parent_tenant_id: "m" },
+      { id: "m", hard_floors: { minRetentionDays: bad } },
+    ]);
+    await expect(masterRetentionFloor(d.asDb(), "t")).rejects.toBeInstanceOf(DatabaseError);
+  });
+  it("accepts zero as no floor", async () => {
+    const d = db([
+      { id: "t", parent_tenant_id: "m" },
+      { id: "m", hard_floors: { minRetentionDays: 0 } },
+    ]);
+    expect(await masterRetentionFloor(d.asDb(), "t")).toBe(0);
+  });
+});

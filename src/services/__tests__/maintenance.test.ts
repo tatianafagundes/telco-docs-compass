@@ -76,6 +76,24 @@ describe("expireDueDocuments", () => {
       { tenant_id: "t2", document_id: "past-effective", action: "statusChange" },
     ]);
   });
+  it("leaves alone a document that moved on after it was found due", async () => {
+    const db = new FakeDb({
+      documents: [
+        {
+          id: "d1",
+          tenant_id: "t1",
+          status: "archived",
+          expiry_date: "2026-11-01",
+          deleted_at: null,
+        },
+      ],
+      document_events: [],
+    });
+    db.stubNextSelect("documents", [{ id: "d1" }]);
+    expect(await expireDueDocuments(db.asDb(), NOW)).toBe(0);
+    expect(statusOf(db)["d1"]).toBe("archived");
+    expect(db.rows("document_events")).toEqual([]);
+  });
   it("does nothing the second time", async () => {
     const db = new FakeDb({ documents: docs(), document_events: [] });
     await expireDueDocuments(db.asDb(), NOW);

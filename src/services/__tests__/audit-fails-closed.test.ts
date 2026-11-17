@@ -62,3 +62,19 @@ describe("the activity log is part of the change", () => {
     expect(line).not.toContain("secret database detail");
   });
 });
+
+describe("a saved answer older than 24 hours", () => {
+  it("is not replayed, and is replaced by the new one", async () => {
+    const w = world();
+    const first = await run(w);
+    expect(first.ok).toBe(true);
+    w.admin.rows("idempotency_keys")[0]!["created_at"] = new Date(
+      Date.now() - 25 * 3600_000,
+    ).toISOString();
+    await run(w);
+    expect(w.admin.rows("document_events")).toHaveLength(2); // it ran again
+    expect(w.admin.rows("idempotency_keys")).toHaveLength(1);
+    await run(w);
+    expect(w.admin.rows("document_events")).toHaveLength(2); // and now it replays
+  });
+});

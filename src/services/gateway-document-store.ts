@@ -70,12 +70,30 @@ export async function storeFirstVersion(admin: Db, v: FirstVersion): Promise<Sto
         );
     return { ok: true, versionId, uploadUrl: signed?.signedUrl ?? null };
   } catch (e) {
-    if (!(e instanceof DatabaseError)) throw e;
-    await admin
-      .from("documents")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", v.documentId);
-    if (v.bytes) await bucket.remove([path]);
-    return { ok: false, step: e.message };
+    // Any failure, including a dropped connection to storage, ends the same way: hide the document
+    // and drop the file. A failing cleanup is logged and does not hide the original problem.
+    const step =
+      e instanceof DatabaseError ? e.message : "unexpected error while storing a new document";
+    const cleanup = async (what: string, run: () => PromiseLike<{ error: unknown }>) => {
+      try {
+        if ((await run()).error) throw new Error("refused");
+      } catch {
+        console.error(
+          JSON.stringify({
+            op: "tmf.createDocument.cleanup",
+            step: what,
+            documentId: v.documentId,
+          }),
+        );
+      }
+    };
+    await cleanup("hiding the document", () =>
+      admin
+        .from("documents")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", v.documentId),
+    );
+    if (v.bytes) await cleanup("removing the file", () => bucket.remove([path]));
+    return { ok: false, step };
   }
 }

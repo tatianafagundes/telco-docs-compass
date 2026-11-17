@@ -13,12 +13,27 @@ import {
   isTransitionAllowed,
   metadataPatchAllowed,
   systemMayApprove,
+  IDEMPOTENCY_KEY_COLUMNS,
+  idempotencyCutoff,
   pendingRequiredDetails,
   startsWithCalendarDay,
   type SpecCharacteristic,
 } from "@/services/document-rules";
-import { gatewayDeleteRefusal } from "@/services/retention-floor";
+import { deleteIfAllowed, gatewayRefusal } from "@/services/document-delete";
+import { holdColumns, updateDocumentIf } from "@/services/document-update";
 import type { Db } from "@/services/seam-runtime";
+import { DatabaseError, must } from "@/services/shared/must";
+import {
+  MAX_INLINE_BODY_CHARS,
+  MAX_INLINE_BYTES,
+  characteristicSchema,
+  createSchema,
+  decodeBase64,
+  extIdSchema,
+  relatedSchema,
+  sha256Bytes,
+  sizeBytes,
+} from "@/services/gateway-create-input";
 import { storeFirstVersion } from "@/services/gateway-document-store";
 import {
   asExternalIdentifiers,
@@ -46,9 +61,7 @@ import {
 } from "@/services/tmf667-mapper";
 
 export const MAX_BODY_CHARS = 50_000;
-/** Inline base64 attachments (TMF attachment.content) may be larger than ordinary bodies. */
-export const MAX_INLINE_BYTES = 5 * 1024 * 1024;
-const MAX_INLINE_BODY_CHARS = Math.ceil((MAX_INLINE_BYTES * 4) / 3) + 20_000;
+export { MAX_INLINE_BYTES };
 const MAX_URL_FETCH_BYTES = 25 * 1024 * 1024;
 /** Per key, per minute. */
 
@@ -213,15 +226,33 @@ async function readJson(
 }
 
 async function audit(ctx: SystemCtx, action: string, documentId: string, detail: string) {
-  await ctx.admin.from("document_events").insert({
-    tenant_id: ctx.tenantId,
-    document_id: documentId,
-    actor: null,
-    action,
-    detail: `${detail} · via ${ctx.name}`.slice(0, 160),
-  });
+  must(
+    await ctx.admin.from("document_events").insert({
+      tenant_id: ctx.tenantId,
+      document_id: documentId,
+      actor: null,
+      action,
+      detail: `${detail} · via ${ctx.name}`.slice(0, 160),
+    }),
+    "recording an activity event",
+  );
 }
 
+/** A write that hit a database error answers 503, and is not remembered, so the same key can retry. */
+async function runOrUnavailable(
+  run: () => Promise<{ status: number; body: unknown }>,
+): Promise<{ status: number; body: unknown }> {
+  try {
+    return await run();
+  } catch (e) {
+    if (!(e instanceof DatabaseError)) throw e;
+    console.error(JSON.stringify({ op: "tmf.write", step: e.message }));
+    return {
+      status: 503,
+      body: tmfError(503, "unavailable", "Service Unavailable", "Try again shortly."),
+    };
+  }
+}
 /** Writes need an Idempotency-Key header; a replay with the same body returns the stored reply. */
 async function idempotent(
   request: Request,
@@ -251,6 +282,7 @@ async function idempotent(
     .eq("actor", ctx.clientId)
     .eq("key", key)
     .eq("operation", op)
+    .gte("created_at", idempotencyCutoff())
     .maybeSingle();
   const outcome = idempotencyOutcome(stored, requestHash);
   if (outcome.kind === "conflict")
@@ -267,16 +299,20 @@ async function idempotent(
     const r = outcome.response as { status: number; body: unknown };
     return reply(r.status, r.body, ctx.requestId, { "Idempotent-Replay": "true" });
   }
-  const res = await run();
+  const res = await runOrUnavailable(run);
   if (res.status < 300 || res.status === 204) {
-    await ctx.admin.from("idempotency_keys").insert({
-      tenant_id: ctx.tenantId,
-      actor: ctx.clientId,
-      key,
-      operation: op,
-      request_hash: requestHash,
-      response: res as unknown as Json,
-    });
+    await ctx.admin.from("idempotency_keys").upsert(
+      {
+        tenant_id: ctx.tenantId,
+        actor: ctx.clientId,
+        key,
+        operation: op,
+        request_hash: requestHash,
+        response: res as unknown as Json,
+        created_at: new Date().toISOString(),
+      },
+      { onConflict: IDEMPOTENCY_KEY_COLUMNS },
+    );
   }
   return reply(res.status, res.body, ctx.requestId);
 }
@@ -488,76 +524,6 @@ export async function getSpecification(request: Request, code: string): Promise<
 
 // ---------- writes ----------
 
-const relatedSchema = z.object({
-  id: z.string().min(1).max(64),
-  role: z.string().min(1).max(64),
-  "@referredType": z.string().max(64).optional(),
-});
-const extIdSchema = z.object({
-  id: z.string().min(1).max(100),
-  owner: z.string().max(100).optional(),
-  externalIdentifierType: z.string().max(64).optional(),
-});
-const characteristicSchema = z.object({
-  name: z.string().min(1).max(64),
-  value: z.union([z.string().max(500), z.number(), z.boolean()]),
-  valueType: z.string().max(32).optional(),
-});
-
-/** TMF AttachmentRefOrValue: file details only (we return an upload address), a url to fetch, or inline base64 content. */
-const attachmentSchema = z.object({
-  mimeType: z.string().min(3).max(150),
-  name: z.string().max(255).optional(),
-  size: z
-    .union([
-      z.number().int().nonnegative(),
-      z.object({ amount: z.number().nonnegative(), units: z.string().max(16).optional() }),
-    ])
-    .optional(),
-  contentHash: z
-    .string()
-    .regex(/^[a-f0-9]{64}$/)
-    .optional(),
-  url: z.string().url().max(1000).optional(),
-  content: z.string().max(MAX_INLINE_BODY_CHARS).optional(),
-  attachmentType: z.string().max(64).optional(),
-  "@type": z.string().max(64).optional(),
-});
-
-const createSchema = z.object({
-  name: z.string().trim().min(1).max(255),
-  description: z.string().max(2000).optional(),
-  documentType: z.string().min(1).max(64),
-  relatedEntity: z.array(relatedSchema).min(1).max(5),
-  // Standard: array of attachments (we accept exactly one file per new document). Legacy: a single object.
-  attachment: z.union([z.array(attachmentSchema).min(1).max(1), attachmentSchema]),
-  externalIdentifier: z.array(extIdSchema).max(10).optional(),
-  characteristic: z.array(characteristicSchema).max(50).optional(),
-  "@type": z.string().max(64).optional(),
-  "@baseType": z.string().max(64).optional(),
-});
-
-function sizeBytes(size: z.infer<typeof attachmentSchema>["size"]): number | undefined {
-  if (size === undefined) return undefined;
-  return typeof size === "number" ? size : Math.round(size.amount);
-}
-
-async function sha256Bytes(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
-  const buf = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-function decodeBase64(b64: string): Uint8Array<ArrayBuffer> | null {
-  try {
-    const bin = atob(b64.replace(/\s/g, ""));
-    const out = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-    return out;
-  } catch {
-    return null;
-  }
-}
-
 /** Resolves the host over DNS-over-HTTPS and refuses names that point at private addresses. */
 export async function resolvesPublic(url: string): Promise<boolean> {
   if (!isSafeCallback(url)) return false;
@@ -763,7 +729,6 @@ export async function createDocument(request: Request): Promise<Response> {
           op: "tmf.createDocument",
           requestId: ctx.requestId,
           code: error.code,
-          message: error.message,
         }),
       );
     if (error || !doc)
@@ -820,22 +785,22 @@ const patchSchema = z
 
 const PATCH_TYPES = ["application/merge-patch+json", "application/json"];
 
+const refusedMove = (from: string, to: string) => ({
+  status: 409,
+  body: tmfError(
+    409,
+    "transitionNotAllowed",
+    "Conflict",
+    `A ${from} document can't move to ${to}.`,
+  ),
+});
 /** Same status path, scope and approval gate as /transition. */
 async function applyTransition(
   ctx: SystemCtx,
   doc: DocRow,
   target: DocStatus,
 ): Promise<{ status: number; body: unknown } | null> {
-  if (!isTransitionAllowed(doc.status, target))
-    return {
-      status: 409,
-      body: tmfError(
-        409,
-        "transitionNotAllowed",
-        "Conflict",
-        `A ${doc.status} document can't move to ${target}.`,
-      ),
-    };
+  if (!isTransitionAllowed(doc.status, target)) return refusedMove(doc.status, target);
   if (target === "approved") {
     if (!systemMayApprove(doc.registered_by_client, ctx.clientId)) {
       return {
@@ -870,11 +835,14 @@ async function applyTransition(
         ),
       };
   }
-  await ctx.admin
-    .from("documents")
-    .update({ status: target, updated_at: new Date().toISOString() })
-    .eq("id", doc.id)
-    .eq("tenant_id", ctx.tenantId);
+  const moved = await updateDocumentIf(
+    ctx.admin,
+    { id: doc.id, tenantId: ctx.tenantId, expect: { status: doc.status } },
+    { status: target, updated_at: new Date().toISOString() },
+    "changing the status of a document",
+  );
+  // Someone else moved it first: report it as the refused move it now is.
+  if (!moved) return refusedMove(doc.status, target);
   await audit(ctx, "statusChange", doc.id, `${doc.status} to ${target}`);
   return null;
 }
@@ -1004,9 +972,10 @@ export async function patchDocument(request: Request, id: string): Promise<Respo
             ...p.characteristic,
           ]
         : null;
-      await ctx.admin
-        .from("documents")
-        .update({
+      await updateDocumentIf(
+        ctx.admin,
+        { id: doc.id, tenantId: ctx.tenantId, expect: {} },
+        {
           ...(p.name ? { name: p.name } : {}),
           ...(p.description !== undefined ? { description: p.description } : {}),
           ...(p.validFor ? { expiry_date: p.validFor.endDateTime.slice(0, 10) } : {}),
@@ -1015,9 +984,9 @@ export async function patchDocument(request: Request, id: string): Promise<Respo
             ? { external_identifier: p.externalIdentifier as unknown as Json }
             : {}),
           updated_at: new Date().toISOString(),
-        })
-        .eq("id", doc.id)
-        .eq("tenant_id", ctx.tenantId);
+        },
+        "changing the details of a document",
+      );
       if (p.relatedEntity?.length) {
         await ctx.admin.from("document_relations").upsert(
           p.relatedEntity.map((r) => ({ document_id: doc.id, entity_id: r.id, role: r.role })),
@@ -1058,13 +1027,8 @@ export async function deleteDocument(request: Request, id: string): Promise<Resp
         status: 404,
         body: tmfError(404, "notFound", "Not Found", "No document with this id."),
       };
-    const refusal = await gatewayDeleteRefusal(ctx.admin, ctx.tenantId, doc);
-    if (refusal) return refusal;
-    await ctx.admin
-      .from("documents")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", doc.id)
-      .eq("tenant_id", ctx.tenantId);
+    const refusal = await deleteIfAllowed(ctx.admin, ctx.tenantId, doc);
+    if (refusal) return gatewayRefusal(refusal);
     await audit(ctx, "delete", doc.id, "Deleted");
     return { status: 204, body: null };
   });
@@ -1143,18 +1107,12 @@ export async function setLegalHold(request: Request, id: string): Promise<Respon
         body: tmfError(404, "notFound", "Not Found", "No document with this id."),
       };
     const now = new Date().toISOString();
-    await ctx.admin
-      .from("documents")
-      .update({
-        legal_hold: h.active,
-        hold_reason: h.active ? h.reason : null,
-        hold_reference: h.active ? (h.reference ?? null) : null,
-        hold_since: h.active ? now : null,
-        hold_set_by: null,
-        updated_at: now,
-      })
-      .eq("id", doc.id)
-      .eq("tenant_id", ctx.tenantId);
+    await updateDocumentIf(
+      ctx.admin,
+      { id: doc.id, tenantId: ctx.tenantId, expect: {} },
+      holdColumns(h, null, now),
+      "changing the legal hold of a document",
+    );
     const ref = h.reference ? ` (${h.reference})` : "";
     await audit(
       ctx,

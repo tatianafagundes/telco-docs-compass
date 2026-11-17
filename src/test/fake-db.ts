@@ -80,9 +80,12 @@ export interface StorageCall {
 export class FakeDb {
   /** Tables whose rows get a generated `id` on insert when none is given, like a uuid default in the database. */
   readonly autoIdTables = new Set<string>();
+  /** Tables whose rows get `created_at = now` on insert, like a `default now()` column. */
+  readonly autoCreatedAtTables = new Set<string>(["idempotency_keys"]);
   /** Every call to `storage.from(bucket)`, in order. */
   readonly storageCalls: StorageCall[] = [];
   private storageFailures = new Set<StorageCall["op"]>();
+  private storageThrows = new Set<StorageCall["op"]>();
   readonly tables: Record<string, Row[]> = {};
   /** Every insert, update, upsert and delete, in order. Tests assert on this. */
   readonly writes: WriteLogEntry[] = [];
@@ -138,9 +141,16 @@ export class FakeDb {
     return this;
   }
 
+  /** Make one storage operation throw, like a dropped connection (supabase-js usually returns errors instead). */
+  throwStorage(op: StorageCall["op"]): this {
+    this.storageThrows.add(op);
+    return this;
+  }
+
   /** Undo every `failStorage`, to test a retry after a failure. */
   clearStorageFailures(): this {
     this.storageFailures.clear();
+    this.storageThrows.clear();
     return this;
   }
 
@@ -148,6 +158,7 @@ export class FakeDb {
   get storage() {
     const answer = (bucket: string, op: StorageCall["op"], path: string, extra: object = {}) => {
       this.storageCalls.push({ bucket, op, path, ...extra });
+      if (this.storageThrows.has(op)) return Promise.reject(new Error("connection reset"));
       if (this.storageFailures.has(op))
         return Promise.resolve({ data: null, error: { message: `forced storage ${op} failure` } });
       const data =
@@ -279,6 +290,13 @@ class QueryBuilder implements PromiseLike<DbAnswer> {
     });
     return this;
   }
+  gte(column: string, value: string | number) {
+    this.filters.push((r) => {
+      const v = pathValue(r, column);
+      return v !== undefined && v !== null && (v as string | number) >= value;
+    });
+    return this;
+  }
   lt(column: string, value: string | number) {
     this.filters.push((r) => {
       const v = pathValue(r, column);
@@ -351,6 +369,9 @@ class QueryBuilder implements PromiseLike<DbAnswer> {
         ...r,
         ...(this.db.autoIdTables.has(this.table) && r["id"] === undefined
           ? { id: crypto.randomUUID() }
+          : {}),
+        ...(this.db.autoCreatedAtTables.has(this.table) && r["created_at"] === undefined
+          ? { created_at: new Date().toISOString() }
           : {}),
       }));
       rows.push(...added);

@@ -15,29 +15,56 @@ export interface MaintenanceResult {
   failed: string[];
 }
 
+/** Most documents expired in one run; the rest wait for the next minute. */
+export const EXPIRE_BATCH = 500;
+
 export async function expireDueDocuments(admin: Db, now = new Date()): Promise<number> {
-  const rows = must(
+  const due = must(
     await admin
       .from("documents")
-      .update({ status: "expired", updated_at: now.toISOString() })
+      .select("id")
       .lt("expiry_date", now.toISOString().slice(0, 10))
       .in("status", ["approved", "effective"])
       .is("deleted_at", null)
+      .order("expiry_date")
+      .limit(EXPIRE_BATCH),
+    "finding documents past their expiry date",
+  );
+  if (!due?.length) return 0;
+  // Expire and record in this order, then check the record was written: the update cannot be
+  // undone by a second run (those rows no longer match), so a failed record is reported loudly.
+  const expired = must(
+    await admin
+      .from("documents")
+      .update({ status: "expired", updated_at: now.toISOString() })
+      .in(
+        "id",
+        due.map((d) => d.id),
+      )
+      .in("status", ["approved", "effective"])
       .select("id, tenant_id"),
     "expiring documents past their expiry date",
   );
-  for (const d of rows ?? []) {
+  if (!expired?.length) return 0;
+  try {
     must(
-      await admin.from("document_events").insert({
-        tenant_id: d.tenant_id,
-        document_id: d.id,
-        action: "statusChange",
-        detail: "Expired on its expiry date",
-      }),
-      "recording the expiry of a document",
+      await admin.from("document_events").insert(
+        expired.map((d) => ({
+          tenant_id: d.tenant_id,
+          document_id: d.id,
+          action: "statusChange",
+          detail: "Expired on its expiry date",
+        })),
+      ),
+      "recording the expiry of documents",
     );
+  } catch (e) {
+    console.error(
+      JSON.stringify({ op: "maintenance", step: "expiryEvents", missingEvents: expired.length }),
+    );
+    throw e;
   }
-  return rows?.length ?? 0;
+  return expired.length;
 }
 
 export async function deleteStaleIdempotencyKeys(admin: Db, now = new Date()): Promise<void> {

@@ -209,6 +209,11 @@ export function idempotencyOutcome(
 }
 
 export const IDEMPOTENCY_TTL_HOURS = 24;
+/** Saved answers made before this instant no longer count, whether or not the scheduled cleanup removed them yet. */
+export const idempotencyCutoff = (now = Date.now()) =>
+  new Date(now - IDEMPOTENCY_TTL_HOURS * 3600_000).toISOString();
+/** The columns that identify one saved answer. */
+export const IDEMPOTENCY_KEY_COLUMNS = "tenant_id,actor,key,operation";
 
 /**
  * Four-eyes over the API: a system key may not approve a document it registered itself.

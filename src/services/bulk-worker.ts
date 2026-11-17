@@ -319,10 +319,9 @@ export async function processBulkJobs(admin: Db, onlyId?: string): Promise<numbe
       .limit(limit);
     return onlyId ? q.eq("id", onlyId) : q;
   };
-  const [{ data: waiting }, { data: held }] = await Promise.all([
-    pick("queued", JOBS_PER_PASS),
-    pick("running", HELD_JOBS_CHECKED),
-  ]);
+  const [waiting, held] = (
+    await Promise.all([pick("queued", JOBS_PER_PASS), pick("running", HELD_JOBS_CHECKED)])
+  ).map((r) => must(r, "listing the bulk jobs to process"));
   // A holder that stopped mid-batch is detected by its lease; the job is failed, never finished short.
   for (const job of (held ?? []) as unknown as JobRow[]) {
     if (leaseExpired(job.params.leaseStartedAt, new Date())) {

@@ -70,6 +70,18 @@ describe("the same request twice has the effect of once", () => {
     expect(db.writesTo("document_events", "insert")).toHaveLength(1);
   });
 
+  it("does not replay an answer older than 24 hours, even if the cleanup has not removed it", async () => {
+    const db = await buildWorld();
+    await hold();
+    const stored = db.rows("idempotency_keys")[0]!;
+    stored["created_at"] = new Date(Date.now() - 25 * 3600_000).toISOString();
+    const again = await hold();
+    expect(again.headers.get("Idempotent-Replay")).toBeNull();
+    expect(db.writesTo("documents", "update")).toHaveLength(2);
+    // The new answer takes the place of the old one, so it can be replayed in turn.
+    expect(db.rows("idempotency_keys")).toHaveLength(1);
+    expect((await hold()).headers.get("Idempotent-Replay")).toBe("true");
+  });
   it("replays a delete as 204 as well", async () => {
     const db = await buildWorld();
     expect((await del()).status).toBe(204);

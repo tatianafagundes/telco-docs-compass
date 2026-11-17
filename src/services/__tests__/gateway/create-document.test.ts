@@ -497,6 +497,30 @@ describe("when something fails while storing", () => {
     expect(db.storageCalls.map((c) => c.op)).toEqual(["createSignedUploadUrl"]);
     nothingVisible(db);
   });
+  it("answers 503 and cleans up when storage drops the connection", async () => {
+    const { db, res } = await attempt((d) => d.throwStorage("upload"));
+    expect(res.status).toBe(503);
+    expect(db.storageCalls.map((c) => c.op)).toEqual(["upload", "remove"]);
+    nothingVisible(db);
+  });
+  it("still answers 503, and logs it, when the cleanup itself fails", async () => {
+    const db = await world();
+    db.failStorage("upload").fail("documents", "update");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await create();
+    expect(res.status).toBe(503);
+    const lines = log.mock.calls.map((c) => String(c[0]));
+    expect(lines.some((l) => l.includes("hiding the document"))).toBe(true);
+  });
+  it("does not put what the database said in the log", async () => {
+    const db = await world();
+    db.fail("documents", "insert", "secret database detail");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    await create();
+    expect(log.mock.calls.map((c) => String(c[0])).join("\n")).not.toContain(
+      "secret database detail",
+    );
+  });
   it("lets the same key try again after a failure", async () => {
     const db = await world();
     db.failStorage("upload");

@@ -75,6 +75,13 @@ describe("FakeDb writes", () => {
     ]);
   });
 
+  it("gte keeps rows at or above the value and drops rows without one", async () => {
+    const db = new FakeDb({
+      t: [{ id: 1, at: "2026-01-02" }, { id: 2, at: "2026-01-01" }, { id: 3, at: null }, { id: 4 }],
+    });
+    const { data } = await db.from("t").select("id").gte("at", "2026-01-02");
+    expect(data).toEqual([{ id: 1 }]);
+  });
   it("delete removes matching rows", async () => {
     const db = seed();
     await db.from("documents").delete().lt("name", "B");

@@ -1,5 +1,5 @@
-import { holdColumns, updateDocument } from "@/services/document-update";
-import { masterRetentionFloor } from "@/services/retention-floor";
+import { holdColumns, updateDocument, updateDocumentIf } from "@/services/document-update";
+import { deleteIfAllowed } from "@/services/document-delete";
 import { isOwnDocument } from "@/services/review-flow-rules";
 import { createServerFn } from "@tanstack/react-start";
 import type { z } from "zod";
@@ -22,7 +22,6 @@ import {
 import {
   can,
   contentLocked,
-  deleteBlocker,
   DOWNLOAD_URL_SECONDS,
   isFrozen,
   contentProtected,
@@ -473,12 +472,14 @@ export const transition = createServerFn({ method: "POST" })
               String(pending.length),
             );
         }
-        await updateDocument(
+        const moved = await updateDocumentIf(
           env.admin,
-          data.id,
+          { id: data.id, tenantId: env.tenantId, expect: { status: doc.status } },
           { status: data.to, updated_at: new Date().toISOString() },
           "changing the status of a document",
         );
+        // Someone else moved it first: answer as the refused move it now is.
+        if (!moved) return fail("doc.transition.notAllowed", "rejected");
         await audit(env, "statusChange", data.id, `${doc.status} to ${data.to}`);
         return { ok: true, data: await loadDoc(env.admin, data.id) };
       },
@@ -540,21 +541,8 @@ export const deleteDocument = createServerFn({ method: "POST" })
         if (!can(env.role, "manage")) return forbidden();
         const doc = await loadDoc(env.admin, data.id);
         if (!doc) return fail("doc.notFound", "notFound");
-        const blocker = deleteBlocker({
-          legalHold: doc.legal_hold,
-          holdReason: doc.hold_reason,
-          retainUntil: doc.retain_until,
-          createdAt: doc.created_at,
-          minRetentionDays: await masterRetentionFloor(env.admin, env.tenantId),
-          today: today(),
-        });
+        const blocker = await deleteIfAllowed(env.admin, env.tenantId, doc);
         if (blocker) return { ok: false, error: blocker };
-        await updateDocument(
-          env.admin,
-          data.id,
-          { deleted_at: new Date().toISOString() },
-          "deleting a document",
-        );
         await audit(env, "delete", data.id, null);
         return { ok: true, data: { id: data.id } };
       },

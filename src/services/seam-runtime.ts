@@ -6,7 +6,8 @@ import { createWindowLimiter } from "@/services/rate-limit-rules";
 import { DatabaseError, must } from "@/services/shared/must";
 import {
   hashBody,
-  IDEMPOTENCY_TTL_HOURS,
+  IDEMPOTENCY_KEY_COLUMNS,
+  idempotencyCutoff,
   idempotencyOutcome,
   seamError,
   type AppRole,
@@ -171,6 +172,7 @@ export async function runWrite<T>(
       .eq("actor", env.userId)
       .eq("key", opts.idempotencyKey)
       .eq("operation", operation)
+      .gte("created_at", idempotencyCutoff())
       .maybeSingle();
     const outcome = idempotencyOutcome(stored, requestHash);
     if (outcome.kind === "conflict") {
@@ -184,14 +186,19 @@ export async function runWrite<T>(
 
     const res = await fn(env);
     if (res.ok) {
-      await admin.from("idempotency_keys").insert({
-        tenant_id: env.tenantId,
-        actor: env.userId,
-        key: opts.idempotencyKey,
-        operation,
-        request_hash: requestHash,
-        response: res as unknown as Json,
-      });
+      // Upsert: an answer older than its lifetime may still be stored, and is replaced.
+      await admin.from("idempotency_keys").upsert(
+        {
+          tenant_id: env.tenantId,
+          actor: env.userId,
+          key: opts.idempotencyKey,
+          operation,
+          request_hash: requestHash,
+          response: res as unknown as Json,
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: IDEMPOTENCY_KEY_COLUMNS },
+      );
     }
     logOp(opts.op, env.tenantId, documentId, res.ok ? "ok" : res.error.code, started);
     return res;
