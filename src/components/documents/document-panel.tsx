@@ -27,6 +27,8 @@ import { isOwnDocument, journeyStep } from "@/services/review-flow-rules";
 import { ReviewJourney } from "@/components/review/review-journey";
 import { meQuery } from "@/hooks/use-me";
 
+// Query factory shared with route loaders; moving it only helps hot reload.
+// eslint-disable-next-line react-refresh/only-export-components
 export const documentQuery = (id: string) =>
   queryOptions({
     queryKey: ["document", id],

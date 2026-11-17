@@ -60,4 +60,6 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 );
 Button.displayName = "Button";
 
+// Variants are reused by link-styled buttons; moving them only helps hot reload.
+// eslint-disable-next-line react-refresh/only-export-components
 export { buttonVariants };

@@ -11,6 +11,8 @@ interface Process {
   framework?: string;
 }
 
+// Pure helper kept next to the table that renders it; moving it only helps hot reload.
+// eslint-disable-next-line react-refresh/only-export-components
 export function specFacts(view: ConfigView, s: EffectiveSpec) {
   return {
     locked: s.locked,
