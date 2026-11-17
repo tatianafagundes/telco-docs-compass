@@ -29,7 +29,7 @@ Error shape for internal operations: `{code, category, retryable, customerFacing
 |---|---|
 | BR-020 | Approve is refused while any spec characteristic with `required && extractable` lacks an accepted or edited field. The error is `doc.approve.requiredPending`, with detail = the count. |
 | BR-021 | Gate reason: "1 required detail needs checking" or "N required details need checking". |
-| BR-022 | Four-eyes: if `documents.created_by == caller`, approval is refused with `doc.approve.ownDocument`. Reason: "Someone other than the person who added it needs to approve it." Documents with a null creator (seeded or system) are exempt. This is enforced on the server and in the UI. The TMF API equivalent is BR-140. |
+| BR-022 | Four-eyes: if `documents.created_by == caller`, approval is refused with `doc.approve.ownDocument`. Reason: "Someone other than the person who added it needs to approve it." Documents with a null creator (seeded or system) are exempt. This is enforced on the server and in the UI. The TMF API equivalent is BR-140. Bulk approval applies the same rule: a document the person added is skipped with the reason `ownDocument` (BR-106). |
 | BR-023 | The system never auto-accepts extracted details, whatever the confidence. |
 | BR-024 | Journey step: draft or in_review with pending details gives 0 (Check details), otherwise 1 (Approve). approved gives 2; effective gives 3 (done); any other status means no journey. |
 | BR-025 | Footer action: when details are pending and the person can review, show "Next detail". In draft show "Send for approval". In in_review show "Approve document", unavailable for role, gate or four-eyes in that order. Otherwise show "Back to document". |
@@ -84,6 +84,8 @@ Error shape for internal operations: `{code, category, retryable, customerFacing
 | BR-070 | Request hash = SHA-256 of a stable JSON form (sorted keys, undefined dropped). |
 | BR-071 | No stored key: run as fresh. Same hash: replay the stored response. Different hash: conflict (`seam.idempotency.mismatch`; TMF 409). |
 | BR-072 | Idempotency keys expire after 24 h. |
+| BR-073 | A write to a document first checks that the caller can see it and that it belongs to the caller's tenant, and only then looks at the idempotency key. A document of another tenant, a missing document and an invisible one all answer `doc.notFound`. If visibility cannot be checked the answer is `seam.unavailable`, never `doc.notFound`. Revoked access cannot be bypassed by repeating an earlier request. |
+| BR-074 | A write to a document that is refused because the caller cannot see it, because it belongs to another tenant, or because it does not exist, is recorded in the activity log, at most 20 per person per minute (counted per server instance, so approximate). Beyond that the write is still refused and one summary entry (`accessDeniedSuppressed`) is recorded for the window. Refusals for a too-low role are not part of this rule. |
 
 ## H. Group configuration (`tenant-rules.ts`)
 | ID | Rule |
@@ -117,9 +119,10 @@ Error shape for internal operations: `{code, category, retryable, customerFacing
 | BR-103 | Count cap 10,000: "More than 10,000 documents", otherwise "N document(s)" (en-GB grouping). |
 | BR-104 | Identifier detection: 3–64 characters, no spaces, contains a digit, matches `^[A-Za-z0-9][A-Za-z0-9._/-]*$`. Such a query offers a jump to the record. |
 | BR-105 | Bulk limit 10,000 documents, processed in batches of 200 (`bulk.tooMany`, `bulk.empty`). |
-| BR-106 | Bulk skip reasons: noPermission, frozen, notAllowed, detailsPending, notFound, unchanged. Each has an exact label (see source) and the same rules as single actions. Holds need manage; sensitivity needs edit and not frozen. |
+| BR-106 | Bulk skip reasons: noPermission, frozen, notAllowed, ownDocument (four-eyes, approval only), detailsPending, notFound, unchanged. Each has an exact label (see source) and the same rules as single actions. Holds need manage; sensitivity needs edit and not frozen. |
 | BR-107 | Bulk summary: "X of N changed · K skipped because <label>". |
-| BR-108 | Each document in a bulk job is re-checked and audited individually. |
+| BR-108 | Each document in a bulk job is re-checked and audited individually. The role used is the one the person who started the job has when the batch runs, not the one stored when it was created. A failed read or write of the documents, or a failed audit entry, fails the job and is never counted as a change. If the starter's role cannot be read the job is left untouched and retried on the next pass; if they no longer have a role the job fails. |
+| BR-109 | A bulk job is held by one worker at a time: a worker claims the next batch only if nobody moved the job since it read it, and the status alternates queued and running between batches. A worker that stops mid-batch is detected when its lease runs out and the job becomes failed. A job ends done only when changed plus skipped equals total; a missing role or a corrupted document list makes it failed. |
 
 ## K. API rate limits (`rate-limit-rules.ts`)
 | ID | Rule |
@@ -142,6 +145,8 @@ Error shape for internal operations: `{code, category, retryable, customerFacing
 | BR-125 | One delivery row per (event, subscription), claimed with a lock (SKIP LOCKED). One subscriber's failure never re-sends to others, and overlapping passes never send twice. |
 | BR-126 | Events carry id, href and status only, never document content. Subscriptions are same-tenant only. |
 | BR-127 | Event names: DocumentCreateEvent, DocumentStateChangeEvent (changed: status), DocumentAttributeValueChangeEvent (attachment, characteristic, legalHold), DocumentDeleteEvent (status "deleted"). |
+| BR-128 | Fan-out hands an event to every matching subscription before it is marked delivered. If the subscriptions or the document facts cannot be read, or the deliveries cannot be queued, the event stays pending and the next pass repeats it. |
+| BR-129 | When a claimed delivery's event or subscription cannot be read, the delivery is given back without counting an attempt and waits 30 s. If both can be read but one is missing, it counts as a failed attempt (backoff, then given up after the last one). If they belong to different tenants it is given up at once and nothing is sent. The lock on claimed deliveries lasts longer than the slowest possible pass. |
 
 ## M. TMF mapping (`tmf667-mapper.ts`, `tmf667-mapper.test.ts`)
 | ID | Rule |
