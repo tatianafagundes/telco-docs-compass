@@ -68,7 +68,16 @@ describe("bulkSkipReason", () => {
     legalHold: false,
     sensitivity: "internal",
     pendingRequired: 0,
+    isOwn: false,
   };
+  it("should skip approval of a document the same person added (four-eyes)", () => {
+    expect(
+      bulkSkipReason("manager", "transition", { to: "approved" }, { ...doc, isOwn: true }),
+    ).toBe("ownDocument");
+    expect(
+      bulkSkipReason("manager", "transition", { to: "approved" }, { ...doc, isOwn: false }),
+    ).toBeNull();
+  });
   it("should skip holds when the role is below manager", () => {
     expect(bulkSkipReason("contributor", "placeHold", {}, doc)).toBe("noPermission");
     expect(bulkSkipReason("manager", "placeHold", {}, doc)).toBeNull();

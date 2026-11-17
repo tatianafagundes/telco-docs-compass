@@ -139,12 +139,19 @@ export const BULK_ACTIONS = ["placeHold", "releaseHold", "setSensitivity", "tran
 export type BulkAction = (typeof BULK_ACTIONS)[number];
 
 export type SkipReason =
-  "noPermission" | "frozen" | "notAllowed" | "detailsPending" | "notFound" | "unchanged";
+  | "noPermission"
+  | "frozen"
+  | "notAllowed"
+  | "ownDocument"
+  | "detailsPending"
+  | "notFound"
+  | "unchanged";
 
 export const SKIP_LABEL: Record<SkipReason, string> = {
   noPermission: "your role can't make this change",
   frozen: "the document can no longer be changed",
   notAllowed: "it isn't the next step on its status path",
+  ownDocument: "you added it, so someone else needs to approve it",
   detailsPending: "required details still need checking",
   notFound: "it was removed or is no longer visible",
   unchanged: "it already had this value",
@@ -155,6 +162,8 @@ export interface BulkDocFacts {
   legalHold: boolean;
   sensitivity: string;
   pendingRequired: number;
+  /** The person making the change is the one who added the document (four-eyes). */
+  isOwn: boolean;
 }
 
 export interface BulkParams {
@@ -186,6 +195,8 @@ export function bulkSkipReason(
   if (!can(role, transitionCapability(to))) return "noPermission";
   if (d.status === to) return "unchanged";
   if (!isTransitionAllowed(d.status, to)) return "notAllowed";
+  // Four-eyes, same rule as the single-document approval: you can't approve what you added.
+  if (to === "approved" && d.isOwn) return "ownDocument";
   if (to === "approved" && d.pendingRequired > 0) return "detailsPending";
   return null;
 }

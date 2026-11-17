@@ -7,6 +7,7 @@ import {
   type AppRole,
   type SpecCharacteristic,
 } from "@/services/document-rules";
+import { isOwnDocument } from "@/services/review-flow-rules";
 import type { Db } from "@/services/seam-runtime";
 import {
   BULK_BATCH,
@@ -34,7 +35,7 @@ async function runBatch(admin: Db, job: JobRow) {
   const ids = job.doc_ids.slice(job.done, job.done + BULK_BATCH);
   const { data: docs } = await admin
     .from("documents")
-    .select("id, status, legal_hold, sensitivity, document_type, current_version_id")
+    .select("id, status, legal_hold, sensitivity, document_type, current_version_id, created_by")
     .in("id", ids)
     .eq("tenant_id", job.tenant_id)
     .is("deleted_at", null);
@@ -87,7 +88,13 @@ async function runBatch(admin: Db, job: JobRow) {
       job.action,
       params,
       d
-        ? { status: d.status, legalHold: d.legal_hold, sensitivity: d.sensitivity, pendingRequired }
+        ? {
+            status: d.status,
+            legalHold: d.legal_hold,
+            sensitivity: d.sensitivity,
+            pendingRequired,
+            isOwn: isOwnDocument(d.created_by, job.created_by),
+          }
         : null,
     );
     if (reason || !d) {
