@@ -50,7 +50,9 @@ describe.runIf(enabled)("access rules", () => {
 
   it("should never show Sweden documents to the Norway manager", async () => {
     const docs = await rows("no.manager@example.test", "documents?select=id,tenant_id");
-    expect(docs.length).toBe(3);
+    // The shared demo backend keeps growing (uploads, API tests), so the count is not fixed; what
+    // matters is that the three seeded documents are there and every one belongs to Norway.
+    expect(docs.length).toBeGreaterThanOrEqual(3);
     expect(docs.every((d) => d["tenant_id"] === "aurora-no")).toBe(true);
     expect(
       await rows("no.manager@example.test", "business_entities?select=id&tenant_id=eq.aurora-se"),
