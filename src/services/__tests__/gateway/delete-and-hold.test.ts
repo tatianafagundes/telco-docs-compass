@@ -164,10 +164,10 @@ describe("legal hold", () => {
     expect((await json(res))["code"]).toBe("invalidJson");
   });
 
-  it("answers 400 bodyTooLarge for a body over the limit", async () => {
+  it("answers 413 bodyTooLarge for a body over the limit", async () => {
     await buildWorld();
     const res = await hold({ active: true, reason: "x", pad: "y".repeat(60_000) });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(413);
     expect((await json(res))["code"]).toBe("bodyTooLarge");
   });
 });

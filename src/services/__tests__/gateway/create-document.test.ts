@@ -255,6 +255,27 @@ describe("registering a document from a url", () => {
     expect(await code(res)).toBe("attachmentUnreachable");
   });
 
+  it("stops reading a file that goes past 25 MB without declaring its length", async () => {
+    await world();
+    let pulled = 0;
+    web(
+      () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            pull(c) {
+              if (pulled >= 100_000) return c.close();
+              pulled++;
+              c.enqueue(new Uint8Array(1024 * 1024));
+            },
+          }),
+        ),
+    );
+    const res = await create({ attachment: { mimeType: "application/pdf", url: FILE } });
+    expect(res.status).toBe(422);
+    expect(await code(res)).toBe("attachmentUnreachable");
+    expect(pulled).toBeLessThan(40); // not the 100 GB on offer
+  });
+
   it("does not follow redirects", async () => {
     await world();
     const fetched = web(() => new Response(TEXT));

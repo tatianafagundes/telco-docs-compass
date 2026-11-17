@@ -50,7 +50,7 @@ function lineCount(path: string): number {
 const MAX_LINES = 300;
 /** Files above the limit today, with the length they may not exceed. Split or shrink, then delete the entry. */
 const OVERSIZED: Record<string, number> = {
-  "src/services/tmf-gateway.ts": 1320,
+  "src/services/tmf-gateway.ts": 1285,
   "src/services/document-write.functions.ts": 852,
   "src/services/tmf667-mapper.ts": 718,
   "src/services/tenant-config.functions.ts": 373,

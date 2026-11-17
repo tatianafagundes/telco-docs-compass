@@ -2,7 +2,6 @@
 // Routes under /api/public/tmf-api/* skip site auth, so every handler starts with authenticate().
 // The admin client is loaded only after the system key is verified, and every query is pinned
 // to the key's tenant. Business rules are the same pure rules the screens use.
-import { DNS_LOOKUP_TIMEOUT_MS, DNS_RECORD_TYPES } from "@/services/event-delivery-rules";
 import { decideRate, rateHeaders, rateKind, retryGuidance } from "@/services/rate-limit-rules";
 import { z } from "zod";
 import type { Json } from "@/integrations/supabase/types";
@@ -20,6 +19,8 @@ import {
   type SpecCharacteristic,
 } from "@/services/document-rules";
 import { deleteIfAllowed, gatewayRefusal } from "@/services/document-delete";
+import { fetchBytes, resolvesPublic } from "@/services/gateway-fetch";
+import { readRequestText, type Limited } from "@/services/gateway-body";
 import { holdColumns, updateDocumentIf } from "@/services/document-update";
 import type { Db } from "@/services/seam-runtime";
 import { DatabaseError, must } from "@/services/shared/must";
@@ -39,8 +40,6 @@ import {
   asExternalIdentifiers,
   fromStandardReferredType,
   hasScope,
-  isPrivateIp,
-  isSafeCallback,
   parseListQuery,
   readBearer,
   scopeForTransition,
@@ -62,7 +61,8 @@ import {
 
 export const MAX_BODY_CHARS = 50_000;
 export { MAX_INLINE_BYTES };
-const MAX_URL_FETCH_BYTES = 25 * 1024 * 1024;
+// Other modules (event delivery) and the tests reach the address check through the gateway.
+export { resolvesPublic };
 /** Per key, per minute. */
 
 export interface SystemCtx {
@@ -198,20 +198,20 @@ export async function authenticate(request: Request, needed: Scope): Promise<Sys
   };
 }
 
+const bodyTooLarge = (ctx: SystemCtx) =>
+  errorReply(
+    tmfError(413, "bodyTooLarge", "Payload Too Large", "Request body is too large."),
+    ctx.requestId,
+  );
 async function readJson(
   request: Request,
   ctx: SystemCtx,
   maxChars = MAX_BODY_CHARS,
+  /** The body, when the caller already read it (to pick the scope before authenticating). */
+  alreadyRead?: Limited<string>,
 ): Promise<{ ok: true; body: unknown } | { ok: false; res: Response }> {
-  const text = await request.text();
-  if (text.length > maxChars)
-    return {
-      ok: false,
-      res: errorReply(
-        tmfError(400, "bodyTooLarge", "Bad Request", "Request body is too large."),
-        ctx.requestId,
-      ),
-    };
+  const { value: text, tooLarge } = alreadyRead ?? (await readRequestText(request, maxChars));
+  if (tooLarge) return { ok: false, res: bodyTooLarge(ctx) };
   try {
     return { ok: true, body: text ? JSON.parse(text) : {} };
   } catch {
@@ -524,44 +524,6 @@ export async function getSpecification(request: Request, code: string): Promise<
 
 // ---------- writes ----------
 
-/** Resolves the host over DNS-over-HTTPS and refuses names that point at private addresses. */
-export async function resolvesPublic(url: string): Promise<boolean> {
-  if (!isSafeCallback(url)) return false;
-  const host = new URL(url).hostname;
-  if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) return !isPrivateIp(host);
-  try {
-    const answers: string[] = [];
-    for (const type of DNS_RECORD_TYPES) {
-      const r = await fetch(
-        `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(host)}&type=${type}`,
-        {
-          headers: { accept: "application/dns-json" },
-          signal: AbortSignal.timeout(DNS_LOOKUP_TIMEOUT_MS),
-        },
-      );
-      const j = (await r.json()) as { Answer?: { type: number; data: string }[] };
-      for (const a of j.Answer ?? []) if (a.type === 1 || a.type === 28) answers.push(a.data);
-    }
-    return answers.length > 0 && answers.every((ip) => !isPrivateIp(ip));
-  } catch {
-    return false;
-  }
-}
-
-async function fetchBytes(url: string): Promise<Uint8Array<ArrayBuffer> | null> {
-  if (!(await resolvesPublic(url))) return null;
-  try {
-    const r = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(15000) });
-    if (!r.ok) return null;
-    const len = Number(r.headers.get("content-length") ?? "0");
-    if (len > MAX_URL_FETCH_BYTES) return null;
-    const buf = new Uint8Array(await r.arrayBuffer());
-    return buf.byteLength > MAX_URL_FETCH_BYTES ? null : buf;
-  } catch {
-    return null;
-  }
-}
-
 export async function createDocument(request: Request): Promise<Response> {
   const ctx = await authenticate(request, "register");
   if (ctx instanceof Response) return ctx;
@@ -861,7 +823,8 @@ export async function patchDocument(request: Request, id: string): Promise<Respo
       crypto.randomUUID(),
     );
   }
-  const peek = await request.clone().text();
+  const pre = await readRequestText(request, MAX_BODY_CHARS);
+  const peek = pre.value;
   let peekBody: Record<string, unknown> = {};
   try {
     const j: unknown = JSON.parse(peek || "{}");
@@ -879,7 +842,7 @@ export async function patchDocument(request: Request, id: string): Promise<Respo
     onlyStatus && tmfTarget ? scopeForTransition(tmfTarget) : "register",
   );
   if (ctx instanceof Response) return ctx;
-  const parsed = await readJson(request, ctx);
+  const parsed = await readJson(request, ctx, MAX_BODY_CHARS, pre);
   if (!parsed.ok) return parsed.res;
   const input = patchSchema.safeParse(parsed.body);
   if (!input.success)
@@ -1046,7 +1009,8 @@ const transitionSchema = z.object({ lifecycleState: z.enum(STATUS_VALUES) });
 
 /** Extension (not TMF667): explicit status task. Standard clients can PATCH status instead. */
 export async function transitionDocument(request: Request, id: string): Promise<Response> {
-  const parsedPeek = await request.clone().text();
+  const pre = await readRequestText(request, MAX_BODY_CHARS);
+  const parsedPeek = pre.value;
   let to: DocStatus | null = null;
   try {
     to = transitionSchema.parse(JSON.parse(parsedPeek)).lifecycleState;
@@ -1055,6 +1019,7 @@ export async function transitionDocument(request: Request, id: string): Promise<
   }
   const ctx = await authenticate(request, to ? scopeForTransition(to) : "transition");
   if (ctx instanceof Response) return ctx;
+  if (pre.tooLarge) return bodyTooLarge(ctx);
   if (!to)
     return errorReply(
       tmfError(
@@ -1253,8 +1218,8 @@ function oauthError(status: number, error: string, description: string): Respons
  * same permissions. client_id is the key's prefix shown in Connected systems.
  */
 export async function issueToken(request: Request): Promise<Response> {
-  const text = await request.text();
-  if (text.length > 4000) return oauthError(400, "invalid_request", "Request too large.");
+  const { value: text, tooLarge } = await readRequestText(request, 4000);
+  if (tooLarge) return oauthError(400, "invalid_request", "Request too large.");
   const ctype = request.headers.get("content-type") ?? "";
   const form = ctype.includes("application/json")
     ? new URLSearchParams(
