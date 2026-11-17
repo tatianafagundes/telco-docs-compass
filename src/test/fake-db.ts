@@ -68,7 +68,21 @@ function project(row: Row, columns: string | null): Row {
   return out;
 }
 
+/** One call made to the storage stub. */
+export interface StorageCall {
+  bucket: string;
+  op: "upload" | "createSignedUploadUrl" | "createSignedUrl" | "remove";
+  path: string;
+  bytes?: Uint8Array;
+  contentType?: string;
+}
+
 export class FakeDb {
+  /** Tables whose rows get a generated `id` on insert when none is given, like a uuid default in the database. */
+  readonly autoIdTables = new Set<string>();
+  /** Every call to `storage.from(bucket)`, in order. */
+  readonly storageCalls: StorageCall[] = [];
+  private storageFailures = new Set<StorageCall["op"]>();
   readonly tables: Record<string, Row[]> = {};
   /** Every insert, update, upsert and delete, in order. Tests assert on this. */
   readonly writes: WriteLogEntry[] = [];
@@ -110,6 +124,47 @@ export class FakeDb {
   onWrite(table: string, op: WriteLogEntry["op"], fn: () => void): this {
     this.writeHooks.push({ key: `${table}:${op}`, fn });
     return this;
+  }
+
+  /** Give rows inserted into these tables a generated id, as the database default would. */
+  withAutoId(...tables: string[]): this {
+    for (const t of tables) this.autoIdTables.add(t);
+    return this;
+  }
+
+  /** Make one storage operation answer an error (`data: null`), the way supabase-js does. */
+  failStorage(op: StorageCall["op"]): this {
+    this.storageFailures.add(op);
+    return this;
+  }
+
+  /** Undo every `failStorage`, to test a retry after a failure. */
+  clearStorageFailures(): this {
+    this.storageFailures.clear();
+    return this;
+  }
+
+  /** Stand-in for `client.storage`: records the call and answers a fake signed address. */
+  get storage() {
+    const answer = (bucket: string, op: StorageCall["op"], path: string, extra: object = {}) => {
+      this.storageCalls.push({ bucket, op, path, ...extra });
+      if (this.storageFailures.has(op))
+        return Promise.resolve({ data: null, error: { message: `forced storage ${op} failure` } });
+      const data =
+        op === "createSignedUrl" || op === "createSignedUploadUrl"
+          ? { signedUrl: `https://storage.example/${bucket}/${path}?token=t`, path }
+          : { path };
+      return Promise.resolve({ data, error: null });
+    };
+    return {
+      from: (bucket: string) => ({
+        upload: (path: string, bytes: Uint8Array, o?: { contentType?: string }) =>
+          answer(bucket, "upload", path, { bytes, contentType: o?.contentType }),
+        createSignedUploadUrl: (path: string) => answer(bucket, "createSignedUploadUrl", path),
+        createSignedUrl: (path: string) => answer(bucket, "createSignedUrl", path),
+        remove: (paths: string[]) => answer(bucket, "remove", paths.join(",")),
+      }),
+    };
   }
 
   takeStale(table: string): Row[] | undefined {
@@ -292,7 +347,12 @@ class QueryBuilder implements PromiseLike<DbAnswer> {
     const rows = this.db.rows(this.table);
 
     if (this.op === "insert") {
-      const added = this.payload.map((r) => ({ ...r }));
+      const added = this.payload.map((r) => ({
+        ...r,
+        ...(this.db.autoIdTables.has(this.table) && r["id"] === undefined
+          ? { id: crypto.randomUUID() }
+          : {}),
+      }));
       rows.push(...added);
       this.db.writes.push({ table: this.table, op: "insert", rows: added });
       return this.answer(this.returning ? added : null);

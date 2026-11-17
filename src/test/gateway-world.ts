@@ -106,6 +106,7 @@ export async function buildWorld(opts: WorldOptions = {}): Promise<FakeDb> {
     idempotency_keys: [],
     extraction_fields: [],
   })
+    .withAutoId("documents")
     .onRpc("api_hit", opts.hits ?? 1)
     .onRpc("effective_specifications", opts.specs ?? []);
   holder.db = db;

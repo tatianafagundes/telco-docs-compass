@@ -19,6 +19,7 @@ import {
 } from "@/services/document-rules";
 import { deleteState } from "@/services/document-actions";
 import type { Db } from "@/services/seam-runtime";
+import { storeFirstVersion } from "@/services/gateway-document-store";
 import {
   asExternalIdentifiers,
   fromStandardReferredType,
@@ -770,29 +771,24 @@ export async function createDocument(request: Request): Promise<Response> {
         status: 503,
         body: tmfError(503, "unavailable", "Service Unavailable", "Try again shortly."),
       };
-    const versionId = crypto.randomUUID();
-    const storagePath = `${ctx.tenantId}/${versionId}`;
-    if (bytes)
-      await ctx.admin.storage
-        .from("documents")
-        .upload(storagePath, bytes, { contentType: att.mimeType, upsert: false });
-    await ctx.admin.from("document_versions").insert({
-      id: versionId,
-      document_id: doc.id,
-      tenant_id: ctx.tenantId,
-      label: "1",
-      mime_type: att.mimeType,
-      size_bytes: size ?? null,
-      content_hash: hash,
-      storage_path: storagePath,
+    const stored = await storeFirstVersion(ctx.admin, {
+      documentId: doc.id,
+      tenantId: ctx.tenantId,
+      mimeType: att.mimeType,
+      sizeBytes: size ?? null,
+      contentHash: hash,
+      bytes,
+      related: d.relatedEntity,
     });
-    await ctx.admin.from("documents").update({ current_version_id: versionId }).eq("id", doc.id);
-    await ctx.admin
-      .from("document_relations")
-      .insert(d.relatedEntity.map((r) => ({ document_id: doc.id, entity_id: r.id, role: r.role })));
-    const signed = bytes
-      ? null
-      : (await ctx.admin.storage.from("documents").createSignedUploadUrl(storagePath)).data;
+    if (!stored.ok) {
+      console.error(
+        JSON.stringify({ op: "tmf.createDocument", requestId: ctx.requestId, step: stored.step }),
+      );
+      return {
+        status: 503,
+        body: tmfError(503, "unavailable", "Service Unavailable", "Try again shortly."),
+      };
+    }
     await audit(
       ctx,
       "upload",
@@ -801,7 +797,10 @@ export async function createDocument(request: Request): Promise<Response> {
     );
     const created = await findDoc(ctx, doc.id);
     const [tmf] = created ? await loadTmfDocs(ctx, [created]) : [];
-    return { status: 201, body: { ...tmf, ...(signed ? { uploadUrl: signed.signedUrl } : {}) } };
+    return {
+      status: 201,
+      body: { ...tmf, ...(stored.uploadUrl ? { uploadUrl: stored.uploadUrl } : {}) },
+    };
   });
 }
 

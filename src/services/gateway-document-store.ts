@@ -1,0 +1,81 @@
+// Stores the first version of a document the gateway has just registered: the file, the version
+// row, the pointer from the document, the links to its records and, when the file is still to
+// come, the address to upload it to.
+//
+// Does not decide whether the request is acceptable (types, sizes, hashes: tmf-gateway.ts does),
+// and does not write the activity log.
+//
+// Every step is checked. If one fails, the document is hidden and the file removed, so nothing
+// half made stays visible and a retry with a fresh key starts clean.
+import { DatabaseError, must } from "@/services/shared/must";
+import type { Db } from "@/services/seam-runtime";
+
+export interface FirstVersion {
+  documentId: string;
+  tenantId: string;
+  mimeType: string;
+  sizeBytes: number | null;
+  contentHash: string;
+  /** The file, when the gateway already has it; null when the client uploads it afterwards. */
+  bytes: Uint8Array<ArrayBuffer> | null;
+  related: { id: string; role: string }[];
+}
+
+export type StoreOutcome =
+  { ok: true; versionId: string; uploadUrl: string | null } | { ok: false; step: string };
+
+export async function storeFirstVersion(admin: Db, v: FirstVersion): Promise<StoreOutcome> {
+  const versionId = crypto.randomUUID();
+  const path = `${v.tenantId}/${versionId}`;
+  const bucket = admin.storage.from("documents");
+  try {
+    if (v.bytes)
+      must(
+        await bucket.upload(path, v.bytes, { contentType: v.mimeType, upsert: false }),
+        "storing the file of a new document",
+      );
+    must(
+      await admin.from("document_versions").insert({
+        id: versionId,
+        document_id: v.documentId,
+        tenant_id: v.tenantId,
+        label: "1",
+        mime_type: v.mimeType,
+        size_bytes: v.sizeBytes,
+        content_hash: v.contentHash,
+        storage_path: path,
+      }),
+      "saving the first version of a new document",
+    );
+    must(
+      await admin
+        .from("documents")
+        .update({ current_version_id: versionId })
+        .eq("id", v.documentId),
+      "pointing a new document at its first version",
+    );
+    must(
+      await admin
+        .from("document_relations")
+        .insert(
+          v.related.map((r) => ({ document_id: v.documentId, entity_id: r.id, role: r.role })),
+        ),
+      "linking a new document to its records",
+    );
+    const signed = v.bytes
+      ? null
+      : must(
+          await bucket.createSignedUploadUrl(path),
+          "preparing the upload address of a new document",
+        );
+    return { ok: true, versionId, uploadUrl: signed?.signedUrl ?? null };
+  } catch (e) {
+    if (!(e instanceof DatabaseError)) throw e;
+    await admin
+      .from("documents")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", v.documentId);
+    if (v.bytes) await bucket.remove([path]);
+    return { ok: false, step: e.message };
+  }
+}
