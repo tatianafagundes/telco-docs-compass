@@ -82,6 +82,39 @@ describe("FakeDb writes", () => {
   });
 });
 
+describe("FakeDb paging, counting and contains", () => {
+  const rows = Array.from({ length: 7 }, (_, i) => ({
+    id: i + 1,
+    tags: i % 2 ? [{ id: "odd" }] : [{ id: "even" }],
+  }));
+
+  it("range() takes rows from..to and count gives the total before paging", async () => {
+    const db = new FakeDb({ docs: rows });
+    const page = await db.from("docs").select("id", { count: "exact" }).order("id").range(2, 4);
+    expect(page.data).toEqual([{ id: 3 }, { id: 4 }, { id: 5 }]);
+    expect(page.count).toBe(7);
+  });
+
+  it("gives no count unless it was asked for", async () => {
+    const db = new FakeDb({ docs: rows });
+    expect((await db.from("docs").select("id")).count).toBeUndefined();
+  });
+
+  it("filter(cs) keeps rows whose array holds an object with those values", async () => {
+    const db = new FakeDb({ docs: rows });
+    const odd = await db
+      .from("docs")
+      .select("id")
+      .filter("tags", "cs", JSON.stringify([{ id: "odd" }]));
+    expect(odd.data).toEqual([{ id: 2 }, { id: 4 }, { id: 6 }]);
+  });
+
+  it("refuses an operator it does not know instead of ignoring it", () => {
+    const db = new FakeDb({ docs: rows });
+    expect(() => db.from("docs").filter("tags", "gt", "1")).toThrow("not supported");
+  });
+});
+
 describe("FakeDb returning rows from writes", () => {
   it("insert().select().single() gives the new row, and a delete().select() gives what it removed", async () => {
     const db = new FakeDb({

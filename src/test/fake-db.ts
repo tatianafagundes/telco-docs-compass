@@ -23,6 +23,13 @@ export interface DbError {
   message: string;
 }
 
+export interface DbAnswer {
+  data: unknown;
+  error: DbError | null;
+  /** Rows that matched before paging, only when the query asked for `count`. */
+  count?: number;
+}
+
 /** Reads `a.b` from nested objects, so embedded joins like `integration_clients.revoked_at` work. */
 function pathValue(row: Row, path: string): unknown {
   let cur: unknown = row;
@@ -152,7 +159,7 @@ export class FakeDb {
   }
 }
 
-class QueryBuilder implements PromiseLike<{ data: unknown; error: DbError | null }> {
+class QueryBuilder implements PromiseLike<DbAnswer> {
   private op: Op = "select";
   private columns: string | null = null;
   private payload: Row[] = [];
@@ -164,13 +171,16 @@ class QueryBuilder implements PromiseLike<{ data: unknown; error: DbError | null
   private upsertOn: string[] = [];
   private ignoreDuplicates = false;
   private returning = false;
+  private wantCount = false;
+  private window: [number, number] | null = null;
 
   constructor(
     private readonly db: FakeDb,
     private readonly table: string,
   ) {}
 
-  select(columns = "*") {
+  select(columns = "*", opts: { count?: "exact" } = {}) {
+    if (opts.count) this.wantCount = true;
     if (this.op === "select") this.columns = columns;
     else {
       this.returning = true;
@@ -229,6 +239,26 @@ class QueryBuilder implements PromiseLike<{ data: unknown; error: DbError | null
     this.sort = { column, ascending: opts.ascending ?? true };
     return this;
   }
+  /** Rows `from` to `to`, both included, as in supabase-js. */
+  range(from: number, to: number) {
+    this.window = [from, to];
+    return this;
+  }
+  /** Only the "cs" (contains) operator, on a column holding a JSON array of objects. */
+  filter(column: string, op: string, value: string) {
+    if (op !== "cs") throw new Error(`FakeDb: filter operator ${op} is not supported`);
+    this.filters.push((r) => {
+      const have = pathValue(r, column);
+      const wanted = JSON.parse(value) as Row[];
+      return (
+        Array.isArray(have) &&
+        wanted.every((w) =>
+          have.some((h) => Object.entries(w).every(([k, v]) => (h as Row)[k] === v)),
+        )
+      );
+    });
+    return this;
+  }
   limit(n: number) {
     this.max = n;
     return this;
@@ -243,8 +273,8 @@ class QueryBuilder implements PromiseLike<{ data: unknown; error: DbError | null
     return this;
   }
 
-  then<R1 = { data: unknown; error: DbError | null }, R2 = never>(
-    onfulfilled?: ((v: { data: unknown; error: DbError | null }) => R1 | PromiseLike<R1>) | null,
+  then<R1 = DbAnswer, R2 = never>(
+    onfulfilled?: ((v: DbAnswer) => R1 | PromiseLike<R1>) | null,
     onrejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
   ): PromiseLike<R1 | R2> {
     return Promise.resolve()
@@ -256,7 +286,7 @@ class QueryBuilder implements PromiseLike<{ data: unknown; error: DbError | null
     return this.db.rows(this.table).filter((r) => this.filters.every((f) => f(r)));
   }
 
-  private run(): { data: unknown; error: DbError | null } {
+  private run(): DbAnswer {
     const error = this.db.failureFor(this.table, this.op);
     if (error) return { data: null, error };
     const rows = this.db.rows(this.table);
@@ -308,20 +338,23 @@ class QueryBuilder implements PromiseLike<{ data: unknown; error: DbError | null
         return (x < y ? -1 : x > y ? 1 : 0) * (ascending ? 1 : -1);
       });
     }
+    const total = out.length;
+    if (this.window) out = out.slice(this.window[0], this.window[1] + 1);
     if (this.max !== null) out = out.slice(0, this.max);
-    return this.answer(out);
+    return this.answer(out, this.wantCount ? total : undefined);
   }
 
   /** Shapes the rows like supabase-js: all of them, one or none, or exactly one. */
-  private answer(rows: Row[] | null): { data: unknown; error: DbError | null } {
+  private answer(rows: Row[] | null, count?: number): DbAnswer {
     if (rows === null) return { data: null, error: null };
+    const withCount = (a: DbAnswer): DbAnswer => (count === undefined ? a : { ...a, count });
     const projected = rows.map((r) => project(r, this.columns));
-    if (this.cardinality === "maybe") return { data: projected[0] ?? null, error: null };
+    if (this.cardinality === "maybe") return withCount({ data: projected[0] ?? null, error: null });
     if (this.cardinality === "one") {
       return projected.length === 1
         ? { data: projected[0], error: null }
         : { data: null, error: { message: `expected one row, got ${projected.length}` } };
     }
-    return { data: projected, error: null };
+    return withCount({ data: projected, error: null });
   }
 }
