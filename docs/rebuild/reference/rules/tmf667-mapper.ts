@@ -699,23 +699,7 @@ export function readBearer(header: string | null): string | null {
   return m?.[1] ?? null;
 }
 
-/** True for loopback, private, link-local, CGNAT and unique-local addresses (v4 and v6). */
-export function isPrivateIp(ip: string): boolean {
-  const v = ip.toLowerCase();
-  if (v.includes(":"))
-    return (
-      v === "::1" ||
-      v === "::" ||
-      v.startsWith("fc") ||
-      v.startsWith("fd") ||
-      v.startsWith("fe80") ||
-      v.startsWith("::ffff:")
-    );
-  return /^(0\.|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(
-    v,
-  );
-}
-
+export { isPrivateIp } from "@/services/ip-rules";
 /** Callback addresses must be https and not point at internal hosts. */
 export function isSafeCallback(url: string): boolean {
   try {

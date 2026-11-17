@@ -1,6 +1,5 @@
 // Repository hygiene, checked inside `bun run check` (there is no CI, so this is the guard).
-// Rules are explained in AGENTS.md > "Repository rules". Spec: telco-docs-compass-hardening,
-// tasks 0.3 and 0.9 (R7.6, R11.1, R12.1, R12.8, R14).
+// Rules are explained in AGENTS.md > "Repository rules".
 //
 // 1. Size: no code file in src/services is longer than 300 lines, except the ones listed in
 //    OVERSIZED, which may not grow and must leave the list once they are split.
@@ -53,7 +52,7 @@ const MAX_LINES = 300;
 const OVERSIZED: Record<string, number> = {
   "src/services/tmf-gateway.ts": 1379,
   "src/services/document-write.functions.ts": 879,
-  "src/services/tmf667-mapper.ts": 734,
+  "src/services/tmf667-mapper.ts": 719,
   "src/services/tenant-config.functions.ts": 373,
   "src/services/bulk-worker.ts": 341,
   "src/services/retention.functions.ts": 337,
@@ -283,7 +282,7 @@ describe("the repository is written in English", () => {
     ]);
   });
 
-  it("no file we maintain contains Portuguese (R14)", () => {
+  it("no file we maintain contains Portuguese", () => {
     // A missing required doc is reported by its own test above; here it is simply skipped.
     const found = ENGLISH_ONLY_FILES.filter(exists).flatMap((f) => portugueseLines(f, read(f)));
     expect(
