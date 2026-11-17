@@ -55,3 +55,13 @@ use the editor.
 - Documents search at scale: `_doc_search_where` (SECURITY DEFINER, same rule as `can_see_document`) feeds `search_documents`, `count_documents` (capped), `facet_documents`, `search_document_ids`; reached via `src/services/search.functions.ts`, rules in `search-rules.ts`; bulk changes re-check each document in `bulk-worker.ts`. Why: per-row RLS doesn't scale and one builder keeps access identical.
 - Never `select("*")` on `documents` for screens: the generated search column has no usable type and breaks server-function typing. Why: it silently turns the result into `{}`.
 - Approved/effective documents: name, description, sensitivity and links stay editable; confirmed details, dates and file versions are protected (`metadataPatchAllowed`/`contentProtected` in `document-rules.ts`, used by server functions, TMF PATCH (409 `approvedContentLocked`) and `contentEditState` in the UI). Why: approved content must stay as approved while labels can be corrected.
+
+## Repository rules
+
+Checked by `src/test/repo-hygiene.test.ts`, which runs inside `bun run check`. There is no CI, so run `bun run check` before every commit.
+
+- **English only.** Code, comments, test names, error and log messages, UI text, commit messages and docs are written in English. Demo data may have Swedish names. The check looks for Portuguese characters and a short list of Portuguese words, so it is a guard and not a language detector.
+- **300 lines per file in `src/services`.** The files in `OVERSIZED` (in the test) may not grow. When you touch one, put new code in a new file next to it. When a file drops under 300 lines, delete its entry. Never raise a number.
+- **Docs point at real files.** A link, or a path in backticks that starts with `src/`, `docs/`, `e2e/` and similar, must point at a file that exists. This covers `README.md`, `AGENTS.md`, `roadmap.md`, the architecture, operations and steering docs, and the module READMEs. Rename a file and its docs in the same commit.
+- **Module READMEs.** Every `README.md` under `src/services` has these headings: Purpose, What it does NOT do, Files, Main flow, Rules that must not break, How to test, Common mistakes.
+- **One commit, one kind of change.** A fix and a refactor never share a commit. Every fix comes with the test that fails without it.
