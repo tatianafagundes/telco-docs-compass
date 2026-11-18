@@ -1,8 +1,8 @@
-// Stores the first version of a document the gateway has just registered: the file, the version
+// Stores the first version of a document that has just been registered, from a screen or from the API: the file, the version
 // row, the pointer from the document, the links to its records and, when the file is still to
 // come, the address to upload it to.
 //
-// Does not decide whether the request is acceptable (types, sizes, hashes: tmf-gateway.ts does),
+// Does not decide whether the request is acceptable (types, sizes, hashes: the caller does),
 // and does not write the activity log.
 //
 // Every step is checked. If one fails, the document is hidden and the file removed, so nothing
@@ -16,13 +16,16 @@ export interface FirstVersion {
   mimeType: string;
   sizeBytes: number | null;
   contentHash: string;
-  /** The file, when the gateway already has it; null when the client uploads it afterwards. */
+  /** The file, when it is already in hand; null when the client uploads it afterwards. */
   bytes: Uint8Array<ArrayBuffer> | null;
   related: { id: string; role: string }[];
+  /** The person who registered it, when a person did (the API leaves it empty). */
+  createdBy?: string;
 }
 
 export type StoreOutcome =
-  { ok: true; versionId: string; uploadUrl: string | null } | { ok: false; step: string };
+  | { ok: true; versionId: string; uploadUrl: string | null; uploadToken: string | null }
+  | { ok: false; step: string };
 
 export async function storeFirstVersion(admin: Db, v: FirstVersion): Promise<StoreOutcome> {
   const versionId = crypto.randomUUID();
@@ -44,6 +47,7 @@ export async function storeFirstVersion(admin: Db, v: FirstVersion): Promise<Sto
         size_bytes: v.sizeBytes,
         content_hash: v.contentHash,
         storage_path: path,
+        ...(v.createdBy ? { created_by: v.createdBy } : {}),
       }),
       "saving the first version of a new document",
     );
@@ -68,7 +72,12 @@ export async function storeFirstVersion(admin: Db, v: FirstVersion): Promise<Sto
           await bucket.createSignedUploadUrl(path),
           "preparing the upload address of a new document",
         );
-    return { ok: true, versionId, uploadUrl: signed?.signedUrl ?? null };
+    return {
+      ok: true,
+      versionId,
+      uploadUrl: signed?.signedUrl ?? null,
+      uploadToken: signed?.token ?? null,
+    };
   } catch (e) {
     // Any failure, including a dropped connection to storage, ends the same way: hide the document
     // and drop the file. A failing cleanup is logged and does not hide the original problem.

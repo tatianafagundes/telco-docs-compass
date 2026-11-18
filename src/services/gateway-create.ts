@@ -1,5 +1,5 @@
 // POST /document: register a document with its first file. What the request may contain is in
-// gateway-create-input.ts; storing the file and version is in gateway-document-store.ts.
+// gateway-create-input.ts; storing the file and version is in document-first-version.ts.
 import type { Json } from "@/integrations/supabase/types";
 import { fetchBytes } from "@/services/gateway-fetch";
 import { must } from "@/services/shared/must";
@@ -11,7 +11,7 @@ import {
   sha256Bytes,
   sizeBytes,
 } from "@/services/gateway-create-input";
-import { storeFirstVersion } from "@/services/gateway-document-store";
+import { storeFirstVersion } from "@/services/document-first-version";
 import { sha256Hex, tmfError } from "@/services/tmf667-mapper";
 import { errorReply } from "@/services/gateway-reply";
 import { authenticate, findDoc, loadTmfDocs, readJson } from "@/services/gateway-core";

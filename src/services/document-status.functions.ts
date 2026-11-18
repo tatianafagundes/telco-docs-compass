@@ -160,7 +160,12 @@ export const restoreDeleted = createServerFn({ method: "POST" })
             .in("entity_id", ids.length ? ids : ["-"]);
           if (!count) return fail("doc.notFound", "notFound");
         }
-        await env.admin.from("documents").update({ deleted_at: null }).eq("id", data.id);
+        await updateDocument(
+          env.admin,
+          data.id,
+          { deleted_at: null },
+          "restoring a deleted document",
+        );
         await audit(env, "restore", data.id, "Undeleted");
         return { ok: true, data: { id: data.id } };
       },

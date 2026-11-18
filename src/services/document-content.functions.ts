@@ -6,6 +6,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database, Json } from "@/integrations/supabase/types";
 import { addVersionSchema, registerSchema, updateMetadataSchema } from "@/schemas/document";
 import { can, isFrozen, contentProtected, metadataPatchAllowed } from "@/services/document-rules";
+import { must } from "@/services/shared/must";
+import { storeFirstVersion } from "@/services/document-first-version";
 import { audit, forbidden, runWrite } from "@/services/seam-runtime";
 import { BUCKET, UploadTicket, adminClient, fail, loadDoc } from "@/services/document-write-shared";
 // ---------- register ----------
@@ -61,29 +63,18 @@ export const register = createServerFn({ method: "POST" })
           .single();
         if (error || !doc) return fail("doc.register.failed", "unavailable", "retry");
 
-        const versionId = crypto.randomUUID();
-        const storagePath = `${env.tenantId}/${versionId}`;
-        await env.admin.from("document_versions").insert({
-          id: versionId,
-          document_id: doc.id,
-          tenant_id: env.tenantId,
-          label: "1",
-          mime_type: data.mimeType,
-          size_bytes: data.size ?? null,
-          content_hash: data.contentHash,
-          storage_path: storagePath,
-          created_by: env.userId,
+        const stored = await storeFirstVersion(env.admin, {
+          documentId: doc.id,
+          tenantId: env.tenantId,
+          mimeType: data.mimeType,
+          sizeBytes: data.size ?? null,
+          contentHash: data.contentHash,
+          bytes: null,
+          related: [{ id: entity.id, role: data.relatedEntity.role }],
+          createdBy: env.userId,
         });
-        await env.admin
-          .from("documents")
-          .update({ current_version_id: versionId })
-          .eq("id", doc.id);
-        await env.admin
-          .from("document_relations")
-          .insert({ document_id: doc.id, entity_id: entity.id, role: data.relatedEntity.role });
-        const { data: signed } = await env.admin.storage
-          .from(BUCKET)
-          .createSignedUploadUrl(storagePath);
+        if (!stored.ok) return fail("doc.register.failed", "unavailable", "retry");
+        const versionId = stored.versionId;
         await audit(env, "upload", doc.id, "Version 1", versionId);
         const created = await loadDoc(env.admin, doc.id);
         return {
@@ -93,8 +84,8 @@ export const register = createServerFn({ method: "POST" })
             upload: {
               versionId,
               method: "signedUrl" as const,
-              url: signed?.signedUrl ?? "",
-              token: signed?.token ?? "",
+              url: stored.uploadUrl ?? "",
+              token: stored.uploadToken ?? "",
               expiresAt: new Date(Date.now() + 2 * 3600_000).toISOString(),
             },
           },
@@ -188,25 +179,31 @@ export const addVersion = createServerFn({ method: "POST" })
             .eq("document_id", data.id)
             .maybeSingle();
           if (!src) return fail("doc.version.notFound", "notFound");
-          await env.admin.from("document_versions").insert({
-            id: versionId,
-            document_id: data.id,
-            tenant_id: env.tenantId,
-            label,
-            is_named: data.isNamed ?? false,
-            note: data.note ?? `Restored from version ${src.label}`,
-            mime_type: src.mime_type,
-            size_bytes: src.size_bytes,
-            content_hash: src.content_hash,
-            storage_path: src.storage_path,
-            sample_pages: src.sample_pages,
-            supersedes: doc.current_version_id,
-            created_by: env.userId,
-          });
-          await env.admin
-            .from("documents")
-            .update({ current_version_id: versionId, updated_at: new Date().toISOString() })
-            .eq("id", data.id);
+          must(
+            await env.admin.from("document_versions").insert({
+              id: versionId,
+              document_id: data.id,
+              tenant_id: env.tenantId,
+              label,
+              is_named: data.isNamed ?? false,
+              note: data.note ?? `Restored from version ${src.label}`,
+              mime_type: src.mime_type,
+              size_bytes: src.size_bytes,
+              content_hash: src.content_hash,
+              storage_path: src.storage_path,
+              sample_pages: src.sample_pages,
+              supersedes: doc.current_version_id,
+              created_by: env.userId,
+            }),
+            "saving a restored version",
+          );
+          must(
+            await env.admin
+              .from("documents")
+              .update({ current_version_id: versionId, updated_at: new Date().toISOString() })
+              .eq("id", data.id),
+            "pointing a document at a restored version",
+          );
           await audit(
             env,
             "restore",
@@ -221,32 +218,39 @@ export const addVersion = createServerFn({ method: "POST" })
         }
 
         const storagePath = `${env.tenantId}/${versionId}`;
-        await env.admin.from("document_versions").insert({
-          id: versionId,
-          document_id: data.id,
-          tenant_id: env.tenantId,
-          label,
-          is_named: data.isNamed ?? false,
-          note: data.note ?? null,
-          mime_type: data.mimeType,
-          size_bytes: data.size ?? null,
-          content_hash: data.contentHash ?? "",
-          storage_path: storagePath,
-          supersedes: doc.current_version_id,
-          created_by: env.userId,
-        });
-        await env.admin
-          .from("documents")
-          .update({
-            current_version_id: versionId,
-            pipeline_state: "uploading",
-            pipeline_detail: null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", data.id);
-        const { data: signed } = await env.admin.storage
-          .from(BUCKET)
-          .createSignedUploadUrl(storagePath);
+        must(
+          await env.admin.from("document_versions").insert({
+            id: versionId,
+            document_id: data.id,
+            tenant_id: env.tenantId,
+            label,
+            is_named: data.isNamed ?? false,
+            note: data.note ?? null,
+            mime_type: data.mimeType,
+            size_bytes: data.size ?? null,
+            content_hash: data.contentHash ?? "",
+            storage_path: storagePath,
+            supersedes: doc.current_version_id,
+            created_by: env.userId,
+          }),
+          "saving a new version",
+        );
+        must(
+          await env.admin
+            .from("documents")
+            .update({
+              current_version_id: versionId,
+              pipeline_state: "uploading",
+              pipeline_detail: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", data.id),
+          "pointing a document at a new version",
+        );
+        const signed = must(
+          await env.admin.storage.from(BUCKET).createSignedUploadUrl(storagePath),
+          "preparing the upload address of a new version",
+        );
         await audit(env, "upload", data.id, `Version ${n}`, versionId);
         return {
           ok: true,

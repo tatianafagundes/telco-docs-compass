@@ -163,7 +163,7 @@ export class FakeDb {
         return Promise.resolve({ data: null, error: { message: `forced storage ${op} failure` } });
       const data =
         op === "createSignedUrl" || op === "createSignedUploadUrl"
-          ? { signedUrl: `https://storage.example/${bucket}/${path}?token=t`, path }
+          ? { signedUrl: `https://storage.example/${bucket}/${path}?token=t`, path, token: "t" }
           : { path };
       return Promise.resolve({ data, error: null });
     };
