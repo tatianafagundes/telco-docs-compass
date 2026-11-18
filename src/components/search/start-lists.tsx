@@ -94,11 +94,11 @@ function StartSection({
               <button
                 type="button"
                 onClick={() => onOpen(d.id, d.entity_name ? d.entity_id : null)}
-                className="focus-ring flex min-h-12 w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-item-hover"
+                className="focus-ring group flex min-h-12 w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-item-hover"
               >
                 <span className="flex min-w-0 flex-col">
                   <span className="type-label-14 truncate">{d.name}</span>
-                  <span className="type-label-12 truncate text-text-secondary">
+                  <span className="type-label-12 truncate text-text-secondary group-hover:text-text-main">
                     {typeLabel(d.document_type)}
                     {d.entity_name ? ` · ${d.entity_name}` : ""}
                     {d.pending > 0 ? ` · ${d.pending} to check` : ""}

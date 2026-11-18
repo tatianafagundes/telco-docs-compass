@@ -127,7 +127,7 @@ export function ResultsTable(p: ResultsTableProps) {
                 onClick={() => p.onOpen(r.id, r.entity_name ? r.entity_id : null)}
                 style={{ top: i * ROW_H, height: ROW_H }}
                 className={cn(
-                  "focus-ring absolute inset-x-0 flex cursor-pointer items-center gap-3 border-b border-border-subtle px-3 hover:bg-item-hover",
+                  "focus-ring group absolute inset-x-0 flex cursor-pointer items-center gap-3 border-b border-border-subtle px-3 hover:bg-item-hover",
                   active && "bg-item-selected",
                 )}
               >
@@ -141,7 +141,12 @@ export function ResultsTable(p: ResultsTableProps) {
                 </span>
                 <span role="gridcell" className="flex min-w-0 flex-1 flex-col">
                   <span className="type-label-14 truncate">{r.name}</span>
-                  <span className={cn("type-label-12 truncate", !active && "text-text-secondary")}>
+                  <span
+                    className={cn(
+                      "type-label-12 truncate",
+                      !active && "text-text-secondary group-hover:text-text-main",
+                    )}
+                  >
                     {typeLabel(r.document_type)}
                     {r.pending > 0 ? ` · ${r.pending} to check` : ""}
                   </span>
@@ -150,7 +155,7 @@ export function ResultsTable(p: ResultsTableProps) {
                   role="gridcell"
                   className={cn(
                     "type-label-12 hidden w-40 truncate 2xl:block",
-                    !active && "text-text-secondary",
+                    !active && "text-text-secondary group-hover:text-text-main",
                   )}
                 >
                   {r.entity_name ?? (r.entity_id ? "Record you can't open" : "—")}
@@ -167,7 +172,7 @@ export function ResultsTable(p: ResultsTableProps) {
                   role="gridcell"
                   className={cn(
                     "type-label-12 hidden w-24 lg:block",
-                    !active && "text-text-secondary",
+                    !active && "text-text-secondary group-hover:text-text-main",
                   )}
                 >
                   {format(new Date(r.updated_at), "d MMM yyyy")}
