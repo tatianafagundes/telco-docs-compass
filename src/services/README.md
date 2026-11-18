@@ -30,16 +30,17 @@ Ways a document is changed (each applies the pure rules):
 
 Helpers, and when to use each:
 
-| Need                                                           | Use                                                                                                                  |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| A database query whose failure must stop the work              | `must()` in `shared/must.ts`. It throws `DatabaseError`; the entry point turns that into "unavailable".              |
-| Update one document and fail loudly                            | `updateDocument` in `document-update.ts`.                                                                            |
-| Update one document only if it still looks the way you read it | `updateDocumentIf` in `document-update.ts`.                                                                          |
-| Place or release a legal hold                                  | `holdColumns` in `document-update.ts`.                                                                               |
-| Delete a document                                              | `deleteIfAllowed` in `document-delete.ts` (hold, retention date and master floor, then a guarded write).             |
-| The master tenant's minimum retention                          | `masterRetentionFloor` in `retention-floor.ts`.                                                                      |
-| Store the first version of a document the API registered       | `storeFirstVersion` in `document-first-version.ts`.                                                                  |
-| Expiry and cleanup of old keys and tokens                      | `runMaintenance` in `maintenance.ts`, called by `runScheduled` in `scheduled-run.ts`. Never from a person's request. |
+| Need                                                           | Use                                                                                                                                      |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| A database query whose failure must stop the work              | `must()` in `shared/must.ts`. It throws `DatabaseError`; the entry point turns that into "unavailable".                                  |
+| Update one document and fail loudly                            | `updateDocument` in `document-update.ts`.                                                                                                |
+| Update one document only if it still looks the way you read it | `updateDocumentIf` in `document-update.ts`.                                                                                              |
+| Place or release a legal hold                                  | `holdColumns` in `document-update.ts`.                                                                                                   |
+| Make a change safe to repeat (Idempotency-Key)                 | `claimKey`, `completeKey`, `releaseKey` in `idempotency-claim.ts`. `runWrite` and `idempotent` already do it; do not write a second way. |
+| Delete a document                                              | `deleteIfAllowed` in `document-delete.ts` (hold, retention date and master floor, then a guarded write).                                 |
+| The master tenant's minimum retention                          | `masterRetentionFloor` in `retention-floor.ts`.                                                                                          |
+| Store the first version of a document the API registered       | `storeFirstVersion` in `document-first-version.ts`.                                                                                      |
+| Expiry and cleanup of old keys and tokens                      | `runMaintenance` in `maintenance.ts`, called by `runScheduled` in `scheduled-run.ts`. Never from a person's request.                     |
 
 Three ways to use `must()`, depending on the edge: let it throw inside `runWrite` (screens); catch `DatabaseError` and answer 503 (the API, see `runOrUnavailable` in `gateway-idempotency.ts`); catch it and return a result (`storeFirstVersion`, `deleteIfAllowed`).
 
