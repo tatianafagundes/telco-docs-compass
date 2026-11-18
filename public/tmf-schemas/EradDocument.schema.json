@@ -2,9 +2,114 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "EradDocument.schema.json",
   "title": "EradDocument",
-  "description": "Extension of TMF667 v4 Document (@baseType Document). Adds the fields below; every standard Document field keeps its TMF meaning.",
-  "allOf": [{ "$ref": "https://raw.githubusercontent.com/tmforum-apis/TMF667_Document/master/TMF667_Document_Management_API_v4.0.0_swagger.json#/definitions/Document" }],
+  "description": "The Document this API returns: a TMF667 v4 Document (@baseType Document) with a few additions (lifecycleState, sensitivity, legalHold, attachment contentHash and isCurrent). Self-contained so it can be checked without fetching anything; standard fields keep their TMF667 meaning (TM Forum Open API TMF667 Document Management v4).",
+  "type": "object",
+  "required": [
+    "id",
+    "href",
+    "@type",
+    "@baseType",
+    "@schemaLocation",
+    "name",
+    "documentType",
+    "status",
+    "creationDate",
+    "lastUpdate",
+    "lifecycleState",
+    "sensitivity",
+    "legalHold"
+  ],
+  "definitions": {
+    "ref": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string" },
+        "href": { "type": "string" },
+        "role": { "type": "string" },
+        "@referredType": { "type": "string" },
+        "@type": { "type": "string" }
+      }
+    }
+  },
   "properties": {
+    "id": { "type": "string" },
+    "href": { "type": "string", "format": "uri" },
+    "@type": { "const": "EradDocument" },
+    "@baseType": { "const": "Document" },
+    "@schemaLocation": { "type": "string", "format": "uri" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "description": { "type": "string" },
+    "documentType": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["created", "reviewed", "approved", "published", "archived"],
+      "description": "TMF status, derived from lifecycleState."
+    },
+    "creationDate": { "type": "string", "format": "date-time" },
+    "lastUpdate": { "type": "string", "format": "date-time" },
+    "version": { "type": "string" },
+    "category": { "type": "array", "items": { "type": "string" } },
+    "documentSpecification": { "$ref": "#/definitions/ref" },
+    "relatedEntity": { "type": "array", "items": { "$ref": "#/definitions/ref" } },
+    "relatedParty": { "type": "array", "items": { "$ref": "#/definitions/ref" } },
+    "document": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/ref" },
+      "description": "Other documents of the same bundle."
+    },
+    "externalIdentifier": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string" },
+          "owner": { "type": "string" },
+          "externalIdentifierType": { "type": "string" },
+          "@type": { "type": "string" }
+        }
+      }
+    },
+    "characteristic": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "value": {},
+          "valueType": { "type": "string" }
+        }
+      }
+    },
+    "attachment": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "mimeType"],
+        "properties": {
+          "id": { "type": "string" },
+          "href": { "type": "string" },
+          "@type": { "type": "string" },
+          "name": { "type": "string" },
+          "attachmentType": { "type": "string" },
+          "mimeType": { "type": "string" },
+          "url": { "type": "string" },
+          "size": {
+            "type": "object",
+            "properties": { "amount": { "type": "number" }, "units": { "type": "string" } }
+          },
+          "creationDate": { "type": "string", "format": "date-time" },
+          "contentHash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "SHA-256 of the file."
+          },
+          "isCurrent": { "type": "boolean", "description": "True for the current version." }
+        }
+      }
+    },
     "lifecycleState": {
       "type": "string",
       "enum": ["draft", "in_review", "approved", "effective", "superseded", "expired", "archived"],
@@ -12,19 +117,16 @@
     },
     "validFor": {
       "type": "object",
-      "properties": { "startDateTime": { "type": "string" }, "endDateTime": { "type": "string" } },
+      "properties": {
+        "startDateTime": { "type": "string" },
+        "endDateTime": { "type": "string" }
+      },
       "description": "When the document is in force (effective and expiry date)."
     },
-    "sensitivity": { "type": "string", "enum": ["public", "internal", "confidential", "restricted"] },
-    "legalHold": { "type": "boolean", "description": "True while a legal hold blocks deletion." },
-    "attachment": {
-      "type": "array",
-      "items": {
-        "properties": {
-          "contentHash": { "type": "string", "pattern": "^[a-f0-9]{64}$", "description": "SHA-256 of the file." },
-          "isCurrent": { "type": "boolean", "description": "True for the current version." }
-        }
-      }
-    }
+    "sensitivity": {
+      "type": "string",
+      "enum": ["public", "internal", "confidential", "restricted"]
+    },
+    "legalHold": { "type": "boolean", "description": "True while a legal hold blocks deletion." }
   }
 }
