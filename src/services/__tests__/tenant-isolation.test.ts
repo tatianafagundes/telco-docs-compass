@@ -103,8 +103,11 @@ describe("every write path goes through the shared pipeline", () => {
     "document-review.functions.ts",
     "document-access.functions.ts",
     "retention.functions.ts",
+    "retention-info.functions.ts",
     "search.functions.ts",
+    "bulk-jobs.functions.ts",
     "tenant-config.functions.ts",
+    "tenant-config-write.functions.ts",
     "integration-clients.functions.ts",
   ];
   for (const file of files) {

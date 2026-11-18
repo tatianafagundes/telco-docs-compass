@@ -7,6 +7,8 @@ import * as retention from "@/services/retention.functions";
 import * as pipeline from "@/services/pipeline.functions";
 import * as systems from "@/services/integration-clients.functions";
 import * as search from "@/services/search.functions";
+import * as configWrite from "@/services/tenant-config-write.functions";
+import * as bulk from "@/services/bulk-jobs.functions";
 import type { SearchFilters } from "@/services/search-rules";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -105,10 +107,11 @@ export const api = {
   getChildView: async (tenantId: string) =>
     unwrap(await config.getChildView({ data: { tenantId } })),
   specUsage: async (code: string) => unwrap(await config.specUsage({ data: { code } })),
-  saveSpecification: (i: WithoutKey<Parameters<typeof config.saveSpecification>[0]["data"]>) =>
-    write(config.saveSpecification, "config.saveSpecification", i),
-  resetSpecification: (i: WithoutKey<Parameters<typeof config.resetSpecification>[0]["data"]>) =>
-    write(config.resetSpecification, "config.resetSpecification", i),
+  saveSpecification: (i: WithoutKey<Parameters<typeof configWrite.saveSpecification>[0]["data"]>) =>
+    write(configWrite.saveSpecification, "configWrite.saveSpecification", i),
+  resetSpecification: (
+    i: WithoutKey<Parameters<typeof configWrite.resetSpecification>[0]["data"]>,
+  ) => write(configWrite.resetSpecification, "configWrite.resetSpecification", i),
   // adding documents (simulated pipeline) and the usability-test reset
   advancePipeline: (i: WithoutKey<Parameters<typeof pipeline.advancePipeline>[0]["data"]>) =>
     write(pipeline.advancePipeline, "advancePipeline", i),
@@ -133,9 +136,9 @@ export const api = {
   saveView: async (i: Parameters<typeof search.saveView>[0]["data"]) =>
     unwrap(await search.saveView({ data: i })),
   deleteView: async (id: string) => unwrap(await search.deleteView({ data: { id } })),
-  startBulkJob: async (i: Parameters<typeof search.startBulkJob>[0]["data"]) =>
-    unwrap(await search.startBulkJob({ data: i })),
-  getBulkJob: async (id: string) => unwrap(await search.getBulkJob({ data: { id } })),
+  startBulkJob: async (i: Parameters<typeof bulk.startBulkJob>[0]["data"]) =>
+    unwrap(await bulk.startBulkJob({ data: i })),
+  getBulkJob: async (id: string) => unwrap(await bulk.getBulkJob({ data: { id } })),
   // connected systems (TMF667 API keys)
   listSystems: async () => unwrap(await systems.listSystems()),
   createSystem: async (i: Parameters<typeof systems.createSystem>[0]["data"]) =>
