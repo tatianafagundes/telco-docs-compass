@@ -13,6 +13,12 @@ const CHECKED = [
   "document-update.ts",
   "document-delete.ts",
   "maintenance.ts",
+  "document-access.functions.ts",
+  "document-review.functions.ts",
+  "document.functions.ts",
+  "retention.functions.ts",
+  "tenant-config-write.functions.ts",
+  "idempotency-claim.ts",
 ];
 const UNCHECKED_WRITE =
   /^[}\s]*await\s+(?:env\.admin|admin|ctx\.admin)\s*\.from\([^)]*\)\s*\.(?:insert|update|upsert|delete)\b/;

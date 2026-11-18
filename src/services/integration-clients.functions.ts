@@ -1,3 +1,4 @@
+import { must } from "@/services/shared/must";
 import { removeTokensOf } from "@/services/gateway-token";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -168,7 +169,10 @@ export const revokeSystem = createServerFn({ method: "POST" })
         .select("id");
       if (!rows || rows.length === 0)
         return { ok: false, error: seamError("system.notFound", "notFound", "none") };
-      await admin.from("event_subscriptions").delete().eq("client_id", data.id);
+      must(
+        await admin.from("event_subscriptions").delete().eq("client_id", data.id),
+        "writing event subscriptions",
+      );
       await removeTokensOf(admin, data.id);
       return { ok: true, data: { id: data.id } };
     }),

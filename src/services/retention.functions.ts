@@ -1,3 +1,4 @@
+import { must } from "@/services/shared/must";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -257,14 +258,26 @@ export const purgeDocument = createServerFn({ method: "POST" })
         if (paths.length) await env.admin.storage.from("documents").remove(paths);
         // Versions and events are append-only by design, so the record stays as a tombstone:
         // stored files and extracted values are removed, access is withdrawn and it can't be restored.
-        await env.admin.from("extraction_fields").delete().eq("document_id", doc.id);
-        await env.admin.from("document_access_exceptions").delete().eq("document_id", doc.id);
-        await env.admin.from("cross_tenant_grants").delete().eq("document_id", doc.id);
+        must(
+          await env.admin.from("extraction_fields").delete().eq("document_id", doc.id),
+          "writing extraction fields",
+        );
+        must(
+          await env.admin.from("document_access_exceptions").delete().eq("document_id", doc.id),
+          "writing document access exceptions",
+        );
+        must(
+          await env.admin.from("cross_tenant_grants").delete().eq("document_id", doc.id),
+          "writing cross tenant grants",
+        );
         const now = new Date().toISOString();
-        await env.admin
-          .from("documents")
-          .update({ purged_at: now, deleted_at: now, description: null, characteristic: [] })
-          .eq("id", doc.id);
+        must(
+          await env.admin
+            .from("documents")
+            .update({ purged_at: now, deleted_at: now, description: null, characteristic: [] })
+            .eq("id", doc.id),
+          "writing documents",
+        );
         await audit(env, "purge", doc.id, null);
         return { ok: true, data: { id: doc.id } };
       },

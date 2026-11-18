@@ -1,5 +1,6 @@
 // Server functions for review: send a document back with a problem, and confirm or edit a
 // detail read from the file. Every one goes through `runWrite`.
+import { must } from "@/services/shared/must";
 import { createServerFn } from "@tanstack/react-start";
 import type { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -24,10 +25,13 @@ export const reportProblem = createServerFn({ method: "POST" })
           const doc = await loadDoc(env.admin, data.id);
           if (!doc) return fail("doc.notFound", "notFound");
           if (doc.status !== "in_review") return fail("doc.transition.notAllowed", "rejected");
-          await env.admin
-            .from("documents")
-            .update({ status: "draft", updated_at: new Date().toISOString() })
-            .eq("id", data.id);
+          must(
+            await env.admin
+              .from("documents")
+              .update({ status: "draft", updated_at: new Date().toISOString() })
+              .eq("id", data.id),
+            "writing documents",
+          );
           await audit(env, "statusChange", data.id, "in_review to draft (sent back)");
         }
         await audit(env, "report", data.id, `${data.kind}:${data.reason}`);
@@ -72,10 +76,13 @@ export const reviewExtraction = createServerFn({ method: "POST" })
                   value: data.value as Json,
                   original_value: field.original_value ?? field.value,
                 };
-        await env.admin
-          .from("extraction_fields")
-          .update({ ...update, reviewed_by: env.userId, reviewed_at: now })
-          .eq("id", data.fieldId);
+        must(
+          await env.admin
+            .from("extraction_fields")
+            .update({ ...update, reviewed_by: env.userId, reviewed_at: now })
+            .eq("id", data.fieldId),
+          "writing extraction fields",
+        );
         // Accepted or edited values become document details; rejected ones are taken off. The audit names the field, never its value.
         const finalValue =
           data.decision === "edit"
@@ -90,10 +97,13 @@ export const reviewExtraction = createServerFn({ method: "POST" })
         const rest = current.filter((c) => c.name !== field.name);
         const characteristic =
           finalValue === null ? rest : [...rest, { name: field.name, value: finalValue }];
-        await env.admin
-          .from("documents")
-          .update({ characteristic: characteristic as Json, updated_at: now })
-          .eq("id", data.id);
+        must(
+          await env.admin
+            .from("documents")
+            .update({ characteristic: characteristic as Json, updated_at: now })
+            .eq("id", data.id),
+          "writing documents",
+        );
         const verb =
           data.decision === "accept"
             ? "accepted"

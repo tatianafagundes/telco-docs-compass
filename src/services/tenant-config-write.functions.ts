@@ -1,6 +1,7 @@
 // Server functions that change a tenant's document type settings: save a specification override
 // and reset it to the group's. Tenant admins only. Reading is in tenant-config.functions.ts.
 
+import { must } from "@/services/shared/must";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -67,23 +68,29 @@ export const saveSpecification = createServerFn({ method: "POST" })
         const before = (own?.definition ?? {}) as { [k: string]: Json | undefined };
         const after = { ...before, ...data.changes };
         if (own) {
-          await env.admin
-            .from("document_specifications")
-            .update({
-              definition: after as Json,
-              ...(data.name ? { name: data.name } : {}),
-              ...(data.locked !== undefined ? { locked: data.locked } : {}),
-            })
-            .eq("id", own.id);
+          must(
+            await env.admin
+              .from("document_specifications")
+              .update({
+                definition: after as Json,
+                ...(data.name ? { name: data.name } : {}),
+                ...(data.locked !== undefined ? { locked: data.locked } : {}),
+              })
+              .eq("id", own.id),
+            "writing document specifications",
+          );
         } else {
-          await env.admin.from("document_specifications").insert({
-            id: `spec-${env.tenantId}-${data.code}`.slice(0, 80),
-            tenant_id: env.tenantId,
-            code: data.code,
-            name: data.name ?? current?.name ?? data.code,
-            definition: after as Json,
-            locked: false,
-          });
+          must(
+            await env.admin.from("document_specifications").insert({
+              id: `spec-${env.tenantId}-${data.code}`.slice(0, 80),
+              tenant_id: env.tenantId,
+              code: data.code,
+              name: data.name ?? current?.name ?? data.code,
+              definition: after as Json,
+              locked: false,
+            }),
+            "writing document specifications",
+          );
         }
         const effective = current?.definition ?? {};
         for (const [k, v] of Object.entries(data.changes)) {
@@ -128,11 +135,14 @@ export const resetSpecification = createServerFn({ method: "POST" })
           .maybeSingle();
         // Only overrides can be reset; a country's own type has no group version.
         if (!groupRow) return { ok: false, error: seamError("config.notOverridden", "validation") };
-        await env.admin
-          .from("document_specifications")
-          .delete()
-          .eq("tenant_id", env.tenantId)
-          .eq("code", data.code);
+        must(
+          await env.admin
+            .from("document_specifications")
+            .delete()
+            .eq("tenant_id", env.tenantId)
+            .eq("code", data.code),
+          "writing document specifications",
+        );
         await audit(env, "configChange", null, `${data.code}: reset to group`);
         return { ok: true, data: { code: data.code } };
       },

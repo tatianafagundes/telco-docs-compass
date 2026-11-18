@@ -1,4 +1,5 @@
 // Server functions that give or take away access to one document. Every one goes through `runWrite`.
+import { must } from "@/services/shared/must";
 import { createServerFn } from "@tanstack/react-start";
 import type { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -26,13 +27,16 @@ export const grantAccess = createServerFn({ method: "POST" })
             .maybeSingle();
           if (!target || target.tenant_id !== env.tenantId)
             return fail("access.subject.notFound", "notFound", "fixInput");
-          await env.admin.from("document_access_exceptions").upsert({
-            document_id: data.id,
-            user_id: data.subject.id,
-            level: data.level,
-            granted_by: env.userId,
-            expires_at: data.expiresAt ?? null,
-          });
+          must(
+            await env.admin.from("document_access_exceptions").upsert({
+              document_id: data.id,
+              user_id: data.subject.id,
+              level: data.level,
+              granted_by: env.userId,
+              expires_at: data.expiresAt ?? null,
+            }),
+            "writing document access exceptions",
+          );
         } else {
           if (data.subject.id === env.tenantId)
             return fail("access.subject.sameTenant", "validation", "fixInput");
@@ -49,14 +53,17 @@ export const grantAccess = createServerFn({ method: "POST" })
             .eq("id", data.subject.id)
             .maybeSingle();
           if (!target) return fail("access.subject.notFound", "notFound", "fixInput");
-          await env.admin.from("cross_tenant_grants").upsert({
-            document_id: data.id,
-            to_tenant: data.subject.id,
-            level: data.level,
-            granted_by: env.userId,
-            expires_at: data.expiresAt ?? null,
-            revoked_at: null,
-          });
+          must(
+            await env.admin.from("cross_tenant_grants").upsert({
+              document_id: data.id,
+              to_tenant: data.subject.id,
+              level: data.level,
+              granted_by: env.userId,
+              expires_at: data.expiresAt ?? null,
+              revoked_at: null,
+            }),
+            "writing cross tenant grants",
+          );
         }
         await audit(env, "share", data.id, `granted ${data.level} to ${data.subject.type}`);
         return {
@@ -83,17 +90,23 @@ export const revokeAccess = createServerFn({ method: "POST" })
       async (env) => {
         if (!can(env.role, "manage")) return forbidden();
         if (data.subject.type === "user") {
-          await env.admin
-            .from("document_access_exceptions")
-            .delete()
-            .eq("document_id", data.id)
-            .eq("user_id", data.subject.id);
+          must(
+            await env.admin
+              .from("document_access_exceptions")
+              .delete()
+              .eq("document_id", data.id)
+              .eq("user_id", data.subject.id),
+            "writing document access exceptions",
+          );
         } else {
-          await env.admin
-            .from("cross_tenant_grants")
-            .update({ revoked_at: new Date().toISOString() })
-            .eq("document_id", data.id)
-            .eq("to_tenant", data.subject.id);
+          must(
+            await env.admin
+              .from("cross_tenant_grants")
+              .update({ revoked_at: new Date().toISOString() })
+              .eq("document_id", data.id)
+              .eq("to_tenant", data.subject.id),
+            "writing cross tenant grants",
+          );
         }
         await audit(env, "share", data.id, `revoked ${data.subject.type}`);
         return { ok: true, data: { revoked: true } };

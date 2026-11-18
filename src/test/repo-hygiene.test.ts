@@ -49,9 +49,7 @@ function lineCount(path: string): number {
 // ---------- 1. size ----------
 const MAX_LINES = 300;
 /** Files above the limit today, with the length they may not exceed. Split or shrink, then delete the entry. */
-const OVERSIZED: Record<string, number> = {
-  "src/services/bulk-worker.ts": 340,
-};
+const OVERSIZED: Record<string, number> = {};
 const codeFiles = walk(
   "src/services",
   (p) => /\.(ts|tsx|js|jsx)$/.test(p) && !p.includes("__tests__"),

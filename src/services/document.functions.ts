@@ -1,3 +1,4 @@
+import { must } from "@/services/shared/must";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -134,23 +135,29 @@ export const recordAccess = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     if (!tenantId) throw new Error("access.none");
     if (!visible) {
-      await supabaseAdmin.from("document_events").insert({
-        tenant_id: tenantId,
-        document_id: null,
-        actor: context.userId,
-        action: "accessDenied",
-        detail: data.action,
-      });
+      must(
+        await supabaseAdmin.from("document_events").insert({
+          tenant_id: tenantId,
+          document_id: null,
+          actor: context.userId,
+          action: "accessDenied",
+          detail: data.action,
+        }),
+        "writing document events",
+      );
       throw new Error("access.denied");
     }
-    await supabaseAdmin.from("document_events").insert({
-      tenant_id: tenantId,
-      document_id: data.id,
-      version_id: data.versionId ?? null,
-      actor: context.userId,
-      action: data.action,
-      detail: null,
-    });
+    must(
+      await supabaseAdmin.from("document_events").insert({
+        tenant_id: tenantId,
+        document_id: data.id,
+        version_id: data.versionId ?? null,
+        actor: context.userId,
+        action: data.action,
+        detail: null,
+      }),
+      "writing document events",
+    );
     return { ok: true };
   });
 
