@@ -97,7 +97,12 @@ export function FieldRow({
         <span className="type-label-14 min-w-0 flex-1 break-words">
           {label}: <span className="type-paragraph-14">{show(field.value)}</span>
         </span>
-        <span className="type-label-12 hidden text-text-secondary sm:inline">
+        <span
+          className={cn(
+            "type-label-12 hidden sm:inline",
+            selected ? "text-text-main" : "text-text-secondary",
+          )}
+        >
           {DONE_WORD[field.status as keyof typeof DONE_WORD]}
           {field.reviewed_at ? ` · ${format(new Date(field.reviewed_at), "d MMM, HH:mm")}` : ""}
         </span>
@@ -188,7 +193,7 @@ export function FieldRow({
       ) : (
         <p className="type-title-16-medium break-words">{show(field.value)}</p>
       )}
-      <p className="type-label-12 text-text-secondary">
+      <p className={cn("type-label-12", selected ? "text-text-main" : "text-text-secondary")}>
         {reason}
         {field.source?.excerpt
           ? ` Read on page ${field.source.page ?? 1}: ‘${field.source.excerpt}’`

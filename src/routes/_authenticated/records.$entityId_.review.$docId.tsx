@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
-import { ArrowLeft, FileText, Keyboard } from "lucide-react";
+import { ArrowLeft, CircleCheck, FileText, Keyboard } from "lucide-react";
 import { Button } from "@/components/erad/button";
 import { Spinner } from "@/components/erad/misc";
 import { EmptyState } from "@/components/erad/empty-state";
@@ -281,7 +281,9 @@ function ReviewPage() {
               )}
             >
               {k === 0 ? (
-                <p className="type-label-14 text-status-cleared" role="status">
+                // EDS keeps status colours for icons and borders; the words stay in the main text colour.
+                <p className="type-label-14 flex items-center gap-2 text-text-main" role="status">
+                  <CircleCheck aria-hidden="true" className="size-4 shrink-0 text-status-cleared" />
                   {outcomeSummary(fields)}
                 </p>
               ) : null}

@@ -14,7 +14,8 @@ The target is WCAG 2.2 level AA, which is what the Ericsson Design System (EDS) 
 
 - With a dropdown menu open, axe reports `aria-hidden-focus` on the app root. It comes from how the menu library hides the page behind it while the trigger keeps focus. It lasts only while the menu is open.
 
-- The review page lists the details read from a document as a listbox whose options contain buttons and inputs. Options should not hold interactive content. The fix is to make the rows a plain list with their own focus handling; it changes how the keyboard moves through the review, so it needs a person to test it with a screen reader before it ships. The automated scan did not reach this page because it needs a document with details waiting.
+- Status colours (the EDS greens, reds and ambers) are for icons, borders and stripes, never for text: as text they fall under 4.5:1. The review page's "All details checked" line was fixed this way.
+- The review page lists the details read from a document as a listbox whose options contain buttons and inputs. Options should not hold interactive content. The fix is to make the rows a plain list with their own focus handling; it changes how the keyboard moves through the review, so it needs a person to test it with a screen reader before it ships. The automated scan now covers this page with every row selected in turn: no violations.
 
 ## When you add a screen
 

@@ -19,3 +19,17 @@ describe("rows that change background on hover keep their secondary text readabl
     expect(source.match(/group-hover:text-text-main/g)?.length).toBe(spans);
   });
 });
+
+describe("the review page keeps status colours off text", () => {
+  // EDS uses the status greens for icons, borders and stripes; as text they fall under 4.5:1.
+  const PAGE = "src/routes/_authenticated/records.$entityId_.review.$docId.tsx";
+  it("the 'all details checked' line is in the main text colour with a green icon", () => {
+    const source = readFileSync(PAGE, "utf8");
+    expect(source).not.toMatch(/<p[^>]*text-status-cleared/);
+    expect(source).toMatch(/<CircleCheck[^>]*text-status-cleared/);
+  });
+  it("secondary text in a selected detail row turns to the main colour", () => {
+    const source = readFileSync("src/components/review/field-row.tsx", "utf8");
+    expect(source.match(/selected \? "text-text-main" : "text-text-secondary"/g)?.length).toBe(2);
+  });
+});
