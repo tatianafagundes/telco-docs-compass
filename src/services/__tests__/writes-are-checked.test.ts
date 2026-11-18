@@ -35,3 +35,21 @@ describe("writes in the listed files are checked", () => {
     expect(unchecked).toEqual([]);
   });
 });
+
+describe("updates of a document row are pinned to the tenant", () => {
+  // `runWrite` has already checked the tenant; the filter on the update is a second lock.
+  const FILES = [
+    "document-content.functions.ts",
+    "document-status.functions.ts",
+    "document-review.functions.ts",
+    "document-update.ts",
+  ];
+  it.each(FILES)("%s", (file) => {
+    const source = readFileSync(`src/services/${file}`, "utf8");
+    const loose = source
+      .split(";")
+      .filter((s) => /\.from\("documents"\)\s*\.update\(/.test(s) && !s.includes("tenant_id"))
+      .map((s) => s.trim().slice(0, 80).replace(/\s+/g, " "));
+    expect(loose).toEqual([]);
+  });
+});

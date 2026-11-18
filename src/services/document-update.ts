@@ -1,8 +1,8 @@
 // Checked writes to one document row, for operations that must not report success when the
 // write failed or when the row changed under them.
 //
-// - `updateDocument`: by id only. The caller has already passed the tenant and visibility checks
-//   of `runWrite`.
+// - `updateDocument`: by id and tenant. The caller has also passed the visibility checks of
+//   `runWrite`; the tenant filter is a second lock.
 // - `updateDocumentIf`: also pins the tenant and the state the caller decided on. Use it when the
 //   decision (can this be deleted? is this move allowed?) was made from an earlier read, so a
 //   change made in between (a hold placed, a status moved) makes the write do nothing instead of
@@ -15,11 +15,14 @@ import type { TablesUpdate } from "@/integrations/supabase/types";
 /** @param what short phrase for the step, used in the log if it fails, e.g. "deleting a document". */
 export async function updateDocument(
   admin: Db,
-  id: string,
+  where: { id: string; tenantId: string },
   patch: TablesUpdate<"documents">,
   what: string,
 ): Promise<void> {
-  must(await admin.from("documents").update(patch).eq("id", id), what);
+  must(
+    await admin.from("documents").update(patch).eq("id", where.id).eq("tenant_id", where.tenantId),
+    what,
+  );
 }
 
 /** Columns of the row as the caller read them. A null expects the column to be empty. */

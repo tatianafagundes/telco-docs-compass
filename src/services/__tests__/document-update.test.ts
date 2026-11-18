@@ -39,16 +39,19 @@ describe("updateDocument", () => {
   it("changes only the document asked for", async () => {
     const db = new FakeDb({
       documents: [
-        { id: "a", status: "draft" },
-        { id: "b", status: "draft" },
+        { id: "a", tenant_id: "t", status: "draft" },
+        { id: "b", tenant_id: "t", status: "draft" },
+        { id: "a", tenant_id: "other", status: "draft" },
       ],
     });
-    await updateDocument(db.asDb(), "a", { status: "approved" }, "testing");
-    expect(db.rows("documents").map((d) => d["status"])).toEqual(["approved", "draft"]);
+    await updateDocument(db.asDb(), { id: "a", tenantId: "t" }, { status: "approved" }, "testing");
+    expect(db.rows("documents").map((d) => d["status"])).toEqual(["approved", "draft", "draft"]); // not b, not the other tenant's a
   });
   it("throws naming the step when the database refuses", async () => {
     const db = new FakeDb({ documents: [{ id: "a" }] }).fail("documents", "update", "boom");
-    const err = await updateDocument(db.asDb(), "a", {}, "testing").catch((e: unknown) => e);
+    const err = await updateDocument(db.asDb(), { id: "a", tenantId: "t" }, {}, "testing").catch(
+      (e: unknown) => e,
+    );
     expect(err).toBeInstanceOf(DatabaseError);
     expect((err as Error).message).toBe("database error while testing");
   });

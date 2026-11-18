@@ -29,7 +29,8 @@ export const reportProblem = createServerFn({ method: "POST" })
             await env.admin
               .from("documents")
               .update({ status: "draft", updated_at: new Date().toISOString() })
-              .eq("id", data.id),
+              .eq("id", data.id)
+              .eq("tenant_id", env.tenantId),
             "writing documents",
           );
           await audit(env, "statusChange", data.id, "in_review to draft (sent back)");
@@ -101,7 +102,8 @@ export const reviewExtraction = createServerFn({ method: "POST" })
           await env.admin
             .from("documents")
             .update({ characteristic: characteristic as Json, updated_at: now })
-            .eq("id", data.id),
+            .eq("id", data.id)
+            .eq("tenant_id", env.tenantId),
           "writing documents",
         );
         const verb =

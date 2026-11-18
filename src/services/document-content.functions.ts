@@ -138,7 +138,11 @@ export const updateMetadata = createServerFn({ method: "POST" })
           update.pipeline_state = "ready";
           update.pipeline_detail = { note: "notRead" };
         }
-        const { error } = await env.admin.from("documents").update(update).eq("id", data.id);
+        const { error } = await env.admin
+          .from("documents")
+          .update(update)
+          .eq("id", data.id)
+          .eq("tenant_id", env.tenantId);
         if (error) return fail("doc.update.failed", "unavailable", "retry");
         if (p.keepUnread)
           await audit(env, "pipelineStateChange", data.id, "failed to ready (kept unread)");
@@ -201,7 +205,8 @@ export const addVersion = createServerFn({ method: "POST" })
             await env.admin
               .from("documents")
               .update({ current_version_id: versionId, updated_at: new Date().toISOString() })
-              .eq("id", data.id),
+              .eq("id", data.id)
+              .eq("tenant_id", env.tenantId),
             "pointing a document at a restored version",
           );
           await audit(
@@ -244,7 +249,8 @@ export const addVersion = createServerFn({ method: "POST" })
               pipeline_detail: null,
               updated_at: new Date().toISOString(),
             })
-            .eq("id", data.id),
+            .eq("id", data.id)
+            .eq("tenant_id", env.tenantId),
           "pointing a document at a new version",
         );
         const signed = must(

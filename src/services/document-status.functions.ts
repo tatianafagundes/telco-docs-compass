@@ -79,7 +79,7 @@ export const setHold = createServerFn({ method: "POST" })
         const now = new Date().toISOString();
         await updateDocument(
           env.admin,
-          data.id,
+          { id: data.id, tenantId: env.tenantId },
           holdColumns(data, env.userId, now),
           "changing the legal hold of a document",
         );
@@ -162,7 +162,7 @@ export const restoreDeleted = createServerFn({ method: "POST" })
         }
         await updateDocument(
           env.admin,
-          data.id,
+          { id: data.id, tenantId: env.tenantId },
           { deleted_at: null },
           "restoring a deleted document",
         );
