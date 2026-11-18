@@ -1,5 +1,6 @@
 // Server functions that add or change what a document holds: register it, edit its details and
 // add a version. Every one goes through `runWrite`.
+import { typeRefusal } from "@/services/upload-rules";
 import { createServerFn } from "@tanstack/react-start";
 import type { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -45,10 +46,10 @@ export const register = createServerFn({ method: "POST" })
           defaultSensitivity?: string;
           retentionPolicyRef?: string;
         };
-        if (def.acceptedMimeTypes && !def.acceptedMimeTypes.includes(data.mimeType))
+        const refusal = typeRefusal(def, data.mimeType, data.size);
+        if (refusal === "mimeNotAccepted")
           return fail("doc.type.mimeNotAccepted", "validation", "fixInput");
-        if (def.maxSizeMb && data.size && data.size > def.maxSizeMb * 1024 * 1024)
-          return fail("doc.type.tooLarge", "validation", "fixInput");
+        if (refusal === "tooLarge") return fail("doc.type.tooLarge", "validation", "fixInput");
 
         const sensitivity = (data.sensitivity ?? def.defaultSensitivity ?? "internal") as
           "public" | "internal" | "confidential" | "restricted";

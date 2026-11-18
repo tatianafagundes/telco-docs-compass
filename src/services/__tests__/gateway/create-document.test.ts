@@ -332,6 +332,10 @@ describe("what the document type allows", () => {
     expect(db.rows("documents")).toEqual([]);
   });
 
+  it("treats an empty list of accepted types as any type, like the screens do", async () => {
+    await world({ acceptedMimeTypes: [] });
+    expect((await create()).status).toBe(201);
+  });
   it("accepts a listed file type", async () => {
     await world({ acceptedMimeTypes: ["application/pdf"] });
     expect((await create()).status).toBe(201);

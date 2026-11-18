@@ -10,6 +10,7 @@ import {
   simulatedOutcome,
   uploadProgress,
   type UploadSpec,
+  typeRefusal,
 } from "@/services/upload-rules";
 
 const specs: UploadSpec[] = [
@@ -108,5 +109,36 @@ describe("upload rules", () => {
   });
   it("should shorten entity ids for the drop overlay", () => {
     expect(shortEntityId("ord-se-7731")).toBe("O-7731");
+  });
+});
+
+describe("one rule for what a document type accepts (screens, server and API)", () => {
+  const MB = 1024 * 1024;
+  it.each([
+    [{ acceptedMimeTypes: ["application/pdf"] }, "application/pdf", 10, null],
+    [{ acceptedMimeTypes: ["application/pdf"] }, "image/png", 10, "mimeNotAccepted"],
+    [{ acceptedMimeTypes: [] }, "image/png", 10, null],
+    [{}, "image/png", 10, null],
+    [{ maxSizeMb: 1 }, "x", MB, null],
+    [{ maxSizeMb: 1 }, "x", MB + 1, "tooLarge"],
+    [{ maxSizeMb: 1 }, "x", null, null],
+    [{ acceptedMimeTypes: ["a"], maxSizeMb: 1 }, "b", MB + 1, "mimeNotAccepted"],
+  ] as const)("%j, %s, %s bytes: %s", (def, mime, size, expected) => {
+    expect(typeRefusal({ ...def } as never, mime, size)).toBe(expected);
+  });
+  it("the screens' file check agrees with it on an empty list", () => {
+    const spec = {
+      code: "c",
+      name: "Contract",
+      acceptedMimeTypes: [],
+      maxSizeMb: null,
+      requiredFields: [],
+    };
+    const issues = fileIssues(
+      { name: "a.png", mimeType: "image/png", size: 10 } as never,
+      spec as never,
+      [],
+    );
+    expect(issues).toEqual([]);
   });
 });

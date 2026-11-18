@@ -1,5 +1,6 @@
 // POST /document: register a document with its first file. What the request may contain is in
 // gateway-create-input.ts; storing the file and version is in document-first-version.ts.
+import { mimeAccepted, sizeAllowed } from "@/services/upload-rules";
 import type { Json } from "@/integrations/supabase/types";
 import { fetchBytes } from "@/services/gateway-fetch";
 import { must } from "@/services/shared/must";
@@ -92,7 +93,8 @@ export async function createDocument(request: Request): Promise<Response> {
       defaultSensitivity?: string;
       retentionPolicyRef?: string;
     };
-    if (def.acceptedMimeTypes && !def.acceptedMimeTypes.includes(att.mimeType))
+    // Checked before any file is fetched; the size is checked once the bytes are known.
+    if (!mimeAccepted(def.acceptedMimeTypes, att.mimeType))
       return {
         status: 400,
         body: tmfError(
@@ -141,7 +143,7 @@ export async function createDocument(request: Request): Promise<Response> {
         };
     }
     const size = bytes ? bytes.byteLength : sizeBytes(att.size);
-    if (def.maxSizeMb && size && size > def.maxSizeMb * 1024 * 1024)
+    if (!sizeAllowed(def.maxSizeMb, size))
       return {
         status: 400,
         body: tmfError(400, "tooLarge", "Bad Request", "This file is larger than allowed."),

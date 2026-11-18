@@ -64,17 +64,13 @@ export function fileIssues(
   existing: { id: string; name: string }[],
 ): FileIssue[] {
   const issues: FileIssue[] = [];
-  if (
-    spec &&
-    spec.acceptedMimeTypes.length > 0 &&
-    !spec.acceptedMimeTypes.includes(file.mimeType)
-  ) {
+  if (spec && !mimeAccepted(spec.acceptedMimeTypes, file.mimeType)) {
     issues.push({
       kind: "type",
       message: `${spec.name} accepts ${acceptedLabel(spec.acceptedMimeTypes)} files. Choose another type, or another file.`,
     });
   }
-  if (spec?.maxSizeMb && file.size > spec.maxSizeMb * 1024 * 1024) {
+  if (spec && !sizeAllowed(spec.maxSizeMb, file.size)) {
     issues.push({
       kind: "size",
       message: `This file is ${formatSize(file.size)}. ${spec.name} files can be up to ${spec.maxSizeMb} MB.`,
@@ -188,4 +184,30 @@ export function uploadProgress(loadedRatios: number[], allChecked: boolean): num
   if (loadedRatios.length === 0) return 0;
   const avg = (loadedRatios.reduce((a, b) => a + b, 0) / loadedRatios.length) * 100;
   return allChecked ? Math.round(avg) : Math.min(Math.round(avg), 99);
+}
+
+/**
+ * What a document type says about a file, the one rule for the screens' upload, the server and the
+ * API. An empty or missing list of accepted types means any type; a missing size limit means none.
+ * An unknown size (the client did not say) is not refused here; storage limits still apply.
+ */
+export function typeRefusal(
+  def: { acceptedMimeTypes?: string[] | undefined; maxSizeMb?: number | undefined },
+  mimeType: string,
+  sizeBytes: number | null | undefined,
+): "mimeNotAccepted" | "tooLarge" | null {
+  if (!mimeAccepted(def.acceptedMimeTypes, mimeType)) return "mimeNotAccepted";
+  if (!sizeAllowed(def.maxSizeMb, sizeBytes)) return "tooLarge";
+  return null;
+}
+/** An empty or missing list accepts every type. */
+export function mimeAccepted(accepted: string[] | null | undefined, mimeType: string): boolean {
+  return !accepted?.length || accepted.includes(mimeType);
+}
+/** No limit, or no known size, is allowed; a size exactly at the limit is allowed. */
+export function sizeAllowed(
+  maxSizeMb: number | null | undefined,
+  sizeBytes: number | null | undefined,
+): boolean {
+  return !maxSizeMb || !sizeBytes || sizeBytes <= maxSizeMb * 1024 * 1024;
 }
