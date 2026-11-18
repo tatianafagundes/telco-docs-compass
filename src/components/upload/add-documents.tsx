@@ -8,6 +8,7 @@ import { UploadProgress } from "@/components/upload/upload-progress";
 import type { useUpload } from "@/hooks/use-upload";
 import { api } from "@/services/api";
 import { can, type AppRole } from "@/services/document-rules";
+import { addDocumentsState } from "@/services/document-actions";
 import { shortEntityId, type UploadSpec } from "@/services/upload-rules";
 import { friendlyError } from "@/lib/document-labels";
 
@@ -39,6 +40,8 @@ export interface AddDocumentsProps {
   onShowAttention: () => void;
   /** The Documents tab content; becomes the drop zone. */
   children: ReactNode;
+  /** Set when the person came here to add documents (from the Documents page): the record's name. */
+  arrivingFor?: string | null;
 }
 
 /** "Add documents": button, drag-and-drop on the tab and paste, all opening the same dialog. */
@@ -50,8 +53,16 @@ export function AddDocuments({
   upload,
   onShowAttention,
   children,
+  arrivingFor = null,
 }: AddDocumentsProps) {
-  const allowed = can(role, "edit");
+  const state = addDocumentsState(role);
+  const allowed = state.available;
+  const button = useRef<HTMLButtonElement>(null);
+  // Shown once on arrival, until the person picks or drops files; it says where the files will go.
+  const [hint, setHint] = useState<string | null>(arrivingFor);
+  useEffect(() => {
+    if (arrivingFor) button.current?.focus();
+  }, [arrivingFor]);
   const canDelete = can(role, "manage");
   const specs = useQuery(specsQuery);
   const input = useRef<HTMLInputElement>(null);
@@ -65,6 +76,7 @@ export function AddDocuments({
       toast("Viewers can open documents here. Ask a contributor to add files.");
       return;
     }
+    setHint(null);
     setFiles(arr);
   };
 
@@ -107,17 +119,25 @@ export function AddDocuments({
     >
       <div className="flex flex-col items-start gap-1">
         <Button
+          ref={button}
           variant="primary"
           unavailable={!allowed}
-          aria-describedby={!allowed ? "add-docs-reason" : undefined}
-          onClick={() => input.current?.click()}
+          aria-describedby={!allowed ? "add-docs-reason" : hint ? "add-docs-hint" : undefined}
+          onClick={() => {
+            setHint(null);
+            input.current?.click();
+          }}
         >
           <Upload aria-hidden="true" />
           Add documents
         </Button>
         {!allowed ? (
           <p id="add-docs-reason" className="type-label-12 text-text-secondary">
-            Viewers can open documents here but can't add them.
+            {state.reason}
+          </p>
+        ) : hint ? (
+          <p id="add-docs-hint" className="type-label-12 text-text-secondary">
+            Adding to {hint}. Choose Add documents to pick files, or drop them into the list.
           </p>
         ) : null}
         <input

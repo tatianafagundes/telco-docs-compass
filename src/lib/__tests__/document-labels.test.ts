@@ -18,3 +18,21 @@ describe("activityDetail", () => {
     expect(activityDetail("granted view to user")).toBe("access given (can view)");
   });
 });
+import { recordKindLabel, recordLabel } from "@/lib/document-labels";
+describe("recordKindLabel", () => {
+  it.each([
+    ["ProductOrder", "Order"],
+    ["Quote", "Quote"],
+    ["Account", "Account"],
+    ["BillingAccount", "Billing account"],
+    ["TroubleTicket", "Trouble ticket"],
+    ["FooBar", "Foo bar"],
+  ])("should name %s as %s", (code, label) => {
+    expect(recordKindLabel(code)).toBe(label);
+  });
+  it("should put the kind before the name", () => {
+    expect(recordLabel("ProductOrder", "O-7731 Fibre upgrade")).toBe(
+      "Order · O-7731 Fibre upgrade",
+    );
+  });
+});

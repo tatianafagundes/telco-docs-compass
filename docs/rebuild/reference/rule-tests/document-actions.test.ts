@@ -148,3 +148,16 @@ describe("purgeRefusalCode", () => {
     expect(purgeRefusalCode(role, hold)).toBe(code);
   });
 });
+import { addDocumentsState } from "@/services/document-actions";
+describe("addDocumentsState", () => {
+  it("should let contributors and above add documents", () => {
+    for (const r of ["contributor", "reviewer", "manager", "tenant_admin"] as const)
+      expect(addDocumentsState(r).available).toBe(true);
+  });
+  it("should tell a viewer why they can't", () => {
+    expect(addDocumentsState("viewer")).toEqual({
+      available: false,
+      reason: "Viewers can open documents here but can't add them.",
+    });
+  });
+});

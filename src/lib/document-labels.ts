@@ -133,3 +133,22 @@ export function typeLabel(code: string): string {
       .replace(/^./, (c) => c.toUpperCase())
   );
 }
+
+const RECORD_KIND: Record<string, string> = {
+  ProductOrder: "Order",
+  Quote: "Quote",
+  Account: "Account",
+  Customer: "Customer",
+  BillingAccount: "Billing account",
+  Agreement: "Agreement",
+  TroubleTicket: "Trouble ticket",
+  Site: "Site",
+};
+/** What kind of record this is, in one word the screens share ("ProductOrder" -> "Order"). */
+export function recordKindLabel(code: string): string {
+  return RECORD_KIND[code] ?? typeLabel(code);
+}
+/** "Order · O-7731 Fibre upgrade": the kind first, so the name reads as that kind. */
+export function recordLabel(kindCode: string, name: string): string {
+  return `${recordKindLabel(kindCode)} · ${name}`;
+}

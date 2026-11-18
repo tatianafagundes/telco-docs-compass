@@ -1,6 +1,6 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import { useRef, type ReactNode } from "react";
+import { useRef, type ReactNode, type RefObject } from "react";
 
 export interface DialogProps {
   open: boolean;
@@ -10,9 +10,22 @@ export interface DialogProps {
   children?: ReactNode;
   /** Right-aligned: default action first, then primary. */
   actions?: ReactNode;
+  /** Where focus goes when the dialog opens; by default the first focusable element (Close). */
+  initialFocusRef?: RefObject<HTMLElement | null>;
+  /** Dims the page behind, so nothing under the dialog reads as part of it. */
+  backdrop?: boolean;
 }
 
-export function Dialog({ open, onOpenChange, title, description, children, actions }: DialogProps) {
+export function Dialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  children,
+  actions,
+  initialFocusRef,
+  backdrop = false,
+}: DialogProps) {
   // These dialogs open from ordinary buttons (no Radix Trigger), so remember the opener to return focus to it.
   // Captured during render, before Radix moves focus into the dialog.
   const opener = useRef<HTMLElement | null>(null);
@@ -29,14 +42,21 @@ export function Dialog({ open, onOpenChange, title, description, children, actio
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
+        {backdrop ? <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/40" /> : null}
         <DialogPrimitive.Content
+          onOpenAutoFocus={(e) => {
+            if (initialFocusRef?.current) {
+              e.preventDefault();
+              initialFocusRef.current.focus();
+            }
+          }}
           onCloseAutoFocus={(e) => {
             if (opener.current?.isConnected) {
               e.preventDefault();
               opener.current.focus();
             }
           }}
-          className="shadow-elev-1 fixed top-1/2 left-1/2 z-50 flex w-[572px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 border border-border-item bg-item p-6 text-text-main"
+          className="shadow-elev-1 fixed top-1/2 left-1/2 z-50 flex w-[572px] max-w-[calc(100vw-32px)] max-h-[calc(100vh-32px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-auto border border-border-item bg-item p-6 text-text-main"
         >
           <div className="flex items-start justify-between gap-2">
             <DialogPrimitive.Title className="type-title-18-medium">{title}</DialogPrimitive.Title>

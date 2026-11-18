@@ -78,6 +78,12 @@ export function manageState(role: AppRole): ActionState {
     : { available: false, reason: ROLE_REASON.manage };
 }
 
+/** "Add documents" on the record page and the Documents page. */
+export function addDocumentsState(role: AppRole): ActionState {
+  return can(role, "edit")
+    ? { available: true }
+    : { available: false, reason: "Viewers can open documents here but can't add them." };
+}
 /** "Delete permanently": admins only, no hold, and past the keep-until date. */
 export function purgeState(
   role: AppRole,

@@ -54,6 +54,19 @@ export function useRecordMatches(q: string, enabled: boolean) {
   });
 }
 
+/** The record a document belongs to, by its exact id; null when the caller can't see it. */
+export function useRecordSummary(entityId: string | null) {
+  return useQuery({
+    queryKey: ["records", "summary", entityId],
+    queryFn: async () => {
+      const rows = await api.findRecord(entityId as string);
+      return rows.find((r) => r.id.toLowerCase() === (entityId as string).toLowerCase()) ?? null;
+    },
+    enabled: Boolean(entityId && entityId.length >= 2),
+    staleTime: 5 * 60_000,
+  });
+}
+
 export function useSavedViews() {
   return useQuery({
     queryKey: ["savedViews"],

@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowRight, FileSearch, Search, X } from "lucide-react";
+import { ArrowRight, FileSearch, Search, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/erad/button";
 import { EmptyState } from "@/components/erad/empty-state";
@@ -9,6 +9,8 @@ import { Select } from "@/components/erad/select";
 import { SidePanel } from "@/components/erad/side-panel";
 import { TextField } from "@/components/erad/text-field";
 import { DocumentPanel } from "@/components/documents/document-panel";
+import { ChooseRecordDialog } from "@/components/upload/choose-record-dialog";
+import { addDocumentsState } from "@/services/document-actions";
 import { BulkBar } from "@/components/search/bulk-bar";
 import { FacetPanel } from "@/components/search/facet-panel";
 import { ResultsTable } from "@/components/search/results-table";
@@ -80,6 +82,8 @@ function DocumentsPage() {
   const me = useMe();
   const role = (me.access?.role ?? "viewer") as AppRole;
   const isAdmin = role === "tenant_admin";
+  const add = addDocumentsState(role);
+  const [choosing, setChoosing] = useState(false);
   const filters = useMemo(() => filtersOf(search), [search]);
   const showResults = hasAnyFilter(filters) || Boolean(search.all);
 
@@ -110,7 +114,28 @@ function DocumentsPage() {
   return (
     <div className="flex min-h-0 flex-1 gap-4">
       <div className="flex min-w-0 flex-1 flex-col gap-4">
-        <PageHeader title="Documents" />
+        <PageHeader
+          title="Documents"
+          actions={
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {!add.available ? (
+                <p id="add-docs-reason" className="type-label-12 text-text-secondary">
+                  {add.reason}
+                </p>
+              ) : null}
+              <Button
+                variant="primary"
+                unavailable={!add.available}
+                aria-describedby={!add.available ? "add-docs-reason" : undefined}
+                onClick={() => setChoosing(true)}
+              >
+                <Upload aria-hidden="true" />
+                Add documents
+              </Button>
+            </div>
+          }
+        />
+        <ChooseRecordDialog open={choosing} onOpenChange={setChoosing} />
         <SearchBox value={search.q ?? ""} onSearch={(q) => setFilters({ ...filters, q })} />
         <SavedViews filters={filters} isAdmin={isAdmin} onApply={(f) => setFilters(f, true)} />
         {search.q && looksLikeIdentifier(search.q) ? <RecordMatches q={search.q} /> : null}

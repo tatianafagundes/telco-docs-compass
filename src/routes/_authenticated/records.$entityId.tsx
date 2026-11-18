@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/erad/page-header";
 import { EmptyState } from "@/components/erad/empty-state";
 import { SidePanel } from "@/components/erad/side-panel";
 import { Check, Lock } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AddDocuments } from "@/components/upload/add-documents";
 import { useUpload } from "@/hooks/use-upload";
 import { Tag } from "@/components/erad/tag";
@@ -14,7 +14,13 @@ import { SkeletonRow } from "@/components/erad/misc";
 import { DocumentPanel } from "@/components/documents/document-panel";
 import { ApprovedSummary } from "@/components/documents/approved-summary";
 import { meQuery } from "@/hooks/use-me";
-import { PIPELINE_LABEL, PIPELINE_TONE, STATUS_LABEL, STATUS_TONE } from "@/lib/document-labels";
+import {
+  PIPELINE_LABEL,
+  PIPELINE_TONE,
+  recordKindLabel,
+  STATUS_LABEL,
+  STATUS_TONE,
+} from "@/lib/document-labels";
 import { api } from "@/services/api";
 import { cn } from "@/lib/utils";
 import type { DocStatus, PipelineState } from "@/schemas/document";
@@ -29,13 +35,6 @@ interface DocListItem {
   current_version_id: string | null;
   extraction_fields?: { status: string; version_id: string }[];
 }
-
-const RECORD_KIND: Record<string, string> = {
-  Quote: "Quote",
-  ProductOrder: "Order",
-  Account: "Account",
-  Customer: "Customer",
-};
 
 const toCheck = (d: DocListItem) =>
   (d.extraction_fields ?? []).filter(
@@ -55,7 +54,11 @@ const recordQuery = (entityId: string) =>
   });
 
 export const Route = createFileRoute("/_authenticated/records/$entityId")({
-  validateSearch: z.object({ doc: z.string().uuid().optional() }),
+  validateSearch: z.object({
+    doc: z.string().uuid().optional(),
+    // Set by "Add documents" on the Documents page; used once, then removed from the address.
+    add: z.literal(1).optional().catch(undefined),
+  }),
   head: () => ({
     meta: [
       { title: "Record · Documents" },
@@ -88,7 +91,7 @@ export const Route = createFileRoute("/_authenticated/records/$entityId")({
 
 function RecordPage() {
   const { entityId } = Route.useParams();
-  const { doc } = Route.useSearch();
+  const { doc, add } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const { data } = useSuspenseQuery(recordQuery(entityId));
   const { data: me } = useSuspenseQuery(meQuery);
@@ -96,6 +99,12 @@ function RecordPage() {
   const entityKind = data.entity?.referred_type === "Account" ? "account" : "order";
   const upload = useUpload(entityId);
   const [attentionOnly, setAttentionOnly] = useState(false);
+  // Remember the arrival for this visit, then drop `add` so Back and Reload don't repeat it.
+  const [arriving] = useState(add === 1);
+  useEffect(() => {
+    if (add === 1)
+      void navigate({ search: (prev) => ({ ...prev, add: undefined }), replace: true });
+  }, [add, navigate]);
   // "Ready" stays visible on rows added in this visit.
   const addedHere = new Map(
     upload.rows.filter((r) => r.docId).map((r) => [r.docId as string, r.state]),
@@ -131,10 +140,10 @@ function RecordPage() {
         <div className="flex flex-col gap-1">
           <PageHeader title={data.entity.display_name} />
           <p className="type-label-12 -mt-3 text-text-secondary">
-            {RECORD_KIND[data.entity.referred_type] ?? data.entity.referred_type}
+            {recordKindLabel(data.entity.referred_type)}
             {/* The record's own status in its source system (CPQ, Order care), not a document status. */}
             {data.entity.status_label
-              ? ` · ${RECORD_KIND[data.entity.referred_type] ?? "Record"} status in source system: ${data.entity.status_label.toLowerCase()}`
+              ? ` · ${recordKindLabel(data.entity.referred_type)} status in source system: ${data.entity.status_label.toLowerCase()}`
               : ""}
             {` · ${data.items.length} ${data.items.length === 1 ? "document" : "documents"}`}
           </p>
@@ -150,6 +159,7 @@ function RecordPage() {
           existing={data.items.map((d) => ({ id: d.id, name: d.name }))}
           upload={upload}
           onShowAttention={() => setAttentionOnly(true)}
+          arrivingFor={arriving ? data.entity.display_name : null}
         >
           {attentionOnly ? (
             <p className="type-label-14 flex items-center gap-2">
@@ -228,7 +238,7 @@ function RecordPage() {
           collapsed={false}
           onCollapsedChange={() => void navigate({ search: {} })}
         >
-          <DocumentPanel id={doc} entityId={entityId} role={role} />
+          <DocumentPanel id={doc} entityId={entityId} role={role} showRecord={false} />
         </SidePanel>
       ) : null}
     </div>

@@ -124,6 +124,8 @@ export const findRecord = createServerFn({ method: "POST" })
           .from("business_entities")
           .select("id, display_name, referred_type")
           .or(`id.ilike.${q},display_name.ilike.${q}%`)
+          // A stable order, so the same query always lists the same five.
+          .order("display_name")
           .limit(5);
         return {
           ok: true,

@@ -26,6 +26,7 @@ import { bannerText, toCheckCount } from "@/services/review-rules";
 import { isOwnDocument, journeyStep } from "@/services/review-flow-rules";
 import { ReviewJourney } from "@/components/review/review-journey";
 import { meQuery } from "@/hooks/use-me";
+import { RecordLine } from "@/components/documents/record-line";
 
 // Query factory shared with route loaders; moving it only helps hot reload.
 // eslint-disable-next-line react-refresh/only-export-components
@@ -47,10 +48,13 @@ export function DocumentPanel({
   id,
   entityId,
   role,
+  showRecord = true,
 }: {
   id: string;
   entityId: string | null;
   role: AppRole;
+  /** The record page already names its record, so it turns this off. */
+  showRecord?: boolean;
 }) {
   const shared = entityId === null;
   const recordId = entityId ?? "";
@@ -101,11 +105,7 @@ export function DocumentPanel({
           </Tag>
         ) : null}
       </div>
-      {shared ? (
-        <p className="type-label-12 text-text-secondary">
-          Part of a record you don't have access to
-        </p>
-      ) : null}
+      {shared || showRecord ? <RecordLine entityId={entityId} /> : null}
       {!shared && journeyStep(doc.status, toCheck) !== null ? (
         <ReviewJourney step={journeyStep(doc.status, toCheck) ?? 0} />
       ) : null}

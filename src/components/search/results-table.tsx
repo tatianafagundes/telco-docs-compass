@@ -3,7 +3,8 @@ import { Lock } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Checkbox } from "@/components/erad/checkbox";
 import { Tag } from "@/components/erad/tag";
-import { STATUS_LABEL, STATUS_TONE, typeLabel } from "@/lib/document-labels";
+import { Link } from "@tanstack/react-router";
+import { recordKindLabel, STATUS_LABEL, STATUS_TONE, typeLabel } from "@/lib/document-labels";
 import { cn } from "@/lib/utils";
 import type { SearchRow } from "@/services/search.functions";
 
@@ -65,6 +66,27 @@ export function ResultsTable(p: ResultsTableProps) {
 
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     const row = p.rows[focus];
+    const target = e.target as HTMLElement;
+    const onRow = target.dataset["row"] !== undefined;
+    // From a row, Right arrow moves into its record link; Left arrow or Escape comes back out.
+    if (e.key === "ArrowRight" && onRow) {
+      const link = [...target.querySelectorAll<HTMLElement>("[data-record-link]")].find(
+        (l) => l.offsetParent !== null,
+      );
+      if (link) {
+        e.preventDefault();
+        link.focus();
+      }
+      return;
+    }
+    if (
+      (e.key === "ArrowLeft" || e.key === "Escape") &&
+      target.dataset["recordLink"] !== undefined
+    ) {
+      e.preventDefault();
+      moveTo(focus);
+      return;
+    }
     if (e.key === "ArrowDown") {
       e.preventDefault();
       moveTo(focus + 1);
@@ -77,10 +99,10 @@ export function ResultsTable(p: ResultsTableProps) {
     } else if (e.key === "End") {
       e.preventDefault();
       moveTo(p.rows.length - 1);
-    } else if (e.key === "Enter" && row) {
+    } else if (e.key === "Enter" && row && onRow) {
       e.preventDefault();
       p.onOpen(row.id, row.entity_name ? row.entity_id : null);
-    } else if (e.key === " " && row && (e.target as HTMLElement).dataset["row"] !== undefined) {
+    } else if (e.key === " " && row && onRow) {
       e.preventDefault();
       p.onToggle(row.id);
     }
@@ -98,7 +120,7 @@ export function ResultsTable(p: ResultsTableProps) {
           onCheckedChange={p.onToggleAll}
         />
         <span className="flex-1">Name</span>
-        <span className="hidden w-40 2xl:block">Record</span>
+        <span className="hidden w-48 2xl:block">Record</span>
         <span className="w-28">Status</span>
         <span className="hidden w-24 lg:block">Changed</span>
       </div>
@@ -149,16 +171,31 @@ export function ResultsTable(p: ResultsTableProps) {
                   >
                     {typeLabel(r.document_type)}
                     {r.pending > 0 ? ` · ${r.pending} to check` : ""}
+                    {r.entity_name && r.entity_id ? (
+                      <span className="2xl:hidden">
+                        {" · in "}
+                        <RecordLink id={r.entity_id}>
+                          {`${recordKindLabel(r.entity_type ?? "")} ${r.entity_name}`}
+                        </RecordLink>
+                      </span>
+                    ) : null}
                   </span>
                 </span>
                 <span
                   role="gridcell"
                   className={cn(
-                    "type-label-12 hidden w-40 truncate 2xl:block",
+                    "type-label-12 hidden w-48 min-w-0 flex-col 2xl:flex",
                     !active && "text-text-secondary group-hover:text-text-main",
                   )}
                 >
-                  {r.entity_name ?? (r.entity_id ? "Record you can't open" : "—")}
+                  {r.entity_name && r.entity_id ? (
+                    <>
+                      <RecordLink id={r.entity_id}>{r.entity_name}</RecordLink>
+                      <span className="truncate">{recordKindLabel(r.entity_type ?? "")}</span>
+                    </>
+                  ) : (
+                    <span className="truncate">{r.entity_id ? "Record you can't open" : "—"}</span>
+                  )}
                 </span>
                 <span role="gridcell" className="flex w-28 items-center gap-1">
                   <Tag tone={STATUS_TONE[r.status]} small>
@@ -193,5 +230,25 @@ export function ResultsTable(p: ResultsTableProps) {
         ) : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * A link to the record inside a grid row. It is not a tab stop (the grid is one), a plain click goes
+ * to the record instead of opening the panel, and it keeps the row's own text colour: link blue
+ * fails contrast on a hovered row, so the underline is what marks it.
+ */
+function RecordLink({ id, children }: { id: string; children: string }) {
+  return (
+    <Link
+      to="/records/$entityId"
+      params={{ entityId: id }}
+      tabIndex={-1}
+      data-record-link=""
+      onClick={(e) => e.stopPropagation()}
+      className="focus-ring inline-flex min-h-6 max-w-full items-center truncate underline underline-offset-2 hover:text-text-main"
+    >
+      <span className="truncate">{children}</span>
+    </Link>
   );
 }
