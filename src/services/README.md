@@ -26,7 +26,7 @@ Ways a document is changed (each applies the pure rules):
 | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `document-*.functions.ts` (`document-write.functions.ts` lists them)   | Screens (one document at a time), through `runWrite` in `seam-runtime.ts`. Reads: `document-read`; details and versions: `document-content`; status, hold, delete: `document-status`; review: `document-review`; access: `document-access`. |
 | `tmf-gateway.ts` (lists the `gateway-*.ts` files) + `tmf667-mapper.ts` | The public TMF API used by other systems, pinned to the tenant of the system key. Start at `gateway-core.ts`.                                                                                                                               |
-| `bulk-worker.ts` (+ `search.functions.ts` to start a job)              | Many documents at once, in batches.                                                                                                                                                                                                         |
+| `bulk-worker.ts` (+ `bulk-jobs.functions.ts` to start a job)           | Many documents at once, in batches.                                                                                                                                                                                                         |
 
 Helpers, and when to use each:
 
