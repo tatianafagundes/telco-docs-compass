@@ -187,6 +187,41 @@ describe("filters", () => {
     expect(none.headers.get("X-Total-Count")).toBe("0");
   });
 
+  it("refuses 400 filterTooBroad instead of silently cutting a record filter that matches more than 1000 documents", async () => {
+    const db = await buildWorld({ documents: many(3) });
+    const ent = { id: "ent-1", referred_type: "Agreement", tenant_id: TENANT };
+    db.tables["document_relations"] = Array.from({ length: 1001 }, (_, i) => ({
+      document_id: uuid(i % 3 === 0 ? 1 : 2),
+      entity_id: "ent-1",
+      role: `r${i}`,
+      business_entities: ent,
+    }));
+    const res = await list("?relatedEntity.id=ent-1");
+    expect(res.status).toBe(400);
+    expect((await json(res))["code"]).toBe("filterTooBroad");
+  });
+  it("answers a record filter that matches exactly 1000 relations", async () => {
+    const db = await buildWorld({ documents: many(3) });
+    const ent = { id: "ent-1", referred_type: "Agreement", tenant_id: TENANT };
+    db.tables["document_relations"] = Array.from({ length: 1000 }, (_, i) => ({
+      document_id: uuid(1),
+      entity_id: "ent-1",
+      role: `r${i}`,
+      business_entities: ent,
+    }));
+    expect(await ids(await list("?relatedEntity.id=ent-1"))).toEqual([uuid(1)]);
+  });
+  it("narrows an external identifier by its owner when one is given", async () => {
+    await buildWorld({
+      documents: many(3, (n) => ({
+        external_identifier: [{ id: "ORD-1", owner: n === 1 ? "crm" : "billing" }],
+      })),
+    });
+    expect((await ids(await list("?externalIdentifier.id=ORD-1"))).length).toBe(3);
+    expect(
+      await ids(await list("?externalIdentifier.id=ORD-1&externalIdentifier.owner=crm")),
+    ).toEqual([uuid(1)]);
+  });
   it.each(["?lifecycleState=bogus", "?status=bogus", "?lifecycleState=draft,bogus"])(
     "answers 400 invalidQuery for %s",
     async (query) => {

@@ -75,6 +75,7 @@ export interface SystemCtx {
   requestId: string;
 }
 
+import { externalIdentifierFilter, relatedDocumentIds } from "@/services/gateway-list-filter";
 import { errorReply, reply } from "@/services/gateway-reply";
 export { errorReply };
 const DOC_COLS =
@@ -379,19 +380,11 @@ export async function listDocuments(request: Request): Promise<Response> {
   if (!parsed.ok) return errorReply(parsed.error, ctx.requestId);
   const q = parsed.value;
 
-  let docIds: string[] | null = null;
-  if (q.relatedEntityId || q.referredType) {
-    let rq = ctx.admin
-      .from("document_relations")
-      .select("document_id, business_entities!inner(id, referred_type, tenant_id)")
-      .eq("business_entities.tenant_id", ctx.tenantId);
-    if (q.relatedEntityId) rq = rq.eq("entity_id", q.relatedEntityId);
-    if (q.referredType) rq = rq.eq("business_entities.referred_type", q.referredType);
-    const { data } = await rq.limit(1000);
-    docIds = [...new Set((data ?? []).map((r) => r.document_id))];
-    if (docIds.length === 0)
-      return reply(200, [], ctx.requestId, { "X-Total-Count": "0", "X-Result-Count": "0" });
-  }
+  const related = await relatedDocumentIds(ctx.admin, ctx.tenantId, q);
+  if (related && !Array.isArray(related)) return errorReply(related.error, ctx.requestId);
+  const docIds = related;
+  if (docIds?.length === 0)
+    return reply(200, [], ctx.requestId, { "X-Total-Count": "0", "X-Result-Count": "0" });
   let dq = ctx.admin
     .from("documents")
     .select(DOC_COLS, { count: "exact" })
@@ -403,7 +396,7 @@ export async function listDocuments(request: Request): Promise<Response> {
   if (q.lifecycleState)
     dq = dq.in("status", q.lifecycleState.length ? q.lifecycleState : ["__none__" as DocStatus]);
   if (q.externalId)
-    dq = dq.filter("external_identifier", "cs", JSON.stringify([{ id: q.externalId }]));
+    dq = dq.filter("external_identifier", "cs", externalIdentifierFilter(request, q.externalId));
   const { data, count } = await dq
     .order("updated_at", { ascending: false })
     .range(q.offset, q.offset + q.limit - 1);
