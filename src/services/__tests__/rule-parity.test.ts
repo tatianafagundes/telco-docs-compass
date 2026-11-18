@@ -45,7 +45,13 @@ const field = (status: string) => ({
   status,
 });
 
-type Outcome = { changed: boolean; status: unknown; legalHold: unknown; holdReason: unknown };
+type Outcome = {
+  changed: boolean;
+  status: unknown;
+  legalHold: unknown;
+  holdReason: unknown;
+  holdReference: unknown;
+};
 const outcome = (db: FakeDb, changed: boolean): Outcome => {
   const row = db.rows("documents").find((d) => d["id"] === DOC_ID);
   return {
@@ -53,6 +59,7 @@ const outcome = (db: FakeDb, changed: boolean): Outcome => {
     status: row?.["status"],
     legalHold: row?.["legal_hold"],
     holdReason: row?.["hold_reason"],
+    holdReference: row?.["hold_reference"] ?? null,
   };
 };
 
@@ -187,14 +194,15 @@ describe("a legal hold changes the document the same way", () => {
       status: "draft",
       legalHold: true,
       holdReason: "Audit 2026",
+      holdReference: null,
     });
     expect(b).toEqual(g);
   });
   it("releases a hold and clears the reason", async () => {
-    const held = { legal_hold: true, hold_reason: "Audit 2026" };
+    const held = { legal_hold: true, hold_reason: "Audit 2026", hold_reference: "CASE-1" };
     const { g, b } = await same({ doc: held }, { kind: "hold", active: false, reason: "Closed" });
-    expect(g).toMatchObject({ legalHold: false, holdReason: null });
-    expect(b).toMatchObject({ legalHold: false, holdReason: null });
+    expect(g).toMatchObject({ legalHold: false, holdReason: null, holdReference: null });
+    expect(b).toMatchObject({ legalHold: false, holdReason: null, holdReference: null });
   });
   it("leaves the status alone", async () => {
     const { g, b } = await same(

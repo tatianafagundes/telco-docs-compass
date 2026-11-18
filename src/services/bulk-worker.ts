@@ -7,6 +7,7 @@ import {
 } from "@/services/document-rules";
 import { isOwnDocument } from "@/services/review-flow-rules";
 import type { Db } from "@/services/seam-runtime";
+import { holdColumns } from "@/services/document-update";
 import { must } from "@/services/shared/must";
 import {
   BULK_BATCH,
@@ -126,13 +127,9 @@ async function applyBatch(admin: Db, job: JobRow, ids: string[], role: AppRole) 
       must(
         await admin
           .from("documents")
-          .update({
-            legal_hold: on,
-            hold_reason: on ? (job.params.reason ?? null) : null,
-            hold_since: on ? now : null,
-            hold_set_by: on ? job.created_by : null,
-            updated_at: now,
-          })
+          // Same columns as every other way of placing or releasing a hold. A bulk change has no
+          // reference, so placing clears an old one and releasing clears it too.
+          .update(holdColumns({ active: on, reason: job.params.reason }, job.created_by, now))
           .eq("id", id)
           .eq("tenant_id", job.tenant_id),
         "saving a legal hold in a bulk batch",
