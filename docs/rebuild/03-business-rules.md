@@ -162,7 +162,7 @@ Error shape for internal operations: `{code, category, retryable, customerFacing
 | BR-138 | Unknown paths and methods return TMF error JSON (404/405), never HTML. |
 | BR-139 | The legacy base `/documentManagement/v4` remains an alias until 10 May 2027. |
 | BR-140 | TMF API four-eyes: a system key cannot approve (PATCH status or /transition) a document it registered, nor a document added in the app by the person who connected that system (`integration_clients.created_by`); 409 `fourEyesRequired`. |
-| BR-141 | Replies carry `category` (document type business-process names) and `document` refs to same-tenant bundle siblings; specifications carry `isBundle: false` and `targetEntitySchema`. |
+| BR-141 | Replies carry `category` as `CategoryRef` objects (document type business-process names as `id` and `name`) and `document` refs to same-tenant bundle siblings; `validFor` values are UTC date-times (start of the effective day, end of the expiry day); specifications carry `isBundle: false`, `targetEntitySchema` and a TMF `lifecycleStatus` (inDesign → created, active → published, retired → archived). |
 | BR-142 | A bulk change pass writes one `DocumentBatchEvent` listing changed ids; it is delivered only to subscriptions whose query names DocumentBatchEvent. |
 
 ### BR-143 Approved content is protected

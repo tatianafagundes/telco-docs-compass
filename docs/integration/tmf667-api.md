@@ -2,7 +2,7 @@
 
 For the team that connects an order care, ticketing, CRM or CPQ system to Telco Docs Compass. The formal contract is `contracts/seams/tmf667-document.openapi.yaml`; this guide explains how to use it. How the API is built inside the app is in `docs/architecture/ARCHITECTURE.md` and `src/routes/api/public/tmf-api/AGENTS.md`.
 
-The API follows TM Forum TMF667 Document Management v4 and the TMF630 REST guidelines. Conformance is not claimed: the official test kit has not been run.
+The API follows TM Forum TMF667 Document Management v4 and the TMF630 REST guidelines. Conformance is not claimed: the official test kit has not been run. How it compares with the official definition, field by field: `docs/integration/tmf667-conformance.md`.
 
 ## Before you start
 
