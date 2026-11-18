@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/erad/button";
 import { UploadDialog } from "@/components/upload/upload-dialog";
 import { UploadProgress } from "@/components/upload/upload-progress";
+import { takeFiles } from "@/components/upload/upload-handoff";
+import { Link } from "@tanstack/react-router";
 import type { useUpload } from "@/hooks/use-upload";
 import { api } from "@/services/api";
 import { can, type AppRole } from "@/services/document-rules";
@@ -42,6 +44,8 @@ export interface AddDocumentsProps {
   children: ReactNode;
   /** Set when the person came here to add documents (from the Documents page): the record's name. */
   arrivingFor?: string | null;
+  /** The record's name, so the type step says where the files go. */
+  recordName?: string;
 }
 
 /** "Add documents": button, drag-and-drop on the tab and paste, all opening the same dialog. */
@@ -54,6 +58,7 @@ export function AddDocuments({
   onShowAttention,
   children,
   arrivingFor = null,
+  recordName,
 }: AddDocumentsProps) {
   const state = addDocumentsState(role);
   const allowed = state.available;
@@ -61,8 +66,14 @@ export function AddDocuments({
   // Shown once on arrival, until the person picks or drops files; it says where the files will go.
   const [hint, setHint] = useState<string | null>(arrivingFor);
   useEffect(() => {
-    if (arrivingFor) button.current?.focus();
-  }, [arrivingFor]);
+    if (!arrivingFor) return;
+    // Files chosen on the Documents page go straight to the type step; otherwise offer the button.
+    const handed = allowed ? takeFiles(entityId) : [];
+    if (handed.length) {
+      setHint(null);
+      setFiles(handed);
+    } else button.current?.focus();
+  }, [arrivingFor, entityId, allowed]);
   const canDelete = can(role, "manage");
   const specs = useQuery(specsQuery);
   const input = useRef<HTMLInputElement>(null);
@@ -137,7 +148,14 @@ export function AddDocuments({
           </p>
         ) : hint ? (
           <p id="add-docs-hint" className="type-label-12 text-text-secondary">
-            Adding to {hint}. Choose Add documents to pick files, or drop them into the list.
+            Adding to {hint}. Choose Add documents to pick files, or drop them into the list.{" "}
+            <Link
+              to="/documents"
+              search={{ choose: true }}
+              className="focus-ring inline-flex min-h-6 items-center underline"
+            >
+              Choose a different record
+            </Link>
           </p>
         ) : null}
         <input
@@ -167,8 +185,15 @@ export function AddDocuments({
         files={files}
         specs={specs.data ?? []}
         entityKind={entityKind}
+        target={recordName}
         existing={existing}
-        onCancel={() => setFiles([])}
+        onCancel={() => {
+          setFiles([]);
+          // Nothing opened this dialog when the files were handed over: come back to the button,
+          // and to the hint that can take the person to another record.
+          setHint(arrivingFor);
+          requestAnimationFrame(() => button.current?.focus());
+        }}
         onConfirm={(planned) => {
           setFiles([]);
           upload.start(planned);

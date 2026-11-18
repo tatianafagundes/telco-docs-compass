@@ -15,6 +15,8 @@ export interface DocumentsSearch extends SearchFilters {
   rec?: string;
   /** Shows the results list even without filters ("See all"). */
   all?: boolean;
+  /** Opens "Choose a record" once (from "Choose a different record" on a record page). */
+  choose?: boolean;
 }
 
 const strArr = (v: unknown, max = 30): string[] | undefined => {
@@ -55,6 +57,7 @@ export function parseDocumentsSearch(raw: Record<string, unknown>): DocumentsSea
   if (typeof raw["doc"] === "string" && /^[0-9a-f-]{36}$/i.test(raw["doc"])) out.doc = raw["doc"];
   if (typeof raw["rec"] === "string" && raw["rec"].length <= 64 && raw["rec"]) out.rec = raw["rec"];
   if (bool(raw["all"])) out.all = true;
+  if (bool(raw["choose"])) out.choose = true;
   return out;
 }
 

@@ -25,6 +25,7 @@ vi.mock("@/services/api", () => ({
 import { RecordLine, NO_RECORD_ACCESS } from "@/components/documents/record-line";
 import { ResultsTable } from "@/components/search/results-table";
 import { ChooseRecordDialog } from "@/components/upload/choose-record-dialog";
+import { takeFiles } from "@/components/upload/upload-handoff";
 import type { SearchRow } from "@/services/search.functions";
 
 /** Renders `ui` on "/" inside a router that also knows the record page, so links work. */
@@ -169,13 +170,51 @@ describe("Choose a record", () => {
     expect(await screen.findByText("Keep typing. 2 characters are enough to search.")).toBeTruthy();
     expect(findRecord).not.toHaveBeenCalled();
     fireEvent.change(field, { target: { value: "O-77" } });
-    const link = await screen.findByRole(
-      "link",
-      { name: /O-7731 Fibre upgrade/ },
-      { timeout: 2000 },
-    );
+    await screen.findByRole("button", { name: /O-7731 Fibre upgrade/ }, { timeout: 2000 });
     expect(findRecord).toHaveBeenCalledWith("O-77");
-    expect(link.getAttribute("href")).toBe("/records/ord-se-7731?add=1");
+  });
+  it("lets the person choose files for the record, hands them over and opens the record", async () => {
+    findRecord.mockResolvedValue([
+      { id: "ord-se-7731", name: "O-7731 Fibre upgrade", type: "ProductOrder" },
+    ]);
+    const onOpenChange = vi.fn();
+    const router = await renderWithRouter(() => (
+      <ChooseRecordDialog open onOpenChange={onOpenChange} />
+    ));
+    fireEvent.change(await screen.findByLabelText("Find an order, quote or account"), {
+      target: { value: "O-77" },
+    });
+    fireEvent.click(
+      await screen.findByRole("button", { name: /O-7731 Fibre upgrade/ }, { timeout: 2000 }),
+    );
+    expect(
+      await screen.findByText(/They will be added to Order · O-7731 Fibre upgrade/),
+    ).toBeTruthy();
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Choose files" })),
+    );
+    const file = new File(["%PDF"], "order.pdf", { type: "application/pdf" });
+    await act(async () => {
+      fireEvent.change(screen.getByTestId("choose-files-input"), { target: { files: [file] } });
+    });
+    await waitFor(() => expect(router.state.location.pathname).toBe("/records/ord-se-7731"));
+    expect(router.state.location.search).toEqual({ add: 1 });
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(takeFiles("ord-se-7731")).toEqual([file]);
+  });
+  it("goes back to the search with Choose a different record", async () => {
+    findRecord.mockResolvedValue([
+      { id: "ord-se-7731", name: "O-7731 Fibre upgrade", type: "ProductOrder" },
+    ]);
+    await renderWithRouter(() => <ChooseRecordDialog open onOpenChange={() => {}} />);
+    fireEvent.change(await screen.findByLabelText("Find an order, quote or account"), {
+      target: { value: "O-77" },
+    });
+    fireEvent.click(
+      await screen.findByRole("button", { name: /O-7731 Fibre upgrade/ }, { timeout: 2000 }),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Choose a different record" }));
+    expect(await screen.findByLabelText("Find an order, quote or account")).toBeTruthy();
   });
   it("says why nothing was found", async () => {
     findRecord.mockResolvedValue([]);

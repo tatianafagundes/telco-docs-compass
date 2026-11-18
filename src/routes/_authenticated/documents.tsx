@@ -84,6 +84,18 @@ function DocumentsPage() {
   const isAdmin = role === "tenant_admin";
   const add = addDocumentsState(role);
   const [choosing, setChoosing] = useState(false);
+  // "Choose a different record" on a record page lands here: open the dialog, then drop the flag.
+  useEffect(() => {
+    if (!search.choose) return;
+    if (add.available) setChoosing(true);
+    void navigate({
+      search: (prev) => {
+        const { choose: _c, ...rest } = prev;
+        return rest;
+      },
+      replace: true,
+    });
+  }, [search.choose, add.available, navigate]);
   const filters = useMemo(() => filtersOf(search), [search]);
   const showResults = hasAnyFilter(filters) || Boolean(search.all);
 

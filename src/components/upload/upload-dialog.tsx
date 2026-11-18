@@ -18,6 +18,8 @@ export interface UploadDialogProps {
   files: File[];
   specs: UploadSpec[];
   entityKind: string;
+  /** Where the files go, named in the description. */
+  target?: string | undefined;
   existing: { id: string; name: string }[];
   onCancel: () => void;
   onConfirm: (planned: PlannedFile[]) => void;
@@ -35,6 +37,7 @@ export function UploadDialog({
   files,
   specs,
   entityKind,
+  target,
   existing,
   onCancel,
   onConfirm,
@@ -76,7 +79,7 @@ export function UploadDialog({
       open={open}
       onOpenChange={(o) => (!o ? onCancel() : undefined)}
       title={files.length === 1 ? "Add 1 document" : `Add ${files.length} documents`}
-      description="Prototype: do not add real customer files."
+      description={`${target ? `Adding to ${target}. ` : ""}Prototype: do not add real customer files.`}
       actions={
         <>
           <Button onClick={onCancel}>Cancel</Button>
