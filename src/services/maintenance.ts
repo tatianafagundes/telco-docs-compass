@@ -7,11 +7,14 @@
 //
 // Each step is separate: one failing is logged and does not stop the others.
 import { IDEMPOTENCY_TTL_HOURS } from "@/services/document-rules";
+import { countDeadLetters } from "@/services/delivery-dead-letter";
 import { must } from "@/services/shared/must";
 import type { Db } from "@/services/seam-runtime";
 
 export interface MaintenanceResult {
   expiredDocuments: number;
+  /** Deliveries the sender gave up on. Above zero means a receiver needs attention. */
+  deadLetters: number;
   failed: string[];
 }
 
@@ -83,7 +86,7 @@ export async function deleteExpiredTokens(admin: Db, now = new Date()): Promise<
 }
 
 export async function runMaintenance(admin: Db, now = new Date()): Promise<MaintenanceResult> {
-  const result: MaintenanceResult = { expiredDocuments: 0, failed: [] };
+  const result: MaintenanceResult = { expiredDocuments: 0, deadLetters: 0, failed: [] };
   const steps: [string, () => Promise<unknown>][] = [
     [
       "expireDocuments",
@@ -91,6 +94,7 @@ export async function runMaintenance(admin: Db, now = new Date()): Promise<Maint
     ],
     ["idempotencyKeys", () => deleteStaleIdempotencyKeys(admin, now)],
     ["accessTokens", () => deleteExpiredTokens(admin, now)],
+    ["deadLetters", async () => (result.deadLetters = await countDeadLetters(admin))],
   ];
   for (const [name, step] of steps) {
     try {

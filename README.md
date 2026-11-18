@@ -19,7 +19,7 @@ bun run check      # lint + types + tests + build; run it before every commit
 3. Find a business rule and its test: rules are plain functions such as `src/services/document-rules.ts`, tested in `src/services/__tests__`.
 4. Make a small change, run `bun run check`, and read `AGENTS.md` before your first commit. Skip its first block (it is Lovable's); the rules start at "Project rules", and "Repository rules" is at the end.
 
-Security rules are in `docs/architecture/security-baseline.md` and accessibility rules in `docs/architecture/accessibility.md`.
+Running and checking the app: `docs/operations/runbook.md`. Security rules are in `docs/architecture/security-baseline.md` and accessibility rules in `docs/architecture/accessibility.md`.
 Signing in needs one of the demo accounts of the connected Supabase project. Ask the repository owner (see `.github/CODEOWNERS`).
 
 ## Configuration
@@ -65,7 +65,7 @@ There is no CI: `bun run check` is the gate. Unit tests run offline. Service tes
 | `src/integrations/supabase` | Generated Supabase clients and types. Do not edit by hand |
 | `contracts` | OpenAPI and JSON schemas of the document model and the TMF667 API |
 | `drizzle` | Database migrations. Lovable manages them: do not edit by hand |
-| `docs` | `architecture/` (how it works), `decisions/` (why), `rebuild/` (plan for a later Java rebuild) |
+| `docs` | `architecture/` (how it works), `operations/` (runbook), `decisions/` (why), `rebuild/` (plan for a later Java rebuild) |
 | `e2e` | End-to-end scripts for the API |
 
 ## Working with Kiro or another AI assistant

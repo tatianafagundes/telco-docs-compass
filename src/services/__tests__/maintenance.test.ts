@@ -137,7 +137,11 @@ describe("runMaintenance", () => {
       idempotency_keys: [],
       integration_tokens: [],
     });
-    expect(await runMaintenance(db.asDb(), NOW)).toEqual({ expiredDocuments: 2, failed: [] });
+    expect(await runMaintenance(db.asDb(), NOW)).toEqual({
+      expiredDocuments: 2,
+      deadLetters: 0,
+      failed: [],
+    });
   });
   it("carries on when one step fails, and says which", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
