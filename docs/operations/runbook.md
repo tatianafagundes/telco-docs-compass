@@ -19,7 +19,7 @@ One scheduler call, every minute, runs two things: advances bulk changes, then d
 
 1. Read the last answer and the application log for the same minute. Log lines are JSON with an `op` field (`scheduled.bulk`, `maintenance`, `bulk.fail`, `idempotency.complete`) and a step or reason code. They never contain document names, reasons or database text.
 2. If the answer is 401 or 500 before any field appears, check the scheduler's secret and the app's copy of it match (rotate both together).
-3. If nothing calls the job at all: documents stop expiring, bulk changes stop moving and old keys and tokens are not cleaned. Restore the scheduler first; the next run catches up (expiry runs in batches of 500).
+3. If nothing calls the job at all: bulk changes stop moving, documents expire only when someone opens a list (once a minute per tenant) and old keys and tokens are not cleaned. Restore the scheduler first; the next run catches up (expiry runs in batches of 500).
 4. A claim left by a worker that died is taken over by itself after 5 minutes, and a bulk job whose worker stopped is failed after its lease (10 minutes). Nothing needs clearing by hand.
 
 ## A bulk job shows "failed"

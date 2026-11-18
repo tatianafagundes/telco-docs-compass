@@ -10,6 +10,7 @@ import {
   isSampleStorage,
   PREVIEW_URL_SECONDS,
 } from "@/services/document-rules";
+import { expireOnRead } from "@/services/expiry-fallback";
 import { runRead } from "@/services/seam-runtime";
 import {
   BUCKET,
@@ -25,6 +26,8 @@ export const find = createServerFn({ method: "POST" })
   .inputValidator((input: z.input<typeof findSchema>) => findSchema.parse(input))
   .handler(async ({ data, context }) =>
     runRead(context, "find", null, async ({ caller, tenantId }) => {
+      // Safety net if the scheduler is not running; the scheduled job is the main path.
+      await expireOnRead(adminClient, tenantId);
       const pageSize = data.pageSize ?? 50;
       const offset = data.pageToken ? Number(data.pageToken) : 0;
       const select = `${DOC_COLUMNS}, extraction_fields(status, version_id), document_relations${data.entityId ? "!inner" : ""}(entity_id, role)`;

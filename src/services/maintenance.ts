@@ -21,11 +21,16 @@ export interface MaintenanceResult {
 /** Most documents expired in one run; the rest wait for the next minute. */
 export const EXPIRE_BATCH = 500;
 
-export async function expireDueDocuments(admin: Db, now = new Date()): Promise<number> {
+/** @param tenantId only this tenant's documents; every tenant when omitted (the scheduled job). */
+export async function expireDueDocuments(
+  admin: Db,
+  now = new Date(),
+  tenantId?: string,
+): Promise<number> {
+  let find = admin.from("documents").select("id");
+  if (tenantId) find = find.eq("tenant_id", tenantId);
   const due = must(
-    await admin
-      .from("documents")
-      .select("id")
+    await find
       .lt("expiry_date", now.toISOString().slice(0, 10))
       .in("status", ["approved", "effective"])
       .is("deleted_at", null)

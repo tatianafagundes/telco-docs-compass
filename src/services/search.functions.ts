@@ -1,3 +1,4 @@
+import { expireOnRead } from "@/services/expiry-fallback";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -52,6 +53,11 @@ export const searchDocuments = createServerFn({ method: "POST" })
   .inputValidator((input: z.input<typeof pageInput>) => pageInput.parse(input))
   .handler(async ({ data, context }): Promise<SeamResult<SearchPage>> =>
     runRead(context, "search.page", null, async (env) => {
+      // Safety net if the scheduler is not running; the scheduled job is the main path.
+      await expireOnRead(
+        async () => (await import("@/integrations/supabase/client.server")).supabaseAdmin as Db,
+        env.tenantId,
+      );
       const size = data.limit ?? PAGE_SIZE;
       const p = {
         ...normaliseFilters(data.filters),

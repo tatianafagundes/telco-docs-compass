@@ -36,8 +36,8 @@ output lists which.
   `idempotencyInProgress` (API) or "try again" (screens).
 - Bodies over the limit answer 413; a record filter matching over 1000 documents answers 400 `filterTooBroad`.
 - Token requests are limited per caller and per system; a system holds at most 10 live tokens.
-- Documents expire in the scheduled job, not when the list is opened. If the scheduler does not run,
-  expiry waits for it.
+- Documents expire in the scheduled job; opening a list also expires the reader's tenant, at most
+  once a minute, so expiry still happens if the scheduler is not set up.
 
 ## Rolling back
 
