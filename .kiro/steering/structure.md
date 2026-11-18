@@ -5,7 +5,7 @@ description: Where code lives in this repository and where new code goes. Read b
 ---
 # Structure
 
-See `docs/architecture/ARCHITECTURE.md` for the map and the "where do I change X" table. Short version:
+See `docs/architecture/code-organization.md` for the map and the "where do I change X" table, and `docs/development.md` for step-by-step recipes. Short version:
 
 | Need | Put it in |
 | --- | --- |

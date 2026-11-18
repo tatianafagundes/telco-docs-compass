@@ -8,7 +8,8 @@
 - [x] Prompt 10 – Admin: document types (inherit/change/lock triad, unsaved bar, floors), policies, Tenants (counts only), tenant submenu
 - [x] Prompt 11 – legal hold dialogs with reference, Holds and retention page, delete permanently, expiry on listing
 - [x] Prompt 12 – hardening pass: layouts 1440/1920 light+dark, keyboard order, icon names, isolation proofs, quick security scan, banned-phrase check, reset test data, held-delete block
-- [ ] Deep security scan (waits on your go-ahead)
+- [x] Hardening pass (2026-11-17): tenant isolation, checked writes, idempotency that runs once, API and token limits, one rule per business decision, split services, docs
+- [ ] Human security review
 - [ ] 200% zoom and screen-reader walkthrough by a person
 - [ ] Add as new version from the upload dialog
 - [x] Prompt 05 – Add documents: button, drop, paste, dialog, simulated pipeline, error actions; site surveys tested on O-7731
@@ -22,4 +23,4 @@
 - [x] TMF667 API: read, register, change details, status path, legal hold, download links, document types, event hub; Admin › Connected systems (keys, rotate, disconnect)
 - [x] TMF667: rate limits per system key; OAuth client sign-in
 - [x] TMF667 v4 conformance audit findings (four-eyes over API, category, document links, batch events, spec fields)
-- [ ] TMF667: per-system integration guides and test scripts for Ticket management, CRM, CPQ
+- [ ] TMF667: per-system integration guides and test scripts for Ticket management, CRM, CPQ still to do
