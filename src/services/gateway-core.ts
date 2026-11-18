@@ -8,10 +8,10 @@
 // gateway-patch.ts, gateway-changes.ts and gateway-hub.ts.
 import { decideRate, rateHeaders, rateKind, retryGuidance } from "@/services/rate-limit-rules";
 import { z } from "zod";
-import { resolvesPublic } from "@/services/gateway-fetch";
+
 import { readRequestText, type Limited } from "@/services/gateway-body";
 import type { Db } from "@/services/seam-runtime";
-import { MAX_INLINE_BYTES } from "@/services/gateway-create-input";
+
 import {
   hasScope,
   readBearer,
