@@ -37,7 +37,7 @@ describe("masterRetentionFloor with bad data", () => {
       masterRetentionFloor(db([{ id: "t", parent_tenant_id: "ghost" }]).asDb(), "t"),
     ).rejects.toBeInstanceOf(DatabaseError);
   });
-  it.each([["30"], [-5], [1.5], [true]])("throws for a floor of %j", async (bad) => {
+  it.each([["30"], [-5], [-1], [1.5], [true]])("throws for a floor of %j", async (bad) => {
     const d = db([
       { id: "t", parent_tenant_id: "m" },
       { id: "m", hard_floors: { minRetentionDays: bad } },

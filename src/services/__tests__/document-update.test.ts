@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FakeDb } from "@/test/fake-db";
-import { holdColumns, updateDocument } from "@/services/document-update";
+import { holdColumns, updateDocument, updateDocumentIf } from "@/services/document-update";
 import { DatabaseError } from "@/services/shared/must";
 
 const NOW = "2026-11-17T10:00:00.000Z";
@@ -51,5 +51,58 @@ describe("updateDocument", () => {
     const err = await updateDocument(db.asDb(), "a", {}, "testing").catch((e: unknown) => e);
     expect(err).toBeInstanceOf(DatabaseError);
     expect((err as Error).message).toBe("database error while testing");
+  });
+});
+
+describe("updateDocumentIf", () => {
+  const db = () =>
+    new FakeDb({ documents: [{ id: "a", tenant_id: "t", status: "draft", retain_until: null }] });
+  const where = (exp: Record<string, string | boolean | null>) => ({
+    id: "a",
+    tenantId: "t",
+    expect: exp,
+  });
+  it("updates when the row still matches, and says so", async () => {
+    const d = db();
+    expect(
+      await updateDocumentIf(
+        d.asDb(),
+        where({ status: "draft", retain_until: null }),
+        { status: "approved" },
+        "x",
+      ),
+    ).toBe(true);
+    expect(d.rows("documents")[0]?.["status"]).toBe("approved");
+  });
+  it.each([[{ status: "approved" }], [{ retain_until: "2030-01-01" }]])(
+    "does nothing when %j no longer matches",
+    async (exp) => {
+      const d = db();
+      expect(await updateDocumentIf(d.asDb(), where(exp), { status: "approved" }, "x")).toBe(false);
+      expect(d.rows("documents")[0]?.["status"]).toBe("draft");
+    },
+  );
+  it("does nothing for another tenant", async () => {
+    const d = db();
+    expect(
+      await updateDocumentIf(
+        d.asDb(),
+        { id: "a", tenantId: "other", expect: {} },
+        { status: "archived" },
+        "x",
+      ),
+    ).toBe(false);
+  });
+  it("refuses an expectation with no value instead of dropping the condition", async () => {
+    const d = db();
+    await expect(
+      updateDocumentIf(
+        d.asDb(),
+        where({ status: undefined as unknown as string }),
+        { status: "archived" },
+        "x",
+      ),
+    ).rejects.toThrow("no value to expect");
+    expect(d.rows("documents")[0]?.["status"]).toBe("draft");
   });
 });

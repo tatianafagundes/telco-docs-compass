@@ -27,10 +27,13 @@ export const tokenLimiters = {
   byAddress: createWindowLimiter(TOKEN_REQUESTS_PER_ADDRESS_PER_MINUTE, 60_000),
   bySystem: createWindowLimiter(TOKEN_REQUESTS_PER_SYSTEM_PER_MINUTE, 60_000),
 };
-/** The address the platform in front of the app reports for the caller; one shared bucket when there is none. */
+/**
+ * The address the platform in front of the app reports for the caller. Only that header is
+ * trusted: X-Forwarded-For is written by the caller, so using it would let anyone pick their own
+ * budget. Without it, every request shares one budget.
+ */
 function callerAddress(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return request.headers.get("cf-connecting-ip") ?? forwarded ?? "unknown";
+  return request.headers.get("cf-connecting-ip") ?? "unknown";
 }
 function tooMany(description = "Too many token requests. Wait a minute and try again."): Response {
   const r = oauthError(429, "temporarily_unavailable", description);

@@ -68,6 +68,12 @@ describe("deleteIfAllowed", () => {
       expect(deletedAt(db)).toBeNull();
     });
   });
+  it("does not move the deletion date of a document that is already deleted", async () => {
+    const db = world({ deleted_at: "2026-01-01T00:00:00.000Z" });
+    const err = await deleteIfAllowed(db.asDb(), TENANT, target());
+    expect(err).toMatchObject({ code: "seam.unavailable" });
+    expect(deletedAt(db)).toBe("2026-01-01T00:00:00.000Z");
+  });
   it("applies the master floor", async () => {
     const db = new FakeDb({
       documents: [row({ created_at: new Date().toISOString() })],

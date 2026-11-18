@@ -33,8 +33,11 @@ export async function updateDocumentIf(
   what: string,
 ): Promise<boolean> {
   let q = admin.from("documents").update(patch).eq("id", where.id).eq("tenant_id", where.tenantId);
-  for (const [column, value] of Object.entries(where.expect))
+  for (const [column, value] of Object.entries(where.expect)) {
+    // An undefined would silently drop the condition: a missing column is a bug, not "any value".
+    if (value === undefined) throw new Error(`updateDocumentIf: no value to expect for ${column}`);
     q = value === null ? q.is(column, null) : q.eq(column, value);
+  }
   const rows = must(await q.select("id"), what);
   return (rows?.length ?? 0) > 0;
 }

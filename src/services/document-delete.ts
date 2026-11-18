@@ -47,7 +47,11 @@ export async function deleteIfAllowed(
     {
       id: doc.id,
       tenantId,
-      expect: { legal_hold: doc.legal_hold, retain_until: doc.retain_until ?? null },
+      expect: {
+        legal_hold: doc.legal_hold,
+        retain_until: doc.retain_until ?? null,
+        deleted_at: null,
+      },
     },
     { deleted_at: new Date().toISOString() },
     "deleting a document",

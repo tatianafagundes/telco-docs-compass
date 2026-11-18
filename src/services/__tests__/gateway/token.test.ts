@@ -180,6 +180,13 @@ describe("limits on asking for tokens", () => {
     // Even the right key is refused from that address until the minute is over.
     expect((await ask(from("203.0.113.9"))).status).toBe(429);
   });
+  it("does not let the caller choose its budget with X-Forwarded-For", async () => {
+    await buildWorld();
+    let last = 0;
+    for (let i = 0; i <= TOKEN_REQUESTS_PER_ADDRESS_PER_MINUTE; i++)
+      last = (await ask({ "x-forwarded-for": `203.0.113.${i}` }, "erad_" + "z".repeat(24))).status;
+    expect(last).toBe(429);
+  });
   it("keeps the budget of one address apart from another", async () => {
     const db = await buildWorld();
     for (let i = 0; i < TOKEN_REQUESTS_PER_ADDRESS_PER_MINUTE + 1; i++) {

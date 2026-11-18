@@ -68,6 +68,11 @@ export function createWindowLimiter(limit: number, windowMs: number): WindowLimi
     hit(key, now = Date.now()) {
       if (windows.size > LIMITER_MAX_KEYS) {
         for (const [k, w] of windows) if (now - w.start >= windowMs) windows.delete(k);
+        // Still full of live keys (a flood of distinct ones): drop the oldest so memory stays bounded.
+        for (const k of windows.keys()) {
+          if (windows.size <= LIMITER_MAX_KEYS) break;
+          windows.delete(k);
+        }
       }
       const current = windows.get(key);
       const w = current && now - current.start < windowMs ? current : { start: now, count: 0 };
