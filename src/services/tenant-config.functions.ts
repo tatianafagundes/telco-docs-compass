@@ -5,16 +5,13 @@ import type { Json } from "@/integrations/supabase/types";
 import { can, seamError, type SeamResult } from "@/services/document-rules";
 import { audit, forbidden, runRead, type Db } from "@/services/seam-runtime";
 import { type HardFloors, type InheritMode } from "@/services/tenant-rules";
+import { adminClient } from "@/services/shared/server-context";
+export { adminClient };
 /**
  * Shared configuration between the group and its countries. The group admin sees counts and
  * settings of its child tenants, never document names or content. Writes check role, locks,
  * inheritance mode and hard floors here, then use the service role and write an audit event.
  */
-
-export async function adminClient(): Promise<Db> {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin;
-}
 
 export interface TenantInfo {
   id: string;

@@ -6,16 +6,13 @@ import { pageSchema, purgeSchema } from "@/schemas/document";
 import { can, isSampleStorage, seamError, type SeamResult } from "@/services/document-rules";
 import { purgeRefusalCode, purgeState } from "@/services/document-actions";
 import { audit, forbidden, runRead, runWrite, type Db } from "@/services/seam-runtime";
+import { adminClient, todayUtc } from "@/services/shared/server-context";
 /** Legal holds, retention overview, deletion history and permanent deletion. Manager and above. */
 
 const PAGE = 20;
 const DAY = 86_400_000;
 
-async function adminClient(): Promise<Db> {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin;
-}
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => todayUtc();
 
 async function names(db: Db, ids: (string | null)[]): Promise<Map<string, string>> {
   const unique = [...new Set(ids.filter((x): x is string => !!x))];

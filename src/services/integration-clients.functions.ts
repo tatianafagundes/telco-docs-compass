@@ -4,9 +4,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { seamError, type SeamResult } from "@/services/document-rules";
-import { forbidden, runRead, type Db } from "@/services/seam-runtime";
+import { forbidden, runRead } from "@/services/seam-runtime";
 import { LIMIT_BOUNDS } from "@/services/rate-limit-rules";
 import { SCOPES, sha256Hex, SYSTEM_KINDS } from "@/services/tmf667-mapper";
+import { adminClient } from "@/services/shared/server-context";
 
 /**
  * Connected systems: country admins create keys for Order care, Ticket management, CRM or CPQ.
@@ -42,11 +43,6 @@ function newKey(): { key: string; prefix: string } {
     .replace(/=+$/, "");
   const key = `erad_${body}`;
   return { key, prefix: key.slice(0, 10) };
-}
-
-async function adminClient(): Promise<Db> {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin;
 }
 
 const map = (r: {

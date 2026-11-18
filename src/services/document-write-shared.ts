@@ -5,6 +5,8 @@
 import type { Json } from "@/integrations/supabase/types";
 import { seamError, type SeamErr, type SpecCharacteristic } from "@/services/document-rules";
 import { type Db } from "@/services/seam-runtime";
+import { adminClient, todayUtc } from "@/services/shared/server-context";
+export { adminClient };
 export const BUCKET = "documents";
 
 export interface UploadTicket {
@@ -20,12 +22,7 @@ export type ContentResult =
 export const DOC_COLUMNS =
   "id, tenant_id, name, document_type, status, pipeline_state, pipeline_detail, sensitivity, signature_level, effective_date, valid_to, expiry_date, legal_hold, hold_reason, retain_until, characteristic, current_version_id, created_by, created_at, updated_at";
 
-export async function adminClient(): Promise<Db> {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin;
-}
-
-export const today = () => new Date().toISOString().slice(0, 10);
+export const today = () => todayUtc();
 export const fail = (
   code: string,
   category: Parameters<typeof seamError>[1],

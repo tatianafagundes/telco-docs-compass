@@ -3,16 +3,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { can, seamError, type SeamErr } from "@/services/document-rules";
-import { audit, forbidden, loadRole, runWrite, type Db } from "@/services/seam-runtime";
+import { audit, forbidden, loadRole, runWrite } from "@/services/seam-runtime";
 import { nextPipelineState, simulatedOutcome } from "@/services/upload-rules";
 import type { PipelineState } from "@/schemas/document";
+import { adminClient } from "@/services/shared/server-context";
 
 const BUCKET = "documents";
-
-async function adminClient(): Promise<Db> {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin;
-}
 
 const fail = (code: string): SeamErr => ({ ok: false, error: seamError(code, "rejected", "none") });
 

@@ -6,6 +6,7 @@
 //
 // Does not check who may delete (role or scope), does not write the activity log, and does not
 // know about HTTP: callers do those.
+import { todayUtc } from "@/services/shared/server-context";
 import { deleteBlocker, seamError, type SeamError } from "@/services/document-rules";
 import { updateDocumentIf } from "@/services/document-update";
 import { masterRetentionFloor } from "@/services/retention-floor";
@@ -30,7 +31,7 @@ async function blockerFor(admin: Db, tenantId: string, doc: DeleteTarget) {
     retainUntil: doc.retain_until ?? null,
     createdAt: doc.created_at,
     minRetentionDays: await masterRetentionFloor(admin, tenantId),
-    today: new Date().toISOString().slice(0, 10),
+    today: todayUtc(),
   });
 }
 
