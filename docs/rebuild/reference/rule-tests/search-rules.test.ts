@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { can } from "@/services/document-rules";
 import {
   BULK_LEASE_SECONDS,
   bulkSkipReason,
+  bulkStartCapability,
   leaseExpired,
   bulkSummary,
   countLabel,
@@ -127,5 +129,43 @@ describe("leaseExpired", () => {
   it("is true when there is no usable timestamp (a holder we cannot vouch for)", () => {
     expect(leaseExpired(undefined, now)).toBe(true);
     expect(leaseExpired("not a date", now)).toBe(true);
+  });
+});
+
+describe("bulkStartCapability: starting a job needs what each document will need", () => {
+  it.each([
+    ["placeHold", undefined, "manage"],
+    ["releaseHold", undefined, "manage"],
+    ["setSensitivity", undefined, "edit"],
+    ["transition", "in_review", "edit"],
+    ["transition", "approved", "review"],
+    ["transition", "effective", "manage"],
+  ] as const)("%s %s needs %s", (action, to, capability) => {
+    expect(bulkStartCapability(action, to)).toBe(capability);
+  });
+  it("agrees with the per-document check: whoever may start a job is not skipped for their role", () => {
+    for (const role of ["viewer", "contributor", "reviewer", "manager"] as const) {
+      for (const [action, to] of [
+        ["placeHold", undefined],
+        ["setSensitivity", undefined],
+        ["transition", "approved"],
+      ] as const) {
+        const mayStart = can(role, bulkStartCapability(action, to));
+        const facts = {
+          status: "in_review",
+          legalHold: false,
+          sensitivity: "internal",
+          pendingRequired: 0,
+          isOwn: false,
+        } as const;
+        const skip = bulkSkipReason(
+          role,
+          action,
+          { ...(to ? { to } : {}), sensitivity: "public" },
+          facts,
+        );
+        expect(mayStart).toBe(skip !== "noPermission");
+      }
+    }
   });
 });

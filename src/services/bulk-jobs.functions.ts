@@ -10,6 +10,7 @@ import { can, seamError, type SeamResult } from "@/services/document-rules";
 import { forbidden, runRead, type Db } from "@/services/seam-runtime";
 import {
   BULK_ACTIONS,
+  bulkStartCapability,
   BULK_LIMIT,
   searchFiltersSchema,
   SENSITIVITIES,
@@ -53,7 +54,7 @@ export const startBulkJob = createServerFn({ method: "POST" })
   .inputValidator((input: z.input<typeof bulkInput>) => bulkInput.parse(input))
   .handler(async ({ data, context }): Promise<SeamResult<BulkJob>> =>
     runRead(context, "bulk.start", null, async (env) => {
-      if (!can(env.role, "edit")) return forbidden();
+      if (!can(env.role, bulkStartCapability(data.action, data.to))) return forbidden();
       // Resolve ids as the person, so a job can only ever touch documents they can see.
       let ids: string[];
       if (data.filters) {

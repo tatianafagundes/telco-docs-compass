@@ -8,6 +8,7 @@ import {
   isTransitionAllowed,
   transitionCapability,
   type AppRole,
+  type Capability,
 } from "@/services/document-rules";
 
 export const PAGE_SIZE = 50;
@@ -178,6 +179,15 @@ export interface BulkParams {
   sensitivity?: string;
 }
 
+/**
+ * What a person must be allowed to do to start a bulk change at all. It is the same capability the
+ * per-document check asks for, so nobody can start a job that would skip every document.
+ */
+export function bulkStartCapability(action: BulkAction, to?: DocStatus): Capability {
+  if (action === "placeHold" || action === "releaseHold") return "manage";
+  if (action === "setSensitivity") return "edit";
+  return to ? transitionCapability(to) : "edit";
+}
 /** Same role and status rules as the single-document actions. Null means the change can go ahead. */
 export function bulkSkipReason(
   role: AppRole,
