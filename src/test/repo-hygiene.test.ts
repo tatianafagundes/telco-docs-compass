@@ -80,7 +80,12 @@ describe(`files in src/services stay within ${MAX_LINES} lines`, () => {
 
 // ---------- 2. docs point at real files ----------
 /** Docs that must exist: if one is renamed, the check must not quietly stop covering it. */
-const REQUIRED_DOCS = ["README.md", "AGENTS.md", "src/routes/api/public/tmf-api/AGENTS.md"];
+const REQUIRED_DOCS = [
+  "README.md",
+  "AGENTS.md",
+  "docs/development.md",
+  "src/routes/api/public/tmf-api/AGENTS.md",
+];
 const DOCS = [
   ...REQUIRED_DOCS,
   "roadmap.md",
@@ -248,6 +253,7 @@ const ENGLISH_ONLY_FILES = [
   ...walk(".kiro/steering", () => true),
   "README.md",
   "AGENTS.md",
+  "docs/development.md",
   "roadmap.md",
 ];
 
