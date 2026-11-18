@@ -17,8 +17,9 @@ Sign in as a manager of the Sweden tenant and as its admin, then check:
 - Upload: open a record (for example order O-7731), "Add documents", send a PDF. It appears with version 1
   and leaves "uploading" once the file is in. Also try a file type the document type does not accept
   (refused with a reason).
-- Finding where to add: on Documents, "Add documents" opens "Choose a record"; type `O-77`, choose the order, and the
-  record page opens with Add documents focused and a hint naming the record. As a viewer the button is
+- Finding where to add: on Documents, "Add documents" opens "Choose a record"; type `O-77`, choose the order, then
+  "Choose files" and a PDF. The order's page opens with the type step "Adding to O-7731 …". Cancel it: focus is on
+  Add documents and the hint offers "Choose a different record". As a viewer the button is
   unavailable with its reason. The side panel and each result row link to the document's record.
 
 ## 2. API end to end (automated)

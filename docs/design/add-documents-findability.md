@@ -1,6 +1,6 @@
 # Spec: make "add documents" easy to find
 
-Status: built 2026-11-18, reviewed by design-review and ux-researcher (heuristic, no users). Changes after review: backdrop on this dialog, copy names orders, quotes and accounts instead of "record", "in" before the record in result rows, "Trouble ticket". Open: a usability test of the two-step flow (choose a record, then pick files); axe reports contrast on the page behind the dimmed dialog, which is inert while it is open. Language of all UI strings below: English (en-US), sentence case.
+Status: built 2026-11-18 and reworked the same day after review by design-review and ux-researcher (heuristic, no users). The dialog now has two steps: choose the order, quote or account, then choose the files (the picker opens from that click, so there is no second "Add documents"); the files are handed to the record page in memory, which opens the type step at once. "Choose a different record" is in step 2, in the arrival hint, and back after cancelling the type step. Contrast hits behind the dimmed dialog are inactive content (see `docs/architecture/accessibility.md`). Open: a usability test (task 3 of the UX plan) and a screen-reader pass by a person. Flow B in the table below is the one built.
 Scope: three UI changes, no new database work. No code in this file.
 
 ## Why
