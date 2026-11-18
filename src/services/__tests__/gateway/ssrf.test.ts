@@ -50,6 +50,25 @@ describe("isSafeCallback looks at the URL only", () => {
     expect(isSafeCallback(url)).toBe(safe);
   });
 
+  it.each([
+    ["a name with a trailing dot", "https://localhost./in"],
+    ["a subdomain of localhost", "https://app.localhost/in"],
+    ["an internal-only name", "https://db.internal/in"],
+    ["carrier-grade NAT", "https://100.64.0.9/in"],
+    ["the 'this network' range", "https://0.0.0.0/in"],
+    ["a decimal loopback (the URL parser turns it into 127.0.0.1)", "https://2130706433/in"],
+    ["a hex loopback", "https://0x7f000001/in"],
+    ["a shortened loopback", "https://127.1/in"],
+    ["multicast", "https://224.0.0.1/in"],
+    ["benchmarking", "https://198.18.0.1/in"],
+    ["credentials in the address", "https://user:secret@hooks.example.com/in"],
+  ])("refuses %s", (_label, url) => {
+    expect(isSafeCallback(url)).toBe(false);
+  });
+  it("is not fooled by capitals or a trailing dot on a public name", () => {
+    expect(isSafeCallback("https://Hooks.Example.COM./in")).toBe(true);
+    expect(isSafeCallback("https://LOCALHOST/in")).toBe(false);
+  });
   it("lets 172.32.x through: that range is public", () => {
     expect(isSafeCallback("https://172.32.0.1/in")).toBe(true);
   });

@@ -30,20 +30,29 @@ export function readBearer(header: string | null): string | null {
   return m?.[1] ?? null;
 }
 
-export { isPrivateIp } from "@/services/ip-rules";
-/** Callback addresses must be https and not point at internal hosts. */
+import { isPrivateIp } from "@/services/ip-rules";
+export { isPrivateIp };
+/** Names that only ever point inside a network. */
+const INTERNAL_NAMES = /(^|\.)(localhost|local|internal|intranet|lan|home\.arpa)$/;
+
+/**
+ * The address on its own, before any DNS lookup: https, no credentials in it, not an internal
+ * name, and not a private IP address (`isPrivateIp`, the one classification used everywhere).
+ * IPv6 literals are refused outright. A name that passes still has its DNS answers checked
+ * (`resolvesPublic` in gateway-fetch.ts).
+ */
 export function isSafeCallback(url: string): boolean {
+  let u: URL;
   try {
-    const u = new URL(url);
-    if (u.protocol !== "https:") return false;
-    const h = u.hostname;
-    return !(
-      h === "localhost" ||
-      h.endsWith(".local") ||
-      /^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h) ||
-      h.includes(":")
-    );
+    u = new URL(url);
   } catch {
     return false;
   }
+  if (u.protocol !== "https:" || u.username || u.password) return false;
+  // The URL parser lower-cases the host and turns decimal or hex IPv4 forms into dotted ones.
+  const host = u.hostname.replace(/\.+$/, "");
+  if (!host || host.includes(":") || host.startsWith("[")) return false;
+  if (INTERNAL_NAMES.test(host)) return false;
+  if (/^[\d.]+$/.test(host)) return !isPrivateIp(host);
+  return true;
 }
