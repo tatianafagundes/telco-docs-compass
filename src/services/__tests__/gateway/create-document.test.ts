@@ -103,6 +103,14 @@ describe("registering a document with inline content", () => {
     ]);
   });
 
+  it("names the new document in a Location header", async () => {
+    await world();
+    const res = await create();
+    const doc = await json(res);
+    expect(res.headers.get("Location")).toBe(doc["href"]);
+    expect(String(doc["href"])).toContain(`/document/${doc["id"]}`);
+  });
+
   it("defaults the sensitivity to internal and keeps external identifiers and characteristics", async () => {
     const db = await world();
     await create({

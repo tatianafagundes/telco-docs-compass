@@ -75,27 +75,8 @@ export interface SystemCtx {
   requestId: string;
 }
 
-function reply(
-  status: number,
-  body: unknown,
-  requestId: string,
-  extra: Record<string, string> = {},
-): Response {
-  return new Response(status === 204 ? null : JSON.stringify(body), {
-    status,
-    headers: {
-      "Content-Type": "application/json;charset=utf-8",
-      "X-Request-ID": requestId,
-      "Cache-Control": "no-store",
-      ...extra,
-    },
-  });
-}
-
-export function errorReply(e: TmfError, requestId: string): Response {
-  return reply(Number(e.status), e, requestId);
-}
-
+import { errorReply, reply } from "@/services/gateway-reply";
+export { errorReply };
 const DOC_COLS =
   "id, tenant_id, name, description, document_type, status, sensitivity, legal_hold, effective_date, expiry_date, created_at, updated_at, current_version_id, characteristic, external_identifier, retain_until, bundle_id, registered_by_client";
 
