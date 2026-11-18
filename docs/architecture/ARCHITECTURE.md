@@ -27,7 +27,7 @@ flowchart LR
 - **Server functions return `SeamResult`** (`{ ok, data }` or `{ ok: false, error }`). `api.ts` turns a failure into a typed error the screen can show.
 - **Rules are pure functions** with no I/O, called by the screens (to decide what to show), the server functions, the TMF gateway and the workers. That is why "can this person approve?" has one answer everywhere.
 - **Reads run as the caller**, so row-level security does the filtering. **Writes use the privileged client**, but only after `runWrite` has checked visibility, tenant and idempotency and the handler has checked the role. Each write records its own activity entry.
-- **Three entry points write**: screens (through `runWrite`), the TMF API (through `tmf-gateway.ts`, pinned to the key's tenant) and bulk changes (`bulk-worker.ts`, pinned to the job's tenant). A business rule is applied at each of them: see "Adding or changing a rule about a document" below.
+- **Three entry points write**: screens (through `runWrite`), the TMF API (through the `gateway-*.ts` files, pinned to the key's tenant) and bulk changes (`bulk-worker.ts`, pinned to the job's tenant). A business rule is applied at each of them: see "Adding or changing a rule about a document" below.
 
 ## How a write travels
 
@@ -74,7 +74,7 @@ stateDiagram-v2
 
 ## Documents for other systems (TMF667)
 
-Routes under `src/routes/api/public/tmf-api/` are thin. `tmf-gateway.ts` checks the system key first, pins every query to that key's tenant, applies the per-system rate limit, and then uses the same pure rules as the screens. `tmf667-mapper.ts` maps our internal lifecycle to TMF status and event names. The standard path is `document/v4`; `documentManagement/v4` is a legacy alias. Details: `src/routes/api/public/tmf-api/AGENTS.md`.
+Routes under `src/routes/api/public/tmf-api/` are thin. `gateway-core.ts` (`authenticate`) checks the system key first, pins every query to that key's tenant, applies the per-system rate limit, and then uses the same pure rules as the screens. `tmf667-mapper.ts` maps our internal lifecycle to TMF status and event names. The standard path is `document/v4`; `documentManagement/v4` is a legacy alias. Details: `src/routes/api/public/tmf-api/AGENTS.md`.
 
 Limits on what a caller can make the server do (constants in the files named):
 - Request bodies and fetched files are read up to a limit, never in full: 50 KB for ordinary bodies, about 7 MB for a registration with inline content, 4 KB for the token request, 25 MB for a file fetched from an address (`gateway-body.ts`, `gateway-create-input.ts`, `gateway-fetch.ts`). A body over the limit is answered 413.
@@ -90,10 +90,10 @@ Limits on what a caller can make the server do (constants in the files named):
 | The check-details journey and the approve gate | `review-flow-rules.ts`, `review-rules.ts`, and `pendingRequiredDetails` in `document-rules.ts` |
 | Upload rules (types, size, duplicates) | `src/services/upload-rules.ts`; the simulated pipeline is in `pipeline.functions.ts` |
 | Search, filters, bulk changes | `search-rules.ts`, `search.functions.ts`, `bulk-worker.ts` |
-| Legal holds, deletion, restore | `setHold`, `deleteDocument`, `restoreDeleted` in `document-write.functions.ts`; the same in `tmf-gateway.ts`; button states in `document-actions.ts` |
+| Legal holds, deletion, restore | `setHold`, `deleteDocument`, `restoreDeleted` in `document-write.functions.ts`; the same in `gateway-changes.ts`; button states in `document-actions.ts` |
 | Holds and retention overview, permanent deletion, expiry | `retention.functions.ts` |
 | Group and country settings | `tenant-rules.ts`, `tenant-config.functions.ts` |
-| The API other systems use | `src/services/tmf-gateway.ts`, `tmf667-mapper.ts`, `contracts/seams/tmf667-document.openapi.yaml` |
+| The API other systems use | `src/services/tmf-gateway.ts` (names the `gateway-*.ts` files), `tmf667-mapper.ts`, `contracts/seams/tmf667-document.openapi.yaml` |
 | Rate limits per system | `rate-limit-rules.ts` (the rule), `integration-clients.functions.ts` (where an admin sets them) |
 | Event delivery and retries | `event-delivery-rules.ts`, `tmf-events.ts` |
 | The order of checks for every write | `src/services/seam-runtime.ts` |
@@ -123,7 +123,7 @@ A rule such as "approval is blocked when X" lives in more than one entry point. 
 1. The pure rule (`document-rules.ts` or `review-rules.ts`) and its test.
 2. What the screen shows: `document-actions.ts`, `review-flow-rules.ts`.
 3. The server function that enforces it: the handler in `document-write.functions.ts`.
-4. The TMF API: `applyTransition` and the related functions in `tmf-gateway.ts`.
+4. The TMF API: `applyTransition` and the related functions in `gateway-changes.ts`.
 5. Bulk changes: `bulkSkipReason` in `search-rules.ts` and `bulk-worker.ts`.
 
 ## Known limits

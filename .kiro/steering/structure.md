@@ -14,7 +14,7 @@ See `docs/architecture/ARCHITECTURE.md` for the map and the "where do I change X
 | Data hook for a screen | `src/hooks/` |
 | A rule about documents, roles, status, search, upload | a pure file in `src/services/` (`*-rules.ts`) with a test |
 | Something a screen asks the server to do | a server function in `src/services/*.functions.ts` |
-| An endpoint for other systems | a thin route under `src/routes/api/public/tmf-api/`, with the logic in `src/services/tmf-gateway.ts` and the mapping in `tmf667-mapper.ts` |
+| An endpoint for other systems | a thin route under `src/routes/api/public/tmf-api/`, with the logic in a `src/services/gateway-*.ts` file (`tmf-gateway.ts` lists them) and the mapping in `tmf667-mapper.ts` |
 | Background work | a route under `src/routes/api/public/` called by the scheduler, with the work in a service file |
 | A test helper | `src/test/` |
 | A decision and its reason | `docs/decisions/` (one short file) |

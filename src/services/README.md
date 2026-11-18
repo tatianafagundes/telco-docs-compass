@@ -25,7 +25,7 @@ Ways a document is changed (each applies the pure rules):
 | File                                                                                            | Entry                                                                             |
 | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | `document-write.functions.ts`                                                                   | Screens (one document at a time), through `runWrite` in `seam-runtime.ts`.        |
-| `tmf-gateway.ts` (+ `tmf667-mapper.ts`, `gateway-create-input.ts`, `gateway-document-store.ts`) | The public TMF API used by other systems, pinned to the tenant of the system key. |
+| `tmf-gateway.ts` (lists the `gateway-*.ts` files) + `tmf667-mapper.ts` | The public TMF API used by other systems, pinned to the tenant of the system key. Start at `gateway-core.ts`. |
 | `bulk-worker.ts` (+ `search.functions.ts` to start a job)                                       | Many documents at once, in batches.                                               |
 
 Helpers, and when to use each:
@@ -41,7 +41,7 @@ Helpers, and when to use each:
 | Store the first version of a document the API registered       | `storeFirstVersion` in `gateway-document-store.ts`.                                                                  |
 | Expiry and cleanup of old keys and tokens                      | `runMaintenance` in `maintenance.ts`, called by `runScheduled` in `scheduled-run.ts`. Never from a person's request. |
 
-Three ways to use `must()`, depending on the edge: let it throw inside `runWrite` (screens); catch `DatabaseError` and answer 503 (the API, see `runOrUnavailable` in `tmf-gateway.ts`); catch it and return a result (`storeFirstVersion`, `deleteIfAllowed`).
+Three ways to use `must()`, depending on the edge: let it throw inside `runWrite` (screens); catch `DatabaseError` and answer 503 (the API, see `runOrUnavailable` in `gateway-idempotency.ts`); catch it and return a result (`storeFirstVersion`, `deleteIfAllowed`).
 
 ## Main flow
 
@@ -66,6 +66,6 @@ Run `bun run check` (lint, types, tests, build). Tests that need no database use
 
 - Reading `data` and ignoring `error`: the Supabase client never throws, so a failed query looks like "no rows". Wrap it in `must()`.
 - Deciding from one read and writing without a condition: use `updateDocumentIf`.
-- Adding code to `tmf-gateway.ts` or `document-write.functions.ts` instead of a new file.
+- Adding code to `document-write.functions.ts` or `tmf667-mapper.ts`, which are over the size limit, instead of a new file.
 - Doing housekeeping inside a request: it belongs in `maintenance.ts`.
 - Putting a rule in a handler: rules are pure functions in a `*-rules.ts` file, so every entry point gives the same answer.
