@@ -10,7 +10,7 @@ Where the code is, how it is named, which layer may call which, and where a chan
 | `contracts/` | `model/`: JSON Schemas of the document model. `seams/`: OpenAPI of the screen seam (`document.openapi.yaml`) and of the public API (`tmf667-document.openapi.yaml`) | us, with the code that implements them |
 | `public/` | Static files, including `tmf-schemas/` served to API callers | us |
 | `e2e/` | End-to-end scripts in Python (three of them drive a browser with Playwright) and two TypeScript helpers, run against a running app | us |
-| `docs/` | `architecture/`, `operations/`, `decisions/`, `development.md`, and `rebuild/` (handbook for a later Java rebuild, with copies kept in sync by `scripts/sync-rebuild.mjs`) | us |
+| `docs/` | `architecture/`, `operations/`, `decisions/`, `integration/` (guide for connected systems), `development.md`, and `rebuild/` (handbook for a later Java rebuild, with copies kept in sync by `scripts/sync-rebuild.mjs`) | us |
 | `drizzle/` | Database schema (`schema.ts`) and migrations | Lovable only |
 | `supabase/` | Supabase project settings | Lovable only |
 | `.kiro/steering/` | Rules AI assistants load (invariants, product, tech, structure) | us, reviewed by a human |

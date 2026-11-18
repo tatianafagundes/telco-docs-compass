@@ -45,6 +45,7 @@ Read in this order when you are new:
 | `docs/architecture/security-baseline.md`, `docs/architecture/accessibility.md`, `docs/architecture/limits.md` | Security controls, accessibility rules, every limit and why |
 | `.kiro/steering/invariants.md` | The rules no change may break |
 | `docs/decisions/` | One short file per decision, with its reason |
+| `docs/integration/tmf667-api.md` | For a team connecting another system: keys, tokens, endpoints, idempotency, events and their signature, errors |
 | `src/services/README.md`, `src/routes/api/public/tmf-api/AGENTS.md` | The server logic and the public API, in detail |
 | `AGENTS.md` | Project and repository rules for people and AI assistants |
 | `roadmap.md` | What is open |

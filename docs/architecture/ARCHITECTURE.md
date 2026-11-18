@@ -117,7 +117,19 @@ stateDiagram-v2
   expired --> archived: manage
 ```
 
-The forward moves are `ALLOWED_TRANSITIONS` in `document-rules.ts`; sending back from review is `reportProblem`, not a transition. Approved and effective documents keep their confirmed details, dates and file versions (`contentProtected`), while name, description, sensitivity and links stay editable (`metadataPatchAllowed`). Superseded, expired and archived documents are frozen. Deletion is separate from the status: a soft delete (with restore), then permanent deletion by an admin, both blocked by a legal hold and the keep-until date.
+The forward moves are `ALLOWED_TRANSITIONS` in `document-rules.ts`; sending back from review is `reportProblem`, not a transition. Approved and effective documents keep their confirmed details, dates and file versions (`contentProtected`), while name, description, sensitivity, external ids and links stay editable (`metadataPatchAllowed`). Superseded, expired and archived documents are frozen. Deletion is separate from the status: a soft delete (with restore), then permanent deletion by an admin, both blocked by a legal hold and the keep-until date.
+
+## One change end to end: approving a document
+
+1. A reviewer presses Approve in the document panel (`src/components/documents/document-actions-bar.tsx`) or at the end of the check-details page (`src/routes/_authenticated/records.$entityId_.review.$docId.tsx`). The button is offered only when `document-actions.ts` says so, with the reason text otherwise.
+2. The hook `useDocumentActions` (`src/hooks/use-document-actions.ts`) calls `api.transition({ id, to: "approved" })`. `api.ts` adds a fresh idempotency key and calls the server function.
+3. `transition` in `document-status.functions.ts` runs `runWrite` with `scope: { kind: "doc", id }`: caller's role and tenant, the document is visible and in the same tenant, the key is reserved.
+4. The handler checks the role (`can(role, transitionCapability("approved"))`, reviewer and above), the move (`isTransitionAllowed`), then `approvalRefusal` in `document-approval.ts`: four-eyes first, then the required details.
+5. `updateDocumentIf` sets the status only if it is still `in_review`; if someone moved it first, the answer is a refused move, not an overwrite. `audit` writes the `statusChange` activity entry.
+6. A database trigger adds a `DocumentStateChangeEvent` to `event_outbox`. The next scheduled delivery pass (`tmf-events.ts`) sends it, signed, to each subscription of that tenant whose filter matches.
+7. The answer goes back as `SeamResult`; the hook refreshes the record list and the document, and shows a toast. A refusal shows the text for its code from `src/lib/document-labels.ts`.
+
+The same approval from another system goes through `POST /document/{id}/transition`, `transitionDocument` in `gateway-changes.ts`, and the same `approvalRefusal`; from a bulk change through `bulkSkipReason` and `bulk-worker.ts`.
 
 ## Adding a document
 
@@ -128,7 +140,7 @@ The forward moves are `ALLOWED_TRANSITIONS` in `document-rules.ts`; sending back
 
 ## Documents for other systems (TMF667)
 
-Routes under `src/routes/api/public/tmf-api/` are thin. `gateway-core.ts` (`authenticate`) checks the token first, pins every query to that system's tenant, applies the per-system rate limit, and then uses the same pure rules as the screens. `tmf667-mapper.ts` maps our internal lifecycle to TMF status and event names. The standard path is `document/v4`; `documentManagement/v4` is a legacy alias. The contract is `contracts/seams/tmf667-document.openapi.yaml`. Details: `src/routes/api/public/tmf-api/AGENTS.md`.
+Routes under `src/routes/api/public/tmf-api/` are thin. `gateway-core.ts` (`authenticate`) checks the token first, pins every query to that system's tenant, applies the per-system rate limit, and then uses the same pure rules as the screens. `tmf667-mapper.ts` maps our internal lifecycle to TMF status and event names. The standard path is `document/v4`; `documentManagement/v4` is a legacy alias. The contract is `contracts/seams/tmf667-document.openapi.yaml`. Details: `src/routes/api/public/tmf-api/AGENTS.md`; the guide for teams connecting a system is `docs/integration/tmf667-api.md`.
 
 ```mermaid
 sequenceDiagram

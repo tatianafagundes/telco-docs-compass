@@ -23,4 +23,5 @@
 - [x] TMF667 API: read, register, change details, status path, legal hold, download links, document types, event hub; Admin › Connected systems (keys, rotate, disconnect)
 - [x] TMF667: rate limits per system key; OAuth client sign-in
 - [x] TMF667 v4 conformance audit findings (four-eyes over API, category, document links, batch events, spec fields)
+- [ ] TMF667: registering with `contentHash` + `uploadUrl` has no upload confirmation and no hash check; the document stays uploading (see `docs/integration/tmf667-api.md`)
 - [ ] TMF667: per-system integration guides and test scripts for Ticket management, CRM, CPQ still to do
