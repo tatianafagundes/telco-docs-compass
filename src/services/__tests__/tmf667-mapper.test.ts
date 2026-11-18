@@ -59,7 +59,12 @@ describe("toTmfDocument", () => {
     expect(t.version).toBe("2");
     expect(t.attachment.filter((a) => a.isCurrent).map((a) => a.id)).toEqual(["v2"]);
     expect(t.relatedEntity[0]?.["@referredType"]).toBe("ProductOrder");
-    expect(t.validFor).toEqual({ startDateTime: "2026-01-01" });
+    // TimePeriod values are date-times. The document is in force from the start of the effective day.
+    expect(t.validFor).toEqual({ startDateTime: "2026-01-01T00:00:00Z" });
+  });
+  it("should end validFor at the last second of the expiry day (expiry runs the day after)", () => {
+    const t = toTmfDocument("https://x.test", { ...doc, expiry_date: "2027-11-01" }, versions, []);
+    expect(t.validFor?.endDateTime).toBe("2027-11-01T23:59:59Z");
   });
   it("should drop malformed characteristics", () => {
     const t = toTmfDocument("https://x.test", doc, versions, []);

@@ -58,7 +58,15 @@ describe("document refs and category", () => {
         "@type": "DocumentRef",
       },
     ]);
-    expect(t.category).toEqual(["Manage Contract"]);
+    // TMF667 v4 types category as CategoryRef (an object with an id), not as a string.
+    expect(t.category).toEqual([
+      {
+        id: "Manage Contract",
+        name: "Manage Contract",
+        "@referredType": "Category",
+        "@type": "CategoryRef",
+      },
+    ]);
   });
   it("should omit document and category when empty", () => {
     const t = toTmfDocument("https://x.test", doc, [], []);
@@ -86,6 +94,23 @@ describe("document specification", () => {
     });
     expect(s.isBundle).toBe(false);
     expect(s.targetEntitySchema["@type"]).toBe("EradDocument");
+  });
+  it.each([
+    ["inDesign", "created"],
+    ["active", "published"],
+    ["retired", "archived"],
+    ["something new", "created"],
+    ["constructor", "created"],
+  ])("should map our status %s to the TMF DocumentSpecificationStatusType %s", (ours, tmf) => {
+    const s = toTmfSpecification("https://x.test", {
+      id: "1",
+      code: "quote",
+      name: "Quote",
+      version: "1",
+      lifecycle_status: ours,
+      definition: {},
+    });
+    expect(s.lifecycleStatus).toBe(tmf);
   });
 });
 

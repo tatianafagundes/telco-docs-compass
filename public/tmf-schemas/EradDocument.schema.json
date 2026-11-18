@@ -49,7 +49,19 @@
     "creationDate": { "type": "string", "format": "date-time" },
     "lastUpdate": { "type": "string", "format": "date-time" },
     "version": { "type": "string" },
-    "category": { "type": "array", "items": { "type": "string" } },
+    "category": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "@referredType": { "type": "string" },
+          "@type": { "type": "string" }
+        }
+      }
+    },
     "documentSpecification": { "$ref": "#/definitions/ref" },
     "relatedEntity": { "type": "array", "items": { "$ref": "#/definitions/ref" } },
     "relatedParty": { "type": "array", "items": { "$ref": "#/definitions/ref" } },
@@ -118,10 +130,10 @@
     "validFor": {
       "type": "object",
       "properties": {
-        "startDateTime": { "type": "string" },
-        "endDateTime": { "type": "string" }
+        "startDateTime": { "type": "string", "format": "date-time" },
+        "endDateTime": { "type": "string", "format": "date-time" }
       },
-      "description": "When the document is in force (effective and expiry date)."
+      "description": "When the document is in force, in UTC: from the start of the effective day to the end of the expiry day."
     },
     "sensitivity": {
       "type": "string",

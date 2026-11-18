@@ -14,6 +14,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import sys
 import time
 import uuid
@@ -358,6 +359,7 @@ def events(full: str, doc_id: str) -> None:
 OFFICIAL_SWAGGER = "https://raw.githubusercontent.com/tmforum-apis/TMF667_Document/master/TMF667_Document_Management_API_v4.0.0_swagger.json"
 EXTENSIONS = {"lifecycleState", "validFor", "sensitivity", "legalHold"}
 ATTACHMENT_EXT = {"contentHash", "isCurrent", "creationDate"}
+DATE_TIME = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$")
 
 
 def conforms(doc: dict, defs: dict) -> list[str]:
@@ -380,6 +382,16 @@ def conforms(doc: dict, defs: dict) -> list[str]:
                 problems.append(f"attachment field {k}")
     if doc.get("@type") != "Document" and not doc.get("@schemaLocation"):
         problems.append("extended @type without @schemaLocation")
+    # Field names are not enough: a standard field must also keep its official type.
+    for c in doc.get("category", []):
+        if not isinstance(c, dict) or "id" not in c:
+            problems.append("category is not a CategoryRef")
+    for k, v in (doc.get("validFor") or {}).items():
+        if not DATE_TIME.match(str(v)):
+            problems.append(f"validFor.{k} is not a date-time")
+    for k in ("creationDate", "lastUpdate"):
+        if k in doc and not DATE_TIME.match(str(doc[k])):
+            problems.append(f"{k} is not a date-time")
     return problems
 
 
@@ -399,6 +411,8 @@ def four_eyes_and_refs(full: str, second: str, ro: str, doc_id: str) -> None:
     check(not issues, f"documents with category/document still conform to the official v4 definition {issues[:5] or ''}")
     r, j, _ = call("GET", STD + "/documentSpecification", ro)
     check(all(s.get("isBundle") is False and s.get("targetEntitySchema") for s in j or []), "documentSpecification has isBundle and targetEntitySchema")
+    allowed = set(defs["DocumentSpecificationStatusType"]["enum"])
+    check(all(s.get("lifecycleStatus") in allowed for s in j or []), "documentSpecification lifecycleStatus is a DocumentSpecificationStatusType")
 
 
 def standard_client(full: str, ro: str, burst: str) -> None:

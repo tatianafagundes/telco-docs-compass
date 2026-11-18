@@ -9,6 +9,12 @@ export interface SpecRow {
   definition: unknown;
 }
 
+/** Our document type status mapped to TMF DocumentSpecificationStatusType; anything unknown reads as not yet in use. */
+const SPEC_STATUS: Record<string, "created" | "published" | "archived"> = {
+  inDesign: "created",
+  active: "published",
+  retired: "archived",
+};
 export function toTmfSpecification(origin: string, s: SpecRow) {
   const def = (typeof s.definition === "object" && s.definition !== null ? s.definition : {}) as {
     specCharacteristic?: unknown;
@@ -52,7 +58,9 @@ export function toTmfSpecification(origin: string, s: SpecRow) {
     "@type": "DocumentSpecification" as const,
     name: s.name,
     version: s.version,
-    lifecycleStatus: s.lifecycle_status,
+    lifecycleStatus: Object.hasOwn(SPEC_STATUS, s.lifecycle_status)
+      ? SPEC_STATUS[s.lifecycle_status]
+      : "created",
     "@baseType": "EntitySpecification" as const,
     isBundle: false,
     targetEntitySchema: {

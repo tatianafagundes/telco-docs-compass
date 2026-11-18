@@ -2,8 +2,8 @@
 // must not depend on anything outside the app.
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import { buildWorld, call, DOC_ID, docRow, json, TENANT } from "@/test/gateway-world";
-import { getDocument } from "@/test/gateway-api";
+import { buildWorld, call, DOC_ID, docRow, json, OTHER_DOC_ID, TENANT } from "@/test/gateway-world";
+import { getDocument, getSpecification, listDocuments } from "@/test/gateway-api";
 import { ERAD_SCHEMA_PATH } from "@/services/tmf667-shared";
 vi.mock(
   "@/integrations/supabase/client.server",
@@ -18,6 +18,7 @@ type Schema = {
   properties?: Record<string, Schema>;
   items?: Schema;
   pattern?: string;
+  format?: string;
   $ref?: string;
   definitions?: Record<string, Schema>;
 };
@@ -34,6 +35,13 @@ function problems(value: unknown, schema: Schema, path = "$"): string[] {
     out.push(`${path}: ${String(value)} not allowed`);
   if (schema.type === "string" && typeof value !== "string") out.push(`${path}: not a string`);
   if (schema.type === "boolean" && typeof value !== "boolean") out.push(`${path}: not a boolean`);
+  // TMF date-times are full ISO 8601 instants, never a bare date.
+  if (
+    schema.format === "date-time" &&
+    typeof value === "string" &&
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/.test(value)
+  )
+    out.push(`${path}: not a date-time`);
   if (schema.pattern && typeof value === "string" && !new RegExp(schema.pattern).test(value))
     out.push(`${path}: does not match ${schema.pattern}`);
   if (schema.type === "array") {
@@ -61,7 +69,9 @@ describe("the EradDocument schema", () => {
   it("describes a full document as the API returns it", async () => {
     const db = await buildWorld({
       documents: [
+        docRow({ id: OTHER_DOC_ID, bundle_id: "b1", bundle_role: "annex" }),
         docRow({
+          bundle_id: "b1",
           status: "effective",
           effective_date: "2026-11-01",
           expiry_date: "2027-11-01",
@@ -70,7 +80,13 @@ describe("the EradDocument schema", () => {
           characteristic: [{ name: "counterparty", value: "Acme" }],
         }),
       ],
-      specs: [{ code: "contract", name: "Contract", definition: { category: "Legal" } }],
+      specs: [
+        {
+          code: "contract",
+          name: "Contract",
+          definition: { businessProcess: [{ name: "Manage Contract" }] },
+        },
+      ],
     });
     db.tables["document_versions"] = [
       {
@@ -94,12 +110,37 @@ describe("the EradDocument schema", () => {
     ];
     const doc = await json(await getDocument(call("GET", `/document/${DOC_ID}`), DOC_ID));
     expect(String(doc["@schemaLocation"])).toContain(ERAD_SCHEMA_PATH);
+    // The optional standard parts are present, so their shapes are checked too.
+    expect(doc["category"]).toBeDefined();
+    expect(doc["document"]).toBeDefined();
+    expect(doc["validFor"]).toBeDefined();
     expect(problems(doc, SCHEMA)).toEqual([]);
+    const list = JSON.parse(
+      await (await listDocuments(call("GET", "/document"))).text(),
+    ) as unknown[];
+    expect(list.length).toBeGreaterThan(0);
+    for (const d of list) expect(problems(d, SCHEMA)).toEqual([]);
   });
   it("describes a bare draft too", async () => {
     await buildWorld();
     const doc = await json(await getDocument(call("GET", `/document/${DOC_ID}`), DOC_ID));
     expect(problems(doc, SCHEMA)).toEqual([]);
+  });
+  it("answers a document type with a TMF DocumentSpecificationStatusType", async () => {
+    await buildWorld({
+      specs: [{ code: "contract", name: "Contract", lifecycle_status: "active", definition: {} }],
+    });
+    const spec = await json(
+      await getSpecification(call("GET", "/documentSpecification/contract"), "contract"),
+    );
+    expect(["created", "reviewed", "approved", "published", "archived", "deleted"]).toContain(
+      spec["lifecycleStatus"],
+    );
+  });
+  it("catches a bare date where a date-time is due", () => {
+    expect(problems("2027-11-01", { type: "string", format: "date-time" })).toEqual([
+      "$: not a date-time",
+    ]);
   });
   it("catches a field the API returns that the schema does not list", () => {
     expect(

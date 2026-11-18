@@ -116,7 +116,12 @@ export interface TmfDocument {
     isCurrent: boolean;
   }[];
   characteristic: { name: string; value: unknown; valueType?: string }[];
-  category?: string[];
+  category?: {
+    id: string;
+    name: string;
+    "@referredType": "Category";
+    "@type": "CategoryRef";
+  }[];
   document?: {
     id: string;
     href: string;
@@ -173,8 +178,9 @@ export function toTmfDocument(
   const validFor =
     doc.effective_date || doc.expiry_date
       ? {
-          ...(doc.effective_date ? { startDateTime: doc.effective_date } : {}),
-          ...(doc.expiry_date ? { endDateTime: doc.expiry_date } : {}),
+          // TimePeriod values are date-times (UTC). The whole expiry day counts: expiry runs the day after.
+          ...(doc.effective_date ? { startDateTime: `${doc.effective_date}T00:00:00Z` } : {}),
+          ...(doc.expiry_date ? { endDateTime: `${doc.expiry_date}T23:59:59Z` } : {}),
         }
       : undefined;
   const base = `${origin}${TMF_BASE_PATH}/document/${doc.id}`;
@@ -229,7 +235,17 @@ export function toTmfDocument(
       isCurrent: v.id === doc.current_version_id,
     })),
     characteristic: asCharacteristics(doc.characteristic),
-    ...(extras.category && extras.category.length ? { category: extras.category } : {}),
+    // TMF667 types category as CategoryRef. Business process names have no ids, so the name is the id.
+    ...(extras.category && extras.category.length
+      ? {
+          category: extras.category.map((name) => ({
+            id: name,
+            name,
+            "@referredType": "Category" as const,
+            "@type": "CategoryRef" as const,
+          })),
+        }
+      : {}),
     ...(extras.related && extras.related.length
       ? {
           document: extras.related.map((r) => ({
