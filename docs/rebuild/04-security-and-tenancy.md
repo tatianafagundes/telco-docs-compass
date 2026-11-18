@@ -44,7 +44,7 @@ visible(doc, caller) :=
 - The client may add only `view` and `download` events.
 
 ### Four-eyes
-`created_by == caller` blocks approval (BR-022) on both the server and the UI. Over the TMF API (BR-140), a system key cannot approve a document it registered itself (`documents.registered_by_client`); the reply is 409 `fourEyesRequired`. Another key or a person in the app can approve it.
+`created_by == caller` blocks approval (BR-022) on both the server and the UI. Over the TMF API (BR-140), a system key cannot approve a document it registered itself (`documents.registered_by_client`), nor one added in the app by the person who connected that system (`integration_clients.created_by`); the reply is 409 `fourEyesRequired`. Another key or another person in the app can approve it.
 
 ## Target mapping (Java / Keycloak / Cassandra / OpenSearch)
 | Concern | Current | Target |

@@ -29,6 +29,8 @@ export const MAX_BODY_CHARS = 50_000;
 /** Per key, per minute. */
 
 export interface SystemCtx {
+  /** The person who connected this system; empty for older systems. */
+  ownerId?: string | null;
   admin: Db;
   clientId: string;
   name: string;
@@ -39,7 +41,7 @@ export interface SystemCtx {
 }
 
 export const DOC_COLS =
-  "id, tenant_id, name, description, document_type, status, sensitivity, legal_hold, effective_date, expiry_date, created_at, updated_at, current_version_id, characteristic, external_identifier, retain_until, bundle_id, registered_by_client";
+  "id, tenant_id, name, description, document_type, status, sensitivity, legal_hold, effective_date, expiry_date, created_at, updated_at, current_version_id, characteristic, external_identifier, retain_until, bundle_id, registered_by_client, created_by";
 
 /**
  * Verifies the system key (erad_…) or a short-lived OAuth token (eradt_…), checks expiry, scope and
@@ -72,7 +74,7 @@ export async function authenticate(request: Request, needed: Scope): Promise<Sys
   const base = admin
     .from("integration_clients")
     .select(
-      "id, name, tenant_id, scopes, revoked_at, expires_at, read_limit_per_minute, write_limit_per_minute",
+      "id, name, tenant_id, scopes, revoked_at, expires_at, read_limit_per_minute, write_limit_per_minute, created_by",
     );
   const { data: client } = clientId
     ? await base.eq("id", clientId).maybeSingle()
@@ -132,6 +134,7 @@ export async function authenticate(request: Request, needed: Scope): Promise<Sys
   return {
     admin,
     clientId: client.id,
+    ownerId: client.created_by,
     name: client.name,
     tenantId: client.tenant_id,
     scopes: client.scopes,

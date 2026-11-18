@@ -150,12 +150,20 @@ export interface DeleteFacts {
   today: string; // yyyy-mm-dd
 }
 
+/**
+ * A keep-until date means "kept through the end of that day": on the date itself the document is
+ * still protected, and the first day it can go is the next one. Every way of deleting uses this.
+ */
+export function retentionHolds(retainUntil: string | null | undefined, today: string): boolean {
+  return !!retainUntil && retainUntil >= today;
+}
+
 export function deleteBlocker(f: DeleteFacts): SeamError | null {
   if (f.legalHold) {
     return seamError("doc.delete.legalHold", "conflict", "none", f.holdReason ?? undefined);
   }
-  if (f.retainUntil && f.retainUntil > f.today) {
-    return seamError("doc.delete.retention", "conflict", "none", f.retainUntil);
+  if (retentionHolds(f.retainUntil, f.today)) {
+    return seamError("doc.delete.retention", "conflict", "none", f.retainUntil ?? undefined);
   }
   if (f.minRetentionDays && f.minRetentionDays > 0) {
     const floor = new Date(f.createdAt);
@@ -216,12 +224,17 @@ export const idempotencyCutoff = (now = Date.now()) =>
 export const IDEMPOTENCY_KEY_COLUMNS = "tenant_id,actor,key,operation";
 
 /**
- * Four-eyes over the API: a system key may not approve a document it registered itself.
- * Documents added in the app (no registering key) or by another key can be approved.
+ * Four-eyes over the API. A system key may not approve:
+ *  - a document it registered itself, and
+ *  - a document added in the app by the person who connected that system (they would be approving
+ *    their own work through their own key).
+ * Documents registered by another system, or added by someone else, can be approved.
  */
 export function systemMayApprove(
-  registeredByClient: string | null | undefined,
-  clientId: string,
+  doc: { registeredByClient?: string | null | undefined; createdBy?: string | null | undefined },
+  system: { clientId: string; ownerId?: string | null | undefined },
 ): boolean {
-  return !registeredByClient || registeredByClient !== clientId;
+  if (doc.registeredByClient && doc.registeredByClient === system.clientId) return false;
+  if (doc.createdBy && system.ownerId && doc.createdBy === system.ownerId) return false;
+  return true;
 }

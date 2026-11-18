@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { deleteBlocker, retentionHolds } from "@/services/document-rules";
 import {
   deleteState,
   editState,
   nextStep,
+  purgeRefusalCode,
   purgeState,
   sendBackState,
 } from "@/services/document-actions";
@@ -107,5 +109,42 @@ describe("approved content actions", () => {
   });
   it("should allow content editing on a draft", () => {
     expect(contentEditState("manager", "draft").available).toBe(true);
+  });
+});
+
+describe("the keep-until date is the same rule everywhere", () => {
+  const TODAY = "2026-11-10";
+  it.each([
+    ["the day before", "2026-11-09", true],
+    ["the date itself", "2026-11-10", false],
+    ["the day after", "2026-11-11", false],
+  ])("%s (%s): can be deleted = %s", (_label, retainUntil, allowed) => {
+    expect(deleteState("manager", false, retainUntil, TODAY).available).toBe(allowed);
+    expect(purgeState("tenant_admin", false, retainUntil, TODAY).available).toBe(allowed);
+    expect(
+      deleteBlocker({
+        legalHold: false,
+        holdReason: null,
+        retainUntil,
+        createdAt: "2020-01-01T00:00:00Z",
+        minRetentionDays: null,
+        today: TODAY,
+      }) === null,
+    ).toBe(allowed);
+  });
+  it("no date means nothing keeps it", () => {
+    expect(retentionHolds(null, TODAY)).toBe(false);
+    expect(retentionHolds(undefined, TODAY)).toBe(false);
+  });
+});
+
+describe("purgeRefusalCode", () => {
+  it.each([
+    ["viewer", true, "access.roleTooLow"],
+    ["manager", false, "access.roleTooLow"],
+    ["tenant_admin", true, "doc.delete.legalHold"],
+    ["master_admin", false, "doc.delete.retention"],
+  ] as const)("%s, hold %s: %s", (role, hold, code) => {
+    expect(purgeRefusalCode(role, hold)).toBe(code);
   });
 });

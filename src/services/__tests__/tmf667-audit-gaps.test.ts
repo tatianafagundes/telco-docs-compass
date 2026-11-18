@@ -25,11 +25,22 @@ const doc = {
 };
 
 describe("systemMayApprove", () => {
-  it("should refuse when the same key registered the document", () =>
-    expect(systemMayApprove("k1", "k1")).toBe(false));
-  it("should allow another key", () => expect(systemMayApprove("k1", "k2")).toBe(true));
-  it("should allow documents added in the app", () =>
-    expect(systemMayApprove(null, "k1")).toBe(true));
+  const sys = (clientId: string, ownerId?: string | null) => ({ clientId, ownerId });
+  it("refuses the key that registered the document", () =>
+    expect(systemMayApprove({ registeredByClient: "k1" }, sys("k1"))).toBe(false));
+  it("allows another key", () =>
+    expect(systemMayApprove({ registeredByClient: "k1" }, sys("k2"))).toBe(true));
+  it("allows a document added in the app by someone else", () =>
+    expect(systemMayApprove({ registeredByClient: null, createdBy: "ann" }, sys("k1", "bob"))).toBe(
+      true,
+    ));
+  it("refuses a document added in the app by the person who connected the system", () =>
+    expect(systemMayApprove({ createdBy: "ann" }, sys("k1", "ann"))).toBe(false));
+  it("allows it when either side is unknown", () => {
+    expect(systemMayApprove({ createdBy: null }, sys("k1", "ann"))).toBe(true);
+    expect(systemMayApprove({ createdBy: "ann" }, sys("k1", null))).toBe(true);
+    expect(systemMayApprove({}, sys("k1"))).toBe(true);
+  });
 });
 
 describe("document refs and category", () => {

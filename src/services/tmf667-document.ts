@@ -25,6 +25,8 @@ export interface DocRow {
   external_identifier?: unknown;
   bundle_id?: string | null;
   registered_by_client?: string | null;
+  /** The person who added it in the app; empty for documents the API registered. */
+  created_by?: string | null;
 }
 
 /** Extra read-only context for a document reply. */

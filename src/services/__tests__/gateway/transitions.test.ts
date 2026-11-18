@@ -12,7 +12,7 @@ import {
   json,
   OTHER_CLIENT_ID,
 } from "@/test/gateway-world";
-import { transitionDocument } from "@/test/gateway-api";
+import { patchDocument, transitionDocument } from "@/test/gateway-api";
 
 vi.mock(
   "@/integrations/supabase/client.server",
@@ -93,6 +93,34 @@ describe("who may move a document", () => {
     expect(db.rows("documents")[0]?.["status"]).toBe("in_review");
   });
 
+  it("a document added in the app by the person who connected the system cannot be approved by that system", async () => {
+    const db = await buildWorld({
+      client: { created_by: "user-ann" },
+      documents: [docRow({ status: "in_review", created_by: "user-ann" })],
+    });
+    const res = await move("approved");
+    expect(res.status).toBe(409);
+    expect((await json(res))["code"]).toBe("fourEyesRequired");
+    expect(db.rows("documents")[0]?.["status"]).toBe("in_review");
+  });
+  it("a document added in the app by someone else can be approved by that system", async () => {
+    await buildWorld({
+      client: { created_by: "user-ann" },
+      documents: [docRow({ status: "in_review", created_by: "user-bob" })],
+    });
+    expect((await move("approved")).status).toBe(200);
+  });
+  it("the same rule applies to approving by PATCH status", async () => {
+    await buildWorld({
+      client: { created_by: "user-ann" },
+      documents: [docRow({ status: "in_review", created_by: "user-ann" })],
+    });
+    const res = await patchDocument(
+      call("PATCH", `/document/${DOC_ID}`, { body: { status: "approved" } }),
+      DOC_ID,
+    );
+    expect(res.status).toBe(409);
+  });
   it("another system, or a document added in the app, can be approved", async () => {
     await buildWorld({
       documents: [docRow({ status: "in_review", registered_by_client: OTHER_CLIENT_ID })],

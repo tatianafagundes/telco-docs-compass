@@ -2,8 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { pageSchema, purgeSchema } from "@/schemas/document";
-import { can, seamError, type SeamResult } from "@/services/document-rules";
-import { purgeState } from "@/services/document-actions";
+import { can, isSampleStorage, seamError, type SeamResult } from "@/services/document-rules";
+import { purgeRefusalCode, purgeState } from "@/services/document-actions";
 import { audit, forbidden, runRead, runWrite, type Db } from "@/services/seam-runtime";
 /** Legal holds, retention overview, deletion history and permanent deletion. Manager and above. */
 
@@ -244,11 +244,7 @@ export const purgeDocument = createServerFn({ method: "POST" })
         if (!doc) return { ok: false, error: seamError("doc.notFound", "notFound") };
         const state = purgeState(env.role, doc.legal_hold, doc.retain_until, today());
         if (!state.available) {
-          const code = doc.legal_hold
-            ? "doc.delete.legalHold"
-            : doc.retain_until
-              ? "doc.delete.retention"
-              : "access.roleTooLow";
+          const code = purgeRefusalCode(env.role, doc.legal_hold);
           return { ok: false, error: seamError(code, "conflict", "none", state.reason) };
         }
         const { data: versions } = await env.admin
@@ -257,7 +253,7 @@ export const purgeDocument = createServerFn({ method: "POST" })
           .eq("document_id", doc.id);
         const paths = (versions ?? [])
           .map((v) => v.storage_path)
-          .filter((p): p is string => !!p && !p.startsWith("sample:"));
+          .filter((p): p is string => p !== null && !isSampleStorage(p));
         if (paths.length) await env.admin.storage.from("documents").remove(paths);
         // Versions and events are append-only by design, so the record stays as a tombstone:
         // stored files and extracted values are removed, access is withdrawn and it can't be restored.

@@ -41,7 +41,12 @@ export async function applyTransition(
 ): Promise<{ status: number; body: unknown } | null> {
   if (!isTransitionAllowed(doc.status, target)) return refusedMove(doc.status, target);
   if (target === "approved") {
-    if (!systemMayApprove(doc.registered_by_client, ctx.clientId)) {
+    if (
+      !systemMayApprove(
+        { registeredByClient: doc.registered_by_client, createdBy: doc.created_by },
+        { clientId: ctx.clientId, ownerId: ctx.ownerId },
+      )
+    ) {
       return {
         status: 409,
         body: tmfError(

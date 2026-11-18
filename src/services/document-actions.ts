@@ -3,6 +3,7 @@ import type { DocStatus } from "@/schemas/document";
 import {
   can,
   contentProtected,
+  retentionHolds,
   isFrozen,
   transitionCapability,
   type AppRole,
@@ -91,9 +92,15 @@ export function purgeState(
       available: false,
       reason: "A legal hold blocks permanent deletion. Release the hold first.",
     };
-  if (retainUntil && retainUntil >= today)
+  if (retentionHolds(retainUntil, today))
     return { available: false, reason: `This document must be kept until ${retainUntil}.` };
   return { available: true };
+}
+
+/** The error a refused permanent delete reports: who you are first, then a hold, then the keep-until date. */
+export function purgeRefusalCode(role: AppRole, legalHold: boolean): string {
+  if (role !== "tenant_admin" && role !== "master_admin") return "access.roleTooLow";
+  return legalHold ? "doc.delete.legalHold" : "doc.delete.retention";
 }
 
 export function deleteState(
@@ -109,7 +116,7 @@ export function deleteState(
       available: false,
       reason: "A legal hold keeps this document safe. Release the hold first.",
     };
-  if (retainUntil && retainUntil > today)
+  if (retentionHolds(retainUntil, today))
     return { available: false, reason: `This document must be kept until ${retainUntil}.` };
   return { available: true };
 }

@@ -53,10 +53,13 @@ describe("delete", () => {
       expect((await del()).status).toBe(204);
     });
 
-    // Characterises today's behaviour on the boundary day.
-    it("allows it on the date itself", async () => {
-      await buildWorld({ documents: [docRow({ retain_until: day(0) })] });
-      expect((await del()).status).toBe(204);
+    // "Kept until D" means kept through D: the date itself is still protected.
+    it("still refuses on the date itself, and allows it the day after", async () => {
+      const db = await buildWorld({ documents: [docRow({ retain_until: day(0) })] });
+      const res = await del();
+      expect(res.status).toBe(409);
+      expect((await json(res))["code"]).toBe("retention");
+      expect(db.rows("documents")[0]?.["deleted_at"]).toBeNull();
     });
   });
 });
