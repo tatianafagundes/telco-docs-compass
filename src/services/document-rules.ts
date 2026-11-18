@@ -186,6 +186,8 @@ export function isSampleStorage(path: string | null): boolean {
 
 export const PREVIEW_URL_SECONDS = 300;
 export const DOWNLOAD_URL_SECONDS = 60;
+/** How long an upload address stays valid. Storage fixes it at two hours; the screens show it. */
+export const UPLOAD_URL_SECONDS = 2 * 3600;
 
 /** Deterministic JSON so the same body always hashes the same. */
 export function stableStringify(value: unknown): string {

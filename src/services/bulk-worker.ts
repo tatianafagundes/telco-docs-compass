@@ -224,8 +224,8 @@ export async function recordBatchEvent(
 const JOB_COLUMNS =
   "id, tenant_id, created_by, actor_role, action, params, doc_ids, total, done, changed, skipped, status";
 /** Jobs a pass looks at per state. Waiting and held jobs are read separately so held ones never crowd out waiting ones. */
-const JOBS_PER_PASS = 5;
-const HELD_JOBS_CHECKED = 20;
+export const JOBS_PER_PASS = 5;
+export const HELD_JOBS_CHECKED = 20;
 
 /** Runs one batch for each waiting job (or just the given one). Safe to call repeatedly and concurrently. */
 export async function processBulkJobs(admin: Db, onlyId?: string): Promise<number> {

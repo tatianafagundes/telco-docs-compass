@@ -11,7 +11,7 @@ import type { Db } from "@/services/seam-runtime";
 export const EXPIRY_FALLBACK_INTERVAL_MS = 60_000;
 const lastRun = new Map<string, number>();
 /** Most tenants remembered; past this the oldest are forgotten (they may then run one extra time). */
-const MAX_TENANTS = 1000;
+export const MAX_TENANTS = 1000;
 
 /** Exported for tests. */
 export function resetExpiryFallback(): void {

@@ -2,6 +2,7 @@
 // and the document specifications.
 //
 // Does not change anything except the activity record of a download.
+import { DOWNLOAD_URL_SECONDS } from "@/services/document-rules";
 import type { DocStatus } from "@/schemas/document";
 import {
   parseListQuery,
@@ -105,14 +106,18 @@ export async function getAttachmentContent(
   }
   const { data: signed } = await ctx.admin.storage
     .from("documents")
-    .createSignedUrl(v.storage_path, 60);
+    .createSignedUrl(v.storage_path, DOWNLOAD_URL_SECONDS);
   if (!signed)
     return errorReply(
       tmfError(503, "unavailable", "Service Unavailable", "Try again shortly."),
       ctx.requestId,
     );
   await audit(ctx, "download", doc.id, "Download link");
-  return reply(200, { url: signed.signedUrl, expiresInSeconds: 60 }, ctx.requestId);
+  return reply(
+    200,
+    { url: signed.signedUrl, expiresInSeconds: DOWNLOAD_URL_SECONDS },
+    ctx.requestId,
+  );
 }
 
 export async function listSpecifications(request: Request): Promise<Response> {

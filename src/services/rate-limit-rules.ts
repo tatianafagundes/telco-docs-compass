@@ -56,7 +56,7 @@ export interface WindowLimiter {
   hit(key: string, now?: number): WindowVerdict;
   reset(): void;
 }
-const LIMITER_MAX_KEYS = 1000;
+export const LIMITER_MAX_KEYS = 1000;
 /**
  * Fixed-window counter kept in memory, one counter per key (here: per person). It costs no
  * database call, which is the point: it protects the database from the very requests it counts.

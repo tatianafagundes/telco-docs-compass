@@ -16,6 +16,8 @@ import { sha256Hex } from "@/services/tmf667-mapper";
 import type { Db } from "@/services/seam-runtime";
 
 export const TOKEN_TTL_SECONDS = 900;
+/** A token request is a few form fields; anything longer is refused before it is read. */
+export const TOKEN_REQUEST_MAX_BYTES = 4000;
 /** Token requests one caller address may make per minute, whatever key it sends. */
 export const TOKEN_REQUESTS_PER_ADDRESS_PER_MINUTE = 10;
 /** Token requests one system may make per minute with a valid key. */
@@ -58,7 +60,7 @@ function oauthError(status: number, error: string, description: string): Respons
  */
 export async function issueToken(request: Request): Promise<Response> {
   if (tokenLimiters.byAddress.hit(callerAddress(request)) !== "record") return tooMany();
-  const { value: text, tooLarge } = await readRequestText(request, 4000);
+  const { value: text, tooLarge } = await readRequestText(request, TOKEN_REQUEST_MAX_BYTES);
   if (tooLarge) return oauthError(400, "invalid_request", "Request too large.");
   const ctype = request.headers.get("content-type") ?? "";
   const form = ctype.includes("application/json")

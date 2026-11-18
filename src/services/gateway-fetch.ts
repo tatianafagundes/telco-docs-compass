@@ -9,6 +9,8 @@ import { isPrivateIp, isSafeCallback } from "@/services/tmf667-mapper";
 
 /** Largest file the gateway fetches for a caller. */
 export const MAX_URL_FETCH_BYTES = 25 * 1024 * 1024;
+/** Longest the gateway waits for a file at an address before giving up. */
+export const URL_FETCH_TIMEOUT_MS = 15_000;
 
 /** Resolves the host over DNS-over-HTTPS and refuses names that point at private addresses. */
 export async function resolvesPublic(url: string): Promise<boolean> {
@@ -37,7 +39,10 @@ export async function resolvesPublic(url: string): Promise<boolean> {
 export async function fetchBytes(url: string): Promise<Uint8Array<ArrayBuffer> | null> {
   if (!(await resolvesPublic(url))) return null;
   try {
-    const r = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(15000) });
+    const r = await fetch(url, {
+      redirect: "error",
+      signal: AbortSignal.timeout(URL_FETCH_TIMEOUT_MS),
+    });
     if (!r.ok) return null;
     const { value, tooLarge } = await readResponseBytes(r, MAX_URL_FETCH_BYTES);
     return tooLarge ? null : value;

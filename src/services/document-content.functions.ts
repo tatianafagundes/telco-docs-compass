@@ -5,7 +5,13 @@ import type { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database, Json } from "@/integrations/supabase/types";
 import { addVersionSchema, registerSchema, updateMetadataSchema } from "@/schemas/document";
-import { can, isFrozen, contentProtected, metadataPatchAllowed } from "@/services/document-rules";
+import {
+  UPLOAD_URL_SECONDS,
+  can,
+  isFrozen,
+  contentProtected,
+  metadataPatchAllowed,
+} from "@/services/document-rules";
 import { must } from "@/services/shared/must";
 import { storeFirstVersion } from "@/services/document-first-version";
 import { audit, forbidden, runWrite } from "@/services/seam-runtime";
@@ -86,7 +92,7 @@ export const register = createServerFn({ method: "POST" })
               method: "signedUrl" as const,
               url: stored.uploadUrl ?? "",
               token: stored.uploadToken ?? "",
-              expiresAt: new Date(Date.now() + 2 * 3600_000).toISOString(),
+              expiresAt: new Date(Date.now() + UPLOAD_URL_SECONDS * 1000).toISOString(),
             },
           },
         };
@@ -268,7 +274,7 @@ export const addVersion = createServerFn({ method: "POST" })
               method: "signedUrl" as const,
               url: signed?.signedUrl ?? "",
               token: signed?.token ?? "",
-              expiresAt: new Date(Date.now() + 2 * 3600_000).toISOString(),
+              expiresAt: new Date(Date.now() + UPLOAD_URL_SECONDS * 1000).toISOString(),
             },
           },
         };

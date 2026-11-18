@@ -19,7 +19,7 @@ import { eventMatches, hmacHex, signedPayload, toTmfEvent } from "@/services/tmf
 import { resolvesPublic } from "@/services/tmf-gateway";
 import type { DocStatus } from "@/schemas/document";
 
-const FAN_OUT_BATCH = 200;
+export const FAN_OUT_BATCH = 200;
 
 export interface DeliveryPassResult {
   fannedOut: number;

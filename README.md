@@ -19,7 +19,7 @@ bun run check      # lint + types + tests + build; run it before every commit
 3. Find a business rule and its test: rules are plain functions such as `src/services/document-rules.ts`, tested in `src/services/__tests__`.
 4. Make a small change, run `bun run check`, and read `AGENTS.md` before your first commit. Skip its first block (it is Lovable's); the rules start at "Project rules", and "Repository rules" is at the end.
 
-Running and checking the app: `docs/operations/runbook.md`; after publishing: `docs/operations/regression-after-publish.md`. Security rules are in `docs/architecture/security-baseline.md` and accessibility rules in `docs/architecture/accessibility.md`.
+Running and checking the app: `docs/operations/runbook.md`; after publishing: `docs/operations/regression-after-publish.md`. Security rules are in `docs/architecture/security-baseline.md` accessibility rules in `docs/architecture/accessibility.md`, and every limit with its reason in `docs/architecture/limits.md`.
 Signing in needs one of the demo accounts of the connected Supabase project. Ask the repository owner (see `.github/CODEOWNERS`).
 
 ## Configuration

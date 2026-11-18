@@ -6,7 +6,7 @@
 //   - system access tokens past their expiry are removed.
 //
 // Each step is separate: one failing is logged and does not stop the others.
-import { IDEMPOTENCY_TTL_HOURS } from "@/services/document-rules";
+import { idempotencyCutoff } from "@/services/document-rules";
 import { countDeadLetters } from "@/services/delivery-dead-letter";
 import { must } from "@/services/shared/must";
 import type { Db } from "@/services/seam-runtime";
@@ -76,7 +76,7 @@ export async function expireDueDocuments(
 }
 
 export async function deleteStaleIdempotencyKeys(admin: Db, now = new Date()): Promise<void> {
-  const cutoff = new Date(now.getTime() - IDEMPOTENCY_TTL_HOURS * 3600_000).toISOString();
+  const cutoff = idempotencyCutoff(now.getTime());
   must(
     await admin.from("idempotency_keys").delete().lt("created_at", cutoff),
     "removing old idempotency keys",
