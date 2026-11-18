@@ -14,6 +14,7 @@ import {
   TENANT,
 } from "@/test/gateway-world";
 import { deleteDocument, setLegalHold } from "@/test/gateway-api";
+import { hashBody } from "@/services/document-rules";
 
 vi.mock(
   "@/integrations/supabase/client.server",
@@ -81,6 +82,29 @@ describe("the same request twice has the effect of once", () => {
     // The new answer takes the place of the old one, so it can be replayed in turn.
     expect(db.rows("idempotency_keys")).toHaveLength(1);
     expect((await hold()).headers.get("Idempotent-Replay")).toBe("true");
+  });
+  it("answers 409 idempotencyInProgress while the first call is still running, and frees the key if it fails", async () => {
+    const db = await buildWorld();
+    db.rows("idempotency_keys").push({
+      tenant_id: TENANT,
+      actor: CLIENT_ID,
+      key: IDEM_KEY,
+      operation: `tmf.hold:${DOC_ID}`,
+      request_hash: await hashBody({ active: true, reason: "Audit" }),
+      response: { pending: true },
+      created_at: new Date().toISOString(),
+    });
+    const res = await hold();
+    expect(res.status).toBe(409);
+    expect((await json(res))["code"]).toBe("idempotencyInProgress");
+    expect(db.writesTo("documents", "update")).toHaveLength(0);
+  });
+  it("frees the key when the work fails, so the same key can try again", async () => {
+    const db = await buildWorld();
+    db.fail("documents", "update");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect((await hold()).status).toBe(503);
+    expect(db.rows("idempotency_keys")).toEqual([]);
   });
   it("replays a delete as 204 as well", async () => {
     const db = await buildWorld();

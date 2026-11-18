@@ -1,14 +1,12 @@
 // Shared write pipeline for the document seam. Receives the caller client (RLS) and the admin
 // client from the server-function handler; never imports server-only modules itself.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, Json } from "@/integrations/supabase/types";
+import type { Database } from "@/integrations/supabase/types";
 import { createWindowLimiter } from "@/services/rate-limit-rules";
+import { claimKey, completeKey, releaseKey } from "@/services/idempotency-claim";
 import { DatabaseError, must } from "@/services/shared/must";
 import {
   hashBody,
-  IDEMPOTENCY_KEY_COLUMNS,
-  idempotencyCutoff,
-  idempotencyOutcome,
   seamError,
   type AppRole,
   type SeamErr,
@@ -165,41 +163,36 @@ export async function runWrite<T>(
     }
 
     const requestHash = await hashBody(opts.body);
-    const { data: stored } = await admin
-      .from("idempotency_keys")
-      .select("request_hash, response")
-      .eq("tenant_id", env.tenantId)
-      .eq("actor", env.userId)
-      .eq("key", opts.idempotencyKey)
-      .eq("operation", operation)
-      .gte("created_at", idempotencyCutoff())
-      .maybeSingle();
-    const outcome = idempotencyOutcome(stored, requestHash);
-    if (outcome.kind === "conflict") {
+    const keyId = {
+      tenantId: env.tenantId,
+      actor: env.userId,
+      key: opts.idempotencyKey,
+      operation,
+    };
+    // Reserve the key before doing the work, so two calls with the same key cannot both run it.
+    const claim = await claimKey(admin, keyId, requestHash);
+    if (claim.kind === "conflict") {
       logOp(opts.op, env.tenantId, documentId, "conflict", started);
       return { ok: false, error: seamError("seam.idempotency.mismatch", "conflict", "none") };
     }
-    if (outcome.kind === "replay") {
+    if (claim.kind === "inProgress") {
+      logOp(opts.op, env.tenantId, documentId, "inProgress", started);
+      return { ok: false, error: seamError("seam.idempotency.inProgress", "unavailable", "retry") };
+    }
+    if (claim.kind === "replay") {
       logOp(opts.op, env.tenantId, documentId, "replay", started);
-      return outcome.response as SeamResult<T>;
+      return claim.response as SeamResult<T>;
     }
-
-    const res = await fn(env);
-    if (res.ok) {
-      // Upsert: an answer older than its lifetime may still be stored, and is replaced.
-      await admin.from("idempotency_keys").upsert(
-        {
-          tenant_id: env.tenantId,
-          actor: env.userId,
-          key: opts.idempotencyKey,
-          operation,
-          request_hash: requestHash,
-          response: res as unknown as Json,
-          created_at: new Date().toISOString(),
-        },
-        { onConflict: IDEMPOTENCY_KEY_COLUMNS },
-      );
+    let res: SeamResult<T>;
+    try {
+      res = await fn(env);
+    } catch (e) {
+      await releaseKey(admin, keyId);
+      throw e;
     }
+    // Only a success is remembered; a refusal or failure frees the key to try again.
+    if (res.ok) await completeKey(admin, keyId, res);
+    else await releaseKey(admin, keyId);
     logOp(opts.op, env.tenantId, documentId, res.ok ? "ok" : res.error.code, started);
     return res;
   } catch (e) {

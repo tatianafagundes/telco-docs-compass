@@ -52,6 +52,7 @@ Background work: the scheduler calls `src/routes/api/public/jobs/bulk-documents.
 ## Rules that must not break
 
 - Every write is pinned to the caller's tenant. Seeing a document never lets you change it.
+- A repeated request (same Idempotency-Key) does the work once, even when two arrive at the same time: the key is reserved first.
 - A change is not reported as done unless its activity event was written (`audit` fails closed).
 - A write that follows a check must not override a change made in between (use `updateDocumentIf`).
 - Approval keeps four-eyes: the person who added a document cannot approve it on a screen or in a bulk change.

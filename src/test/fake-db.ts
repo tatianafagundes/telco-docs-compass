@@ -21,6 +21,7 @@ export interface WriteLogEntry {
 
 export interface DbError {
   message: string;
+  code?: string;
 }
 
 export interface DbAnswer {
@@ -81,6 +82,10 @@ export class FakeDb {
   /** Tables whose rows get a generated `id` on insert when none is given, like a uuid default in the database. */
   readonly autoIdTables = new Set<string>();
   /** Tables whose rows get `created_at = now` on insert, like a `default now()` column. */
+  /** Tables with a unique key (column lists), like a primary key. An insert that repeats one fails with code 23505. */
+  readonly uniqueKeys = new Map<string, string[]>([
+    ["idempotency_keys", ["tenant_id", "actor", "key", "operation"]],
+  ]);
   readonly autoCreatedAtTables = new Set<string>(["idempotency_keys"]);
   /** Every call to `storage.from(bucket)`, in order. */
   readonly storageCalls: StorageCall[] = [];
@@ -329,7 +334,15 @@ class QueryBuilder implements PromiseLike<DbAnswer> {
     if (op !== "cs") throw new Error(`FakeDb: filter operator ${op} is not supported`);
     this.filters.push((r) => {
       const have = pathValue(r, column);
-      const wanted = JSON.parse(value) as Row[];
+      const wanted = JSON.parse(value) as Row | Row[];
+      if (!Array.isArray(wanted))
+        // An object contains another when every key of the other matches (jsonb `@>`).
+        return (
+          typeof have === "object" &&
+          have !== null &&
+          !Array.isArray(have) &&
+          Object.entries(wanted).every(([k, v]) => (have as Row)[k] === v)
+        );
       return (
         Array.isArray(have) &&
         wanted.every((w) =>
@@ -372,7 +385,7 @@ class QueryBuilder implements PromiseLike<DbAnswer> {
     const rows = this.db.rows(this.table);
 
     if (this.op === "insert") {
-      const added = this.payload.map((r) => ({
+      const added: Row[] = this.payload.map((r) => ({
         ...r,
         ...(this.db.autoIdTables.has(this.table) && r["id"] === undefined
           ? { id: crypto.randomUUID() }
@@ -381,6 +394,15 @@ class QueryBuilder implements PromiseLike<DbAnswer> {
           ? { created_at: new Date().toISOString() }
           : {}),
       }));
+      const unique = this.db.uniqueKeys.get(this.table);
+      if (unique) {
+        const seen: Row[] = [...rows];
+        for (const r of added) {
+          if (seen.some((e) => unique.every((c) => e[c] === r[c])))
+            return { data: null, error: { message: "duplicate key value", code: "23505" } };
+          seen.push(r);
+        }
+      }
       rows.push(...added);
       this.db.writes.push({ table: this.table, op: "insert", rows: added });
       return this.answer(this.returning ? added : null);

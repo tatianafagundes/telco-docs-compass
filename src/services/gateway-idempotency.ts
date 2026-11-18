@@ -3,13 +3,9 @@
 // without remembering anything, so the same key can retry.
 //
 // Does not decide what a change does: the handlers pass it in as `run`.
-import type { Json } from "@/integrations/supabase/types";
-import {
-  hashBody,
-  idempotencyOutcome,
-  IDEMPOTENCY_KEY_COLUMNS,
-  idempotencyCutoff,
-} from "@/services/document-rules";
+import { claimKey, completeKey, releaseKey } from "@/services/idempotency-claim";
+
+import { hashBody } from "@/services/document-rules";
 import { DatabaseError, must } from "@/services/shared/must";
 import { tmfError } from "@/services/tmf667-mapper";
 import { errorReply, reply } from "@/services/gateway-reply";
@@ -63,18 +59,20 @@ export async function idempotent(
     );
   }
   const requestHash = await hashBody(body);
-  const op = `tmf.${operation}`;
-  const { data: stored } = await ctx.admin
-    .from("idempotency_keys")
-    .select("request_hash, response")
-    .eq("tenant_id", ctx.tenantId)
-    .eq("actor", ctx.clientId)
-    .eq("key", key)
-    .eq("operation", op)
-    .gte("created_at", idempotencyCutoff())
-    .maybeSingle();
-  const outcome = idempotencyOutcome(stored, requestHash);
-  if (outcome.kind === "conflict")
+  const keyId = { tenantId: ctx.tenantId, actor: ctx.clientId, key, operation: `tmf.${operation}` };
+  // Reserve the key before doing the work, so two calls with the same key cannot both run it.
+  let claim;
+  try {
+    claim = await claimKey(ctx.admin, keyId, requestHash);
+  } catch (e) {
+    if (!(e instanceof DatabaseError)) throw e;
+    return reply(
+      503,
+      tmfError(503, "unavailable", "Service Unavailable", "Try again shortly."),
+      ctx.requestId,
+    );
+  }
+  if (claim.kind === "conflict")
     return errorReply(
       tmfError(
         409,
@@ -84,24 +82,29 @@ export async function idempotent(
       ),
       ctx.requestId,
     );
-  if (outcome.kind === "replay") {
-    const r = outcome.response as { status: number; body: unknown };
+  if (claim.kind === "inProgress")
+    return errorReply(
+      tmfError(
+        409,
+        "idempotencyInProgress",
+        "Conflict",
+        "A request with this Idempotency-Key is still running. Wait a moment and send it again.",
+      ),
+      ctx.requestId,
+    );
+  if (claim.kind === "replay") {
+    const r = claim.response as { status: number; body: unknown };
     return reply(r.status, r.body, ctx.requestId, { "Idempotent-Replay": "true" });
   }
-  const res = await runOrUnavailable(run);
-  if (res.status < 300 || res.status === 204) {
-    await ctx.admin.from("idempotency_keys").upsert(
-      {
-        tenant_id: ctx.tenantId,
-        actor: ctx.clientId,
-        key,
-        operation: op,
-        request_hash: requestHash,
-        response: res as unknown as Json,
-        created_at: new Date().toISOString(),
-      },
-      { onConflict: IDEMPOTENCY_KEY_COLUMNS },
-    );
+  let res;
+  try {
+    res = await runOrUnavailable(run);
+  } catch (e) {
+    await releaseKey(ctx.admin, keyId);
+    throw e;
   }
+  // Only a success is remembered; a refusal or failure frees the key to try again.
+  if (res.status < 300 || res.status === 204) await completeKey(ctx.admin, keyId, res);
+  else await releaseKey(ctx.admin, keyId);
   return reply(res.status, res.body, ctx.requestId);
 }

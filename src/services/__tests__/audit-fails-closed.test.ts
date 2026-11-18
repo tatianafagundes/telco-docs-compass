@@ -4,6 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { accessDeniedLimiter, audit, runWrite } from "@/services/seam-runtime";
 import { FakeDb } from "@/test/fake-db";
+import { hashBody } from "@/services/document-rules";
 
 function world() {
   const caller = new FakeDb({
@@ -76,5 +77,60 @@ describe("a saved answer older than 24 hours", () => {
     expect(w.admin.rows("idempotency_keys")).toHaveLength(1);
     await run(w);
     expect(w.admin.rows("document_events")).toHaveLength(2); // and now it replays
+  });
+});
+
+describe("two simultaneous calls with the same key", () => {
+  it("run the work once; the other is told to wait or gets the stored answer", async () => {
+    const w = world();
+    const [a, b] = await Promise.all([run(w), run(w)]);
+    expect(w.admin.rows("document_events")).toHaveLength(1);
+    const codes = [a, b].map((r) => (r.ok ? "ok" : r.error.code));
+    expect(codes.filter((c) => c === "ok").length).toBeGreaterThanOrEqual(1);
+    expect(codes.filter((c) => c !== "ok")).toSatisfy((rest: string[]) =>
+      rest.every((c) => c === "seam.idempotency.inProgress"),
+    );
+  });
+  it("tells the second caller to retry while the first has not answered", async () => {
+    const w = world();
+    w.admin.rows("idempotency_keys").push({
+      tenant_id: "tenant-a",
+      actor: "user-1",
+      key: "key-00000001",
+      operation: "document.delete",
+      request_hash: await hashBody({ id: "doc-1" }),
+      response: { pending: true },
+      created_at: new Date().toISOString(),
+    });
+    const res = await run(w);
+    expect(res.ok).toBe(false);
+    if (!res.ok)
+      expect(res.error).toMatchObject({ code: "seam.idempotency.inProgress", retryable: true });
+    expect(w.admin.rows("document_events")).toEqual([]);
+  });
+  it("free the key when the work throws", async () => {
+    const w = world();
+    w.admin.fail("document_events", "insert");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await run(w);
+    expect(w.admin.rows("idempotency_keys")).toEqual([]);
+  });
+});
+
+describe("a refused change", () => {
+  it("is not remembered, so the same key can be sent again after fixing the request", async () => {
+    const w = world();
+    const refuse = () =>
+      runWrite(
+        { supabase: w.caller.asDb(), userId: "user-1" },
+        w.admin.asDb(),
+        { op: "x", idempotencyKey: "key-00000002", body: {}, scope: { kind: "doc", id: "doc-1" } },
+        async () => ({
+          ok: false,
+          error: { code: "doc.edit.frozen", category: "rejected", retryable: false },
+        }),
+      );
+    expect((await refuse()).ok).toBe(false);
+    expect(w.admin.rows("idempotency_keys")).toEqual([]);
   });
 });
