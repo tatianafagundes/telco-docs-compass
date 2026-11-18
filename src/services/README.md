@@ -22,11 +22,11 @@ Pure rules (no I/O, safe to call from anywhere):
 
 Ways a document is changed (each applies the pure rules):
 
-| File                                                                                            | Entry                                                                             |
-| ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `document-write.functions.ts`                                                                   | Screens (one document at a time), through `runWrite` in `seam-runtime.ts`.        |
-| `tmf-gateway.ts` (lists the `gateway-*.ts` files) + `tmf667-mapper.ts` | The public TMF API used by other systems, pinned to the tenant of the system key. Start at `gateway-core.ts`. |
-| `bulk-worker.ts` (+ `search.functions.ts` to start a job)                                       | Many documents at once, in batches.                                               |
+| File                                                                   | Entry                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `document-*.functions.ts` (`document-write.functions.ts` lists them)   | Screens (one document at a time), through `runWrite` in `seam-runtime.ts`. Reads: `document-read`; details and versions: `document-content`; status, hold, delete: `document-status`; review: `document-review`; access: `document-access`. |
+| `tmf-gateway.ts` (lists the `gateway-*.ts` files) + `tmf667-mapper.ts` | The public TMF API used by other systems, pinned to the tenant of the system key. Start at `gateway-core.ts`.                                                                                                                               |
+| `bulk-worker.ts` (+ `search.functions.ts` to start a job)              | Many documents at once, in batches.                                                                                                                                                                                                         |
 
 Helpers, and when to use each:
 
@@ -66,6 +66,6 @@ Run `bun run check` (lint, types, tests, build). Tests that need no database use
 
 - Reading `data` and ignoring `error`: the Supabase client never throws, so a failed query looks like "no rows". Wrap it in `must()`.
 - Deciding from one read and writing without a condition: use `updateDocumentIf`.
-- Adding code to `document-write.functions.ts` or `tmf667-mapper.ts`, which are over the size limit, instead of a new file.
+- Adding code to `tmf667-mapper.ts` or another file over the size limit instead of a new file.
 - Doing housekeeping inside a request: it belongs in `maintenance.ts`.
 - Putting a rule in a handler: rules are pure functions in a `*-rules.ts` file, so every entry point gives the same answer.

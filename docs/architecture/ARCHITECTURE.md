@@ -90,7 +90,7 @@ Limits on what a caller can make the server do (constants in the files named):
 | The check-details journey and the approve gate | `review-flow-rules.ts`, `review-rules.ts`, and `pendingRequiredDetails` in `document-rules.ts` |
 | Upload rules (types, size, duplicates) | `src/services/upload-rules.ts`; the simulated pipeline is in `pipeline.functions.ts` |
 | Search, filters, bulk changes | `search-rules.ts`, `search.functions.ts`, `bulk-worker.ts` |
-| Legal holds, deletion, restore | `setHold`, `deleteDocument`, `restoreDeleted` in `document-write.functions.ts`; the same in `gateway-changes.ts`; button states in `document-actions.ts` |
+| Legal holds, deletion, restore | `setHold`, `deleteDocument`, `restoreDeleted` in `document-status.functions.ts`; the same in `gateway-changes.ts`; button states in `document-actions.ts` |
 | Holds and retention overview, permanent deletion, expiry | `retention.functions.ts` |
 | Group and country settings | `tenant-rules.ts`, `tenant-config.functions.ts` |
 | The API other systems use | `src/services/tmf-gateway.ts` (names the `gateway-*.ts` files), `tmf667-mapper.ts`, `contracts/seams/tmf667-document.openapi.yaml` |
@@ -122,7 +122,7 @@ A rule such as "approval is blocked when X" lives in more than one entry point. 
 
 1. The pure rule (`document-rules.ts` or `review-rules.ts`) and its test.
 2. What the screen shows: `document-actions.ts`, `review-flow-rules.ts`.
-3. The server function that enforces it: the handler in `document-write.functions.ts`.
+3. The server function that enforces it: the handler in the matching `document-*.functions.ts` file.
 4. The TMF API: `applyTransition` and the related functions in `gateway-changes.ts`.
 5. Bulk changes: `bulkSkipReason` in `search-rules.ts` and `bulk-worker.ts`.
 

@@ -97,7 +97,11 @@ describe("every write path goes through the shared pipeline", () => {
   // visibility and tenant checks. `pipeline.functions.ts` is excluded on purpose: its
   // resetTestData does its own master_admin and test-tenant check (see that file).
   const files = [
-    "document-write.functions.ts",
+    "document-read.functions.ts",
+    "document-content.functions.ts",
+    "document-status.functions.ts",
+    "document-review.functions.ts",
+    "document-access.functions.ts",
     "retention.functions.ts",
     "search.functions.ts",
     "tenant-config.functions.ts",
