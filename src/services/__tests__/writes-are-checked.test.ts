@@ -5,7 +5,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-// Add a file here once its writes are checked. Files not listed still have unchecked writes.
+// Add a file here once its writes are checked. (document.functions.ts is not listed: its refused-attempt
+// record is deliberately best-effort, so a logging failure cannot change the refusal.) Files not listed still have unchecked writes.
 const CHECKED = [
   "document-content.functions.ts",
   "document-status.functions.ts",
@@ -15,7 +16,6 @@ const CHECKED = [
   "maintenance.ts",
   "document-access.functions.ts",
   "document-review.functions.ts",
-  "document.functions.ts",
   "retention.functions.ts",
   "tenant-config-write.functions.ts",
   "idempotency-claim.ts",

@@ -135,16 +135,17 @@ export const recordAccess = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     if (!tenantId) throw new Error("access.none");
     if (!visible) {
-      must(
-        await supabaseAdmin.from("document_events").insert({
-          tenant_id: tenantId,
-          document_id: null,
-          actor: context.userId,
-          action: "accessDenied",
-          detail: data.action,
-        }),
-        "writing document events",
-      );
+      // The refusal stands whether or not the attempt could be recorded: do not let a logging
+      // failure change what the caller is told.
+      const logged = await supabaseAdmin.from("document_events").insert({
+        tenant_id: tenantId,
+        document_id: null,
+        actor: context.userId,
+        action: "accessDenied",
+        detail: data.action,
+      });
+      if (logged.error)
+        console.error(JSON.stringify({ op: "recordAccess", step: "recording a refused attempt" }));
       throw new Error("access.denied");
     }
     must(
