@@ -1,5 +1,6 @@
 // Server functions for the life of a document: status moves, legal hold, delete and restore.
 // Every one goes through `runWrite`; the rules themselves are pure functions in document-rules.ts.
+import { approvalRefusal } from "@/services/document-approval";
 import { holdColumns, updateDocument, updateDocumentIf } from "@/services/document-update";
 import { deleteIfAllowed } from "@/services/document-delete";
 import { isOwnDocument } from "@/services/review-flow-rules";
@@ -7,12 +8,7 @@ import { createServerFn } from "@tanstack/react-start";
 import type { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { docWriteSchema, setHoldSchema, transitionSchema } from "@/schemas/document";
-import {
-  can,
-  isTransitionAllowed,
-  pendingRequiredDetails,
-  transitionCapability,
-} from "@/services/document-rules";
+import { can, isTransitionAllowed, transitionCapability } from "@/services/document-rules";
 import { audit, forbidden, runWrite } from "@/services/seam-runtime";
 import { adminClient, fail, loadDoc, specFor } from "@/services/document-write-shared";
 // ---------- transition ----------
@@ -32,22 +28,20 @@ export const transition = createServerFn({ method: "POST" })
         if (!isTransitionAllowed(doc.status, data.to))
           return fail("doc.transition.notAllowed", "rejected");
         if (data.to === "approved") {
-          // Four-eyes: the person who added a document can't approve it.
-          if (isOwnDocument(doc.created_by, env.userId))
-            return fail("doc.approve.ownDocument", "rejected");
-          const spec = await specFor(env.caller, doc.document_type);
-          const { data: fields } = await env.admin
-            .from("extraction_fields")
-            .select("name, status")
-            .eq("document_id", data.id)
-            .eq("version_id", doc.current_version_id ?? "");
-          const pending = pendingRequiredDetails(spec, fields ?? []);
-          if (pending.length > 0)
+          // Four-eyes (the person who added a document can't approve it), then the required details.
+          const refusal = await approvalRefusal(
+            env.admin,
+            doc,
+            await specFor(env.caller, doc.document_type),
+            isOwnDocument(doc.created_by, env.userId),
+          );
+          if (refusal?.kind === "ownWork") return fail("doc.approve.ownDocument", "rejected");
+          if (refusal)
             return fail(
               "doc.approve.requiredPending",
               "rejected",
               "fixInput",
-              String(pending.length),
+              String(refusal.count),
             );
         }
         const moved = await updateDocumentIf(

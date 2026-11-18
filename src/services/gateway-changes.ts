@@ -1,11 +1,11 @@
 // Status moves, legal hold and delete of the TMF gateway, with the shared status path
 // (`applyTransition`) that PATCH also uses.
+import { approvalRefusal } from "@/services/document-approval";
 import { z } from "zod";
 import type { DocStatus } from "@/schemas/document";
 import {
   isTransitionAllowed,
   systemMayApprove,
-  pendingRequiredDetails,
   type SpecCharacteristic,
 } from "@/services/document-rules";
 import { deleteIfAllowed, gatewayRefusal } from "@/services/document-delete";
@@ -41,12 +41,21 @@ export async function applyTransition(
 ): Promise<{ status: number; body: unknown } | null> {
   if (!isTransitionAllowed(doc.status, target)) return refusedMove(doc.status, target);
   if (target === "approved") {
-    if (
+    const { data: specs } = await ctx.admin.rpc("effective_specifications", {
+      p_tenant: ctx.tenantId,
+    });
+    const def = (specs ?? []).find((s) => s.code === doc.document_type)?.definition as
+      { specCharacteristic?: SpecCharacteristic[] } | undefined;
+    const refusal = await approvalRefusal(
+      ctx.admin,
+      doc,
+      def?.specCharacteristic ?? [],
       !systemMayApprove(
         { registeredByClient: doc.registered_by_client, createdBy: doc.created_by },
         { clientId: ctx.clientId, ownerId: ctx.ownerId },
-      )
-    ) {
+      ),
+    );
+    if (refusal?.kind === "ownWork")
       return {
         status: 409,
         body: tmfError(
@@ -56,26 +65,14 @@ export async function applyTransition(
           "The system that added this document can't approve it. Another system or a person in the app can.",
         ),
       };
-    }
-    const { data: specs } = await ctx.admin.rpc("effective_specifications", {
-      p_tenant: ctx.tenantId,
-    });
-    const def = (specs ?? []).find((s) => s.code === doc.document_type)?.definition as
-      { specCharacteristic?: SpecCharacteristic[] } | undefined;
-    const { data: fields } = await ctx.admin
-      .from("extraction_fields")
-      .select("name, status")
-      .eq("document_id", doc.id)
-      .eq("version_id", doc.current_version_id ?? "");
-    const pending = pendingRequiredDetails(def?.specCharacteristic ?? [], fields ?? []);
-    if (pending.length > 0)
+    if (refusal)
       return {
         status: 409,
         body: tmfError(
           409,
           "requiredDetailsPending",
           "Conflict",
-          `${pending.length} required detail(s) still need a person to confirm them.`,
+          `${refusal.count} required detail(s) still need a person to confirm them.`,
         ),
       };
   }
