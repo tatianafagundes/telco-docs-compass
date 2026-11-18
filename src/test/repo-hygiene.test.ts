@@ -91,6 +91,7 @@ const DOCS = [
   "roadmap.md",
   ...walk("docs/architecture", (p) => p.endsWith(".md")),
   ...walk("docs/operations", (p) => p.endsWith(".md")),
+  ...walk("docs/integration", (p) => p.endsWith(".md")),
   ...walk(".kiro/steering", (p) => p.endsWith(".md")),
   ...walk("src", (p) => p.endsWith("README.md")),
 ];
@@ -249,6 +250,7 @@ const ENGLISH_ONLY_FILES = [
   ...walk("e2e", () => true),
   ...walk("docs/architecture", () => true),
   ...walk("docs/operations", () => true),
+  ...walk("docs/integration", () => true),
   ...walk("docs/decisions", () => true),
   ...walk(".kiro/steering", () => true),
   "README.md",
