@@ -40,12 +40,10 @@ export function HoldsTab() {
 
   if (holds.isPending)
     return (
-      <table className="w-full">
-        <tbody>
-          <SkeletonRow columns={6} />
-          <SkeletonRow columns={6} />
-        </tbody>
-      </table>
+      <div className="w-full">
+        <SkeletonRow columns={6} />
+        <SkeletonRow columns={6} />
+      </div>
     );
   if (holds.isError) {
     return (

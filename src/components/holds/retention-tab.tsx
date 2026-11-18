@@ -18,11 +18,9 @@ export function RetentionTab() {
   });
   if (config.isPending || overview.isPending)
     return (
-      <table className="w-full">
-        <tbody>
-          <SkeletonRow columns={4} />
-        </tbody>
-      </table>
+      <div className="w-full">
+        <SkeletonRow columns={4} />
+      </div>
     );
   if (config.isError || overview.isError) {
     return (

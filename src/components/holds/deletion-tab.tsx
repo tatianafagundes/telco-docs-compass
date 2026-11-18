@@ -23,11 +23,9 @@ export function DeletionTab() {
   });
   if (q.isPending)
     return (
-      <table className="w-full">
-        <tbody>
-          <SkeletonRow columns={4} />
-        </tbody>
-      </table>
+      <div className="w-full">
+        <SkeletonRow columns={4} />
+      </div>
     );
   if (q.isError)
     return (
