@@ -14,6 +14,9 @@ Sign in as a manager of the Sweden tenant and as its admin, then check:
 - Holds and retention: the three tabs load.
 - Admin, Connected systems: connect a system, see the key once, rotate it, disconnect it.
 - Bulk: select two documents, start a change, see the progress and the summary.
+- Upload: open a record (for example order O-7731), "Add documents", send a PDF. It appears with version 1
+  and leaves "uploading" once the file is in. Also try a file type the document type does not accept
+  (refused with a reason).
 
 ## 2. API end to end (automated)
 

@@ -35,7 +35,7 @@ use the editor.
 
 - Hex colour values live only in `src/styles/tokens.css`; components use ERAD token utilities from `src/styles.css`. Why: one source for both themes.
 - ERAD primitives live in `src/components/erad/`; unavailable controls use `aria-disabled` plus visible reason text, never native `disabled`. Why: the reason must stay keyboard-reachable.
-- The document seam (contracts/seams/document.openapi.yaml) is implemented as `requireSupabaseAuth` server functions in `src/services/document.functions.ts`, not edge functions. Reads run as the caller (RLS); writes use the service role after an explicit role/access check and append their own audit event. Why: TanStack Start stack, schema allows writes only via service role.
+- The document seam (contracts/seams/document.openapi.yaml) is implemented as `requireSupabaseAuth` server functions, not edge functions: reads in `src/services/document.functions.ts` and `document-read.functions.ts`, writes in the `document-*.functions.ts` files listed in `document-write.functions.ts`. Which helper to use for a write is in `src/services/README.md`. Reads run as the caller (RLS); writes use the service role after an explicit role/access check and append their own audit event. Why: TanStack Start stack, schema allows writes only via service role.
 - Clients may record only `view` and `download` audit actions. Why: all other events are written by the operation itself.
 - Seam operations return `SeamResult` (`{ok,data}` or `{ok:false,error:SeamError}`) instead of throwing; `src/services/api.ts` unwraps into `SeamFailure` and is the only backend entry for screens. Why: typed customer-facing errors cross the RPC boundary intact.
 - Pure document rules (status path, approve gate, delete blockers, idempotency) live in `src/services/document-rules.ts` with tests in `src/services/__tests__/`. Why: rules are testable without a database.
@@ -55,6 +55,8 @@ use the editor.
 - Documents search at scale: `_doc_search_where` (SECURITY DEFINER, same rule as `can_see_document`) feeds `search_documents`, `count_documents` (capped), `facet_documents`, `search_document_ids`; reached via `src/services/search.functions.ts`, rules in `search-rules.ts`; bulk changes re-check each document in `bulk-worker.ts`. Why: per-row RLS doesn't scale and one builder keeps access identical.
 - Never `select("*")` on `documents` for screens: the generated search column has no usable type and breaks server-function typing. Why: it silently turns the result into `{}`.
 - Approved/effective documents: name, description, sensitivity and links stay editable; confirmed details, dates and file versions are protected (`metadataPatchAllowed`/`contentProtected` in `document-rules.ts`, used by server functions, TMF PATCH (409 `approvedContentLocked`) and `contentEditState` in the UI). Why: approved content must stay as approved while labels can be corrected.
+
+- Background work (bulk changes, expiry, cleanup, given-up event deliveries) runs from the scheduled route through `src/services/scheduled-run.ts`; reads keep a once-a-minute expiry safety net (`expiry-fallback.ts`). Operations: `docs/operations/runbook.md`. Why: requests stay fast and per-tenant.
 
 ## Repository rules
 
