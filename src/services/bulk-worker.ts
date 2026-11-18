@@ -31,14 +31,14 @@ import {
 async function runBatch(admin: Db, job: JobRow) {
   if (job.done >= job.total) return settleJob(admin, job);
   const ids = job.doc_ids.slice(job.done, job.done + BULK_BATCH);
-  if (ids.length === 0) return failJob(admin, job, "queued"); // doc_ids shorter than total: corrupted
+  if (ids.length === 0) return failJob(admin, job, "queued", "corruptedJob"); // doc_ids shorter than total
   const role = await currentRole(admin, job);
-  if (!role) return failJob(admin, job, "queued");
+  if (!role) return failJob(admin, job, "queued", "creatorLostRole");
   if (!(await claimJob(admin, job))) return;
   try {
     await applyBatch(admin, job, ids, role);
-  } catch {
-    await failJob(admin, job, "running");
+  } catch (e) {
+    await failJob(admin, job, "running", "batchError", e);
   }
 }
 
@@ -247,7 +247,7 @@ export async function processBulkJobs(admin: Db, onlyId?: string): Promise<numbe
   // A holder that stopped mid-batch is detected by its lease; the job is failed, never finished short.
   for (const job of (held ?? []) as unknown as JobRow[]) {
     if (leaseExpired(job.params.leaseStartedAt, new Date())) {
-      await failJob(admin, job, "running").catch(() => {});
+      await failJob(admin, job, "running", "leaseExpired").catch(() => {});
     }
   }
   for (const job of (waiting ?? []) as unknown as JobRow[]) {

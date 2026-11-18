@@ -39,18 +39,43 @@ export const withoutLease = (p: JobRow["params"]) => {
  * Marks the job failed, but only if it is still in the state this processor saw (`from`, same
  * `done`). A late or mistaken call can therefore never kill a job another processor is running.
  */
-export async function failJob(admin: Db, job: JobRow, from: "queued" | "running") {
-  await admin
-    .from("bulk_jobs")
-    .update({
-      status: "failed",
-      finished_at: new Date().toISOString(),
-      params: withoutLease(job.params),
-    })
-    .eq("id", job.id)
-    .eq("status", from)
-    .eq("done", job.done);
+export async function failJob(
+  admin: Db,
+  job: JobRow,
+  from: "queued" | "running",
+  reason: FailReason,
+  cause?: unknown,
+) {
+  // The log says why, with ids and a reason code only: no document names, reasons or database text.
+  console.error(
+    JSON.stringify({
+      op: "bulk.fail",
+      job: job.id,
+      tenant: job.tenant_id,
+      action: job.action,
+      done: job.done,
+      total: job.total,
+      reason,
+      ...(cause instanceof Error ? { cause: cause.name } : {}),
+    }),
+  );
+  must(
+    await admin
+      .from("bulk_jobs")
+      .update({
+        status: "failed",
+        finished_at: new Date().toISOString(),
+        params: withoutLease(job.params),
+      })
+      .eq("id", job.id)
+      .eq("status", from)
+      .eq("done", job.done),
+    "marking a bulk job failed",
+  );
 }
+/** Why a job was failed, for the log. */
+export type FailReason =
+  "countsDoNotAdd" | "corruptedJob" | "creatorLostRole" | "batchError" | "leaseExpired";
 
 /** The person who started the job must still hold a role in the tenant when the batch runs. */
 export async function currentRole(admin: Db, job: JobRow): Promise<AppRole | null> {
@@ -85,7 +110,8 @@ export async function claimJob(admin: Db, job: JobRow): Promise<boolean> {
 
 /** A job with nothing left to run is done only if every document was accounted for. */
 export async function settleJob(admin: Db, job: JobRow) {
-  if (job.changed + sum(job.skipped) !== job.total) return failJob(admin, job, "queued");
+  if (job.changed + sum(job.skipped) !== job.total)
+    return failJob(admin, job, "queued", "countsDoNotAdd");
   must(
     await admin
       .from("bulk_jobs")
