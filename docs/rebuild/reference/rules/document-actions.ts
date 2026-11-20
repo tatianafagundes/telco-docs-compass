@@ -80,6 +80,12 @@ export function manageState(role: AppRole): ActionState {
 
 /** "Add documents" on the record page and the Documents page. */
 export function addDocumentsState(role: AppRole): ActionState {
+  // The group administrator works with settings and counts of the countries, never with documents.
+  if (role === "master_admin")
+    return {
+      available: false,
+      reason: "The group administrator works with settings and counts, not documents.",
+    };
   return can(role, "edit")
     ? { available: true }
     : { available: false, reason: "Viewers can open documents here but can't add them." };

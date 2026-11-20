@@ -154,6 +154,12 @@ describe("addDocumentsState", () => {
     for (const r of ["contributor", "reviewer", "manager", "tenant_admin"] as const)
       expect(addDocumentsState(r).available).toBe(true);
   });
+  it("should keep the group administrator out: they never work with documents", () => {
+    expect(addDocumentsState("master_admin")).toEqual({
+      available: false,
+      reason: "The group administrator works with settings and counts, not documents.",
+    });
+  });
   it("should tell a viewer why they can't", () => {
     expect(addDocumentsState("viewer")).toEqual({
       available: false,

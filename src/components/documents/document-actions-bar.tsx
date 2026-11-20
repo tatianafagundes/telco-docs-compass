@@ -349,7 +349,7 @@ export function DocumentActionsBar({
           open={open === "delete"}
           onOpenChange={(o) => (o ? null : close())}
           title={`Delete "${doc.name}"?`}
-          description="It leaves this record straight away. You can undo right after, and an administrator can restore it later."
+          description="It leaves this record straight away. You can undo right after, and a manager can restore it later from Deletion history."
           actions={
             <>
               <Button onClick={close}>Keep document</Button>
