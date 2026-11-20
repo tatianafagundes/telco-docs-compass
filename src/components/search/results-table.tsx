@@ -150,7 +150,7 @@ export function ResultsTable(p: ResultsTableProps) {
                 style={{ top: i * ROW_H, height: ROW_H }}
                 className={cn(
                   "focus-ring group absolute inset-x-0 flex cursor-pointer items-center gap-3 border-b border-border-subtle px-3 hover:bg-item-hover",
-                  active && "bg-item-selected",
+                  active && "bg-item-selected text-text-on-primary hover:bg-item-selected-hover",
                 )}
               >
                 <span role="gridcell" onClick={(e) => e.stopPropagation()}>
@@ -174,7 +174,7 @@ export function ResultsTable(p: ResultsTableProps) {
                     {r.entity_name && r.entity_id ? (
                       <span className="2xl:hidden">
                         {" · in "}
-                        <RecordLink id={r.entity_id}>
+                        <RecordLink id={r.entity_id} active={active} inline>
                           {`${recordKindLabel(r.entity_type ?? "")} ${r.entity_name}`}
                         </RecordLink>
                       </span>
@@ -190,7 +190,9 @@ export function ResultsTable(p: ResultsTableProps) {
                 >
                   {r.entity_name && r.entity_id ? (
                     <>
-                      <RecordLink id={r.entity_id}>{r.entity_name}</RecordLink>
+                      <RecordLink id={r.entity_id} active={active}>
+                        {r.entity_name}
+                      </RecordLink>
                       <span className="truncate">{recordKindLabel(r.entity_type ?? "")}</span>
                     </>
                   ) : (
@@ -238,7 +240,18 @@ export function ResultsTable(p: ResultsTableProps) {
  * to the record instead of opening the panel, and it keeps the row's own text colour: link blue
  * fails contrast on a hovered row, so the underline is what marks it.
  */
-function RecordLink({ id, children }: { id: string; children: string }) {
+function RecordLink({
+  id,
+  active,
+  inline = false,
+  children,
+}: {
+  id: string;
+  active: boolean;
+  /** In a line of text (narrow layout): plain inline, so the line's own ellipsis can cut it. */
+  inline?: boolean;
+  children: string;
+}) {
   return (
     <Link
       to="/records/$entityId"
@@ -246,9 +259,13 @@ function RecordLink({ id, children }: { id: string; children: string }) {
       tabIndex={-1}
       data-record-link=""
       onClick={(e) => e.stopPropagation()}
-      className="focus-ring inline-flex min-h-6 max-w-full items-center truncate underline underline-offset-2 hover:text-text-main"
+      className={cn(
+        "focus-ring underline underline-offset-2",
+        inline ? "" : "inline-flex min-h-6 max-w-full items-center truncate",
+        !active && "hover:text-text-main",
+      )}
     >
-      <span className="truncate">{children}</span>
+      {inline ? children : <span className="truncate">{children}</span>}
     </Link>
   );
 }

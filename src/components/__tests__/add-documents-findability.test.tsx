@@ -137,6 +137,14 @@ describe("the record link in the results table", () => {
     expect(onOpen).not.toHaveBeenCalled();
     expect(onToggle).not.toHaveBeenCalled();
   });
+  it("keeps the record in the narrow line a plain inline link, so the line can cut it by characters", async () => {
+    await renderWithRouter(table([row()]));
+    const links = screen.getAllByRole("link", { name: /O-7731 Fibre upgrade/ });
+    const inLine = links.find((l) => l.closest('[class~="2xl:hidden"]'));
+    expect(inLine).toBeTruthy();
+    // inline-flex would make the whole link one unit that collapses to an ellipsis
+    expect(inLine?.className).not.toContain("inline-flex");
+  });
   it("has no link, and no record id, when the record can't be opened", async () => {
     await renderWithRouter(table([row({ entity_name: null })]));
     expect(screen.queryByRole("link")).toBeNull();
