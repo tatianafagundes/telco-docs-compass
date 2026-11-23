@@ -1,9 +1,9 @@
-import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { ShieldOff } from "lucide-react";
 import { PageHeader } from "@/components/erad/page-header";
 import { EmptyState } from "@/components/erad/empty-state";
 import { useMe } from "@/hooks/use-me";
-import { canSeeTenants } from "@/services/tenant-rules";
+import { adminAreaOf } from "@/lib/nav-section";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -28,6 +28,8 @@ export const Route = createFileRoute("/_authenticated/admin")({
 function AdminLayout() {
   const me = useMe();
   const role = me.access?.role;
+  const pathname = useRouterState({ select: (st) => st.location.pathname });
+  const area = adminAreaOf(role, pathname);
   if (role !== "tenant_admin" && role !== "master_admin") {
     return (
       <EmptyState
@@ -37,34 +39,10 @@ function AdminLayout() {
       />
     );
   }
-  const tabs = [
-    { to: "/admin/types", label: "Document types" },
-    { to: "/admin/policies", label: "Policies" },
-    { to: "/admin/holds", label: "Holds and retention" },
-    ...(role === "tenant_admin"
-      ? [{ to: "/admin/systems", label: "Connected systems" } as const]
-      : []),
-    ...(canSeeTenants(role) ? [{ to: "/admin/tenants", label: "Tenants" } as const] : []),
-  ] as const;
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="Admin" />
-      <nav aria-label="Admin sections" className="flex gap-4 border-b border-border-subtle">
-        {tabs.map((t) => (
-          <Link
-            key={t.to}
-            to={t.to}
-            className="focus-ring type-label-14 flex h-8 items-center border-b-2 px-1 hover:text-text-main"
-            activeProps={{
-              className: "border-border-selected text-text-main",
-              "aria-current": "page",
-            }}
-            inactiveProps={{ className: "border-transparent text-text-secondary" }}
-          >
-            {t.label}
-          </Link>
-        ))}
-      </nav>
+      {/* The areas are children of Admin in the main navigation; the page is titled by its area. */}
+      <PageHeader title={area?.label ?? "Admin"} />
       <Outlet />
     </div>
   );

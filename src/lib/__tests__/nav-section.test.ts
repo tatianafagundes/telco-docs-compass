@@ -26,3 +26,18 @@ describe("homeFor", () => {
       expect(homeFor(r)).toBe("/documents");
   });
 });
+import { adminAreaOf, adminAreas } from "@/lib/nav-section";
+describe("adminAreas", () => {
+  it("lists one Holds and retention entry per role, and each role's own areas", () => {
+    const ta = adminAreas("tenant_admin").map((a) => a.label);
+    const ma = adminAreas("master_admin").map((a) => a.label);
+    expect(ta).toEqual(["Document types", "Policies", "Holds and retention", "Connected systems"]);
+    expect(ma).toEqual(["Document types", "Policies", "Holds and retention", "Tenants"]);
+    expect(adminAreas("manager")).toEqual([]);
+  });
+  it("names the area a page is in, including pages deeper in it", () => {
+    expect(adminAreaOf("master_admin", "/admin/tenants/abc")?.label).toBe("Tenants");
+    expect(adminAreaOf("tenant_admin", "/admin/systems")?.label).toBe("Connected systems");
+    expect(adminAreaOf("tenant_admin", "/admin/tenants")).toBeNull();
+  });
+});

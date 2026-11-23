@@ -59,15 +59,15 @@ function ChildView() {
         {`Viewing ${view.tenant.displayName} as ${me.access?.tenantName ?? view.tenant.groupName} – counts and settings only`}
       </Banner>
       <section className="flex flex-col gap-2">
-        <h3 className="type-title-16-medium">Documents</h3>
+        <h2 className="type-title-16-medium">Documents</h2>
         <StatCounts rows={view.stats} />
       </section>
       <section className="flex flex-col gap-2">
-        <h3 className="type-title-16-medium">Policies</h3>
+        <h2 className="type-title-16-medium">Policies</h2>
         <PolicyCards tenant={view.tenant} />
       </section>
       <section className="flex flex-col gap-2">
-        <h3 className="type-title-16-medium">Document types</h3>
+        <h2 className="type-title-16-medium">Document types</h2>
         <div className="relative flex min-h-[320px]">
           <div className="min-w-0 flex-1">
             <SpecTable view={view} {...(open ? { activeCode: open } : {})} onOpen={setOpen} />

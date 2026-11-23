@@ -21,3 +21,29 @@ export function navCurrent(item: string, pathname: string): "page" | "section" |
 export function homeFor(role: string | undefined): "/documents" | "/admin" {
   return role === "master_admin" ? "/admin" : "/documents";
 }
+
+export type AdminArea =
+  "/admin/types" | "/admin/policies" | "/admin/holds" | "/admin/systems" | "/admin/tenants";
+/**
+ * The areas inside Admin for a role, in order. They are children of Admin in the main
+ * navigation (EDS local navigation is a tree), not a row of tabs on the page.
+ */
+export function adminAreas(role: string | undefined): { to: AdminArea; label: string }[] {
+  if (role !== "tenant_admin" && role !== "master_admin") return [];
+  return [
+    { to: "/admin/types", label: "Document types" },
+    { to: "/admin/policies", label: "Policies" },
+    { to: "/admin/holds", label: "Holds and retention" },
+    ...(role === "tenant_admin"
+      ? [{ to: "/admin/systems" as const, label: "Connected systems" }]
+      : []),
+    ...(role === "master_admin" ? [{ to: "/admin/tenants" as const, label: "Tenants" }] : []),
+  ];
+}
+/** The admin area a page is in, for its title; null outside Admin. */
+export function adminAreaOf(
+  role: string | undefined,
+  pathname: string,
+): { to: AdminArea; label: string } | null {
+  return adminAreas(role).find((a) => within(pathname, a.to)) ?? null;
+}

@@ -4,7 +4,7 @@
 - **Who:** tenant_admin and master_admin (others: "Admin is for administrators")
 
 ## Purpose
-Configuration for the organisation. Tabs are labelled "Admin sections"; the active tab has an indicator.
+Configuration for the organisation. Its areas are children of Admin in the main navigation (an EDS navigation tree, list labelled "Admin areas"): the Admin label opens the first area, the chevron shows or hides the areas, and inside Admin the current area is highlighted. The page title is the area name.
 
 ## Layout and actions
 See the per-tab screens.

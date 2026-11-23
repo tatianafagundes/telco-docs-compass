@@ -1,7 +1,21 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { navCurrent } from "@/lib/nav-section";
+import { adminAreas, navCurrent, type AdminArea } from "@/lib/nav-section";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, FileText, Lock, LogOut, Moon, Settings, Share2, Sun } from "lucide-react";
+import {
+  Building2,
+  ChevronDown,
+  FileStack,
+  FileText,
+  Lock,
+  LogOut,
+  Moon,
+  Plug,
+  ScrollText,
+  Settings,
+  Share2,
+  Sun,
+} from "lucide-react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { childTenantsQuery } from "@/hooks/use-config";
 import type { ReactNode } from "react";
@@ -152,28 +166,15 @@ export function AppShell({ tenantName, userName, role, children }: AppShellProps
         {/* 240px navigation; collapses to 80px below 1280px (reflow for zoom, WCAG 1.4.10). */}
         <nav aria-label="Main" className="w-20 shrink-0 bg-layer-application py-2 xl:w-60">
           <ul className="flex flex-col">
-            {NAV.map(({ to, label, icon: Icon }) => {
-              const current = navCurrent(to, pathname);
-              return (
+            {NAV.map(({ to, label, icon }) =>
+              to === "/admin" ? (
+                <AdminNavItem key={to} role={role} pathname={pathname} icon={icon} />
+              ) : (
                 <li key={to}>
-                  <Link
-                    to={to}
-                    aria-label={label}
-                    // "page" for the page itself, "true" for a page inside the section (a record, a review).
-                    aria-current={current === "page" ? "page" : current ? "true" : undefined}
-                    activeOptions={{ exact: true }}
-                    className={
-                      current
-                        ? "focus-ring type-label-14 flex h-10 items-center justify-center gap-2 bg-item-selected px-4 text-text-on-primary hover:bg-item-selected-hover xl:justify-start"
-                        : "focus-ring type-label-14 flex h-10 items-center justify-center gap-2 px-4 text-text-main hover:bg-item-hover xl:justify-start"
-                    }
-                  >
-                    <Icon className="size-4 shrink-0" aria-hidden="true" />
-                    <span className="hidden xl:inline">{label}</span>
-                  </Link>
+                  <NavLink to={to} label={label} icon={icon} current={navCurrent(to, pathname)} />
                 </li>
-              );
-            })}
+              ),
+            )}
           </ul>
         </nav>
         <main
@@ -185,5 +186,101 @@ export function AppShell({ tenantName, userName, role, children }: AppShellProps
         </main>
       </div>
     </div>
+  );
+}
+
+type NavIcon = typeof FileText;
+const ITEM =
+  "focus-ring type-label-14 flex h-10 min-w-0 flex-1 items-center justify-center gap-2 px-4 xl:justify-start";
+function NavLink(p: {
+  to: string;
+  label: string;
+  icon: NavIcon;
+  current: "page" | "section" | null;
+  child?: boolean;
+}) {
+  const Icon = p.icon;
+  return (
+    <Link
+      to={p.to}
+      aria-label={p.label}
+      // "page" for the page itself, "true" for a page inside the section (a record, a review).
+      aria-current={p.current === "page" ? "page" : p.current ? "true" : undefined}
+      activeOptions={{ exact: true }}
+      className={
+        p.current
+          ? `${ITEM} bg-item-selected text-text-on-primary hover:bg-item-selected-hover`
+          : `${ITEM} text-text-main hover:bg-item-hover`
+      }
+    >
+      <Icon
+        className={p.child ? "size-4 shrink-0 xl:ml-6" : "size-4 shrink-0"}
+        aria-hidden="true"
+      />
+      <span className="hidden truncate xl:inline">{p.label}</span>
+    </Link>
+  );
+}
+const AREA_ICON: Record<AdminArea, NavIcon> = {
+  "/admin/types": FileStack,
+  "/admin/policies": ScrollText,
+  "/admin/holds": Lock,
+  "/admin/systems": Plug,
+  "/admin/tenants": Building2,
+};
+/**
+ * Admin as an EDS navigation tree: the label opens Admin, the chevron only shows or hides its
+ * areas. Inside Admin the areas stay open and the current area, not Admin, is highlighted.
+ */
+function AdminNavItem({ role, pathname, icon }: { role: string; pathname: string; icon: NavIcon }) {
+  const areas = adminAreas(role);
+  const inside = navCurrent("/admin", pathname) !== null;
+  const [open, setOpen] = useState(inside);
+  const shown = open || inside;
+  const Icon = icon;
+  return (
+    <li>
+      <div className="flex items-center">
+        <Link
+          to="/admin"
+          aria-label="Admin"
+          className={`${ITEM} text-text-main hover:bg-item-hover ${inside ? "type-label-14-medium" : ""}`}
+        >
+          <Icon className="size-4 shrink-0" aria-hidden="true" />
+          <span className="hidden xl:inline">Admin</span>
+        </Link>
+        <button
+          type="button"
+          aria-expanded={shown}
+          aria-controls="admin-areas"
+          aria-label={shown ? "Hide Admin areas" : "Show Admin areas"}
+          disabled={inside}
+          onClick={() => setOpen((o) => !o)}
+          className="focus-ring hidden h-10 w-10 shrink-0 items-center justify-center hover:bg-item-hover disabled:cursor-default disabled:hover:bg-transparent xl:flex"
+        >
+          <ChevronDown
+            aria-hidden="true"
+            className={
+              shown ? "size-4 rotate-180 transition-transform" : "size-4 transition-transform"
+            }
+          />
+        </button>
+      </div>
+      {shown ? (
+        <ul id="admin-areas" aria-label="Admin areas" className="flex flex-col">
+          {areas.map((a) => (
+            <li key={a.to} className="flex">
+              <NavLink
+                to={a.to}
+                label={a.label}
+                icon={AREA_ICON[a.to]}
+                current={navCurrent(a.to, pathname)}
+                child
+              />
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </li>
   );
 }

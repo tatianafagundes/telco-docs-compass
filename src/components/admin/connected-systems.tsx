@@ -313,9 +313,9 @@ function SystemList(p: {
   return (
     <section className="flex flex-col gap-3" aria-labelledby="systems-heading">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h3 id="systems-heading" className="type-title-16-medium">
+        <h2 id="systems-heading" className="type-title-16-medium">
           {query ? `Connected (${connected.length} of ${active})` : `Connected (${active})`}
-        </h3>
+        </h2>
         {p.systems.length >= FILTER_FROM ? (
           <div className="w-full max-w-[320px]">
             <TextField
