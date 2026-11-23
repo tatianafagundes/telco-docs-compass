@@ -1,6 +1,7 @@
 // Our internal events mapped to TMF667 v4 events, and the matching of events to subscriptions.
 // Pure: no I/O.
 import type { DocStatus } from "@/schemas/document";
+import { fileEventPayload, isFileEvent } from "@/services/file-hook-rules";
 import { TMF_BASE_PATH, toTmfStatus } from "@/services/tmf667-shared";
 /** Internal outbox kinds → TMF667 v4 event names. */
 const V4_EVENT: Record<string, string> = {
@@ -128,6 +129,10 @@ export function toTmfEvent(
             ? { status: toTmfStatus(state), lifecycleState: state }
             : {}),
       },
+      // File events (declared extension): the whitelisted file facts only, never names or content.
+      ...(isFileEvent(row.event_type)
+        ? { file: fileEventPayload(row.event_type, row.payload) }
+        : {}),
     },
     ...(changed ? { changedAttributes: changed } : {}),
   };

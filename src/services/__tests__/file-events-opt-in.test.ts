@@ -51,3 +51,27 @@ describe("hold change on change events", () => {
     expect(JSON.stringify(e)).not.toMatch(/"legalHold":/);
   });
 });
+describe("file events carry the whitelisted file facts", () => {
+  const V = "11111111-1111-4111-8111-111111111111";
+  it("delivers versionId and attempt, and nothing the payload adds", () => {
+    const e = toTmfEvent("https://x.test", {
+      id: 2,
+      event_type: "DocumentFileReadyToReadEvent",
+      document_id: "d1",
+      created_at: "2026-11-24T10:00:00Z",
+      payload: { versionId: V, attempt: 2, name: "Secret plan.pdf" },
+    });
+    expect(e.event).toMatchObject({ file: { versionId: V, attempt: 2 } });
+    expect(JSON.stringify(e)).not.toContain("Secret plan");
+  });
+  it("keeps the standard events without a file part", () => {
+    const e = toTmfEvent("https://x.test", {
+      id: 3,
+      event_type: "DocumentCreateEvent",
+      document_id: "d1",
+      created_at: "2026-11-24T10:00:00Z",
+      payload: { lifecycleState: "draft", versionId: V },
+    });
+    expect(e.event).not.toHaveProperty("file");
+  });
+});
