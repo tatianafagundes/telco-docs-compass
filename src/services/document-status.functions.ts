@@ -8,7 +8,12 @@ import { createServerFn } from "@tanstack/react-start";
 import type { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { docWriteSchema, setHoldSchema, transitionSchema } from "@/schemas/document";
-import { can, isTransitionAllowed, transitionCapability } from "@/services/document-rules";
+import {
+  can,
+  fileBlocker,
+  isTransitionAllowed,
+  transitionCapability,
+} from "@/services/document-rules";
 import { audit, forbidden, runWrite } from "@/services/seam-runtime";
 import { adminClient, fail, loadDoc, specFor } from "@/services/document-write-shared";
 // ---------- transition ----------
@@ -27,6 +32,8 @@ export const transition = createServerFn({ method: "POST" })
         if (!doc) return fail("doc.notFound", "notFound");
         if (!isTransitionAllowed(doc.status, data.to))
           return fail("doc.transition.notAllowed", "rejected");
+        if (fileBlocker(data.to, doc.pipeline_state))
+          return fail("doc.transition.noFile", "rejected", "fixInput");
         if (data.to === "approved") {
           // Four-eyes (the person who added a document can't approve it), then the required details.
           const refusal = await approvalRefusal(

@@ -198,3 +198,24 @@ describe("a bad request is refused after the key is checked", () => {
     expect(db.writesTo("documents")).toHaveLength(0);
   });
 });
+describe("a document with no checked file cannot move on", () => {
+  for (const [from, to] of [
+    ["draft", "in_review"],
+    ["in_review", "approved"],
+    ["approved", "effective"],
+  ] as const) {
+    it(`${from} to ${to} is refused with 409 fileMissing while the file is not in`, async () => {
+      const db = await buildWorld({
+        documents: [docRow({ status: from, pipeline_state: "uploading", created_by: "someone" })],
+      });
+      const res = await move(to);
+      expect(res.status).toBe(409);
+      expect((await json(res))["code"]).toBe("fileMissing");
+      expect(db.rows("documents")[0]?.["status"]).toBe(from);
+    });
+  }
+  it("still allows a move that does not need the file (effective to expired)", async () => {
+    await buildWorld({ documents: [docRow({ status: "effective", pipeline_state: "uploading" })] });
+    expect((await move("expired")).status).toBe(200);
+  });
+});

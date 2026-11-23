@@ -80,6 +80,8 @@ export function friendlyError(code: string | undefined): string {
       return "Your role doesn't allow this action.";
     case "access.groupAdminNoDocuments":
       return "The group administrator works with settings and counts, not documents.";
+    case "doc.transition.noFile":
+      return "This document has no checked file yet, so it can't move on. Add the file first.";
     case "doc.transition.notAllowed":
       return "This step isn't available for the document right now. The page has been refreshed.";
     case "doc.approve.ownDocument":

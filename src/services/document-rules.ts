@@ -117,6 +117,15 @@ export function isTransitionAllowed(from: DocStatus, to: DocStatus): boolean {
   return ALLOWED_TRANSITIONS[from].includes(to);
 }
 
+/**
+ * Sending for approval, approving and making effective need the file in and checked: a document
+ * in review with no file has nothing to review. "ready" includes a file kept without reading.
+ * Returns the refusal code, or null when the move may go ahead.
+ */
+export function fileBlocker(to: DocStatus, pipelineState: PipelineState): string | null {
+  if (to !== "in_review" && to !== "approved" && to !== "effective") return null;
+  return pipelineState === "ready" ? null : "doc.transition.noFile";
+}
 export const FROZEN_STATUSES: DocStatus[] = ["superseded", "expired", "archived"];
 export function isFrozen(status: DocStatus): boolean {
   return FROZEN_STATUSES.includes(status);

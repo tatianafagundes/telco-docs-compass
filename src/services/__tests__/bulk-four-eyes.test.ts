@@ -13,6 +13,7 @@ function world() {
   const base = {
     tenant_id: "t1",
     status: "in_review",
+    pipeline_state: "ready",
     legal_hold: false,
     sensitivity: "internal",
     document_type: "contract",

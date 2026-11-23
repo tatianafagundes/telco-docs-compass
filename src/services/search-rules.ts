@@ -1,10 +1,11 @@
 // Pure rules for document search at scale: filters, keyset cursors, count labels and bulk eligibility.
 // Tested in __tests__/search-rules.test.ts.
 import { z } from "zod";
-import type { DocStatus } from "@/schemas/document";
+import type { DocStatus, PipelineState } from "@/schemas/document";
 import {
   can,
   isFrozen,
+  fileBlocker,
   isTransitionAllowed,
   transitionCapability,
   type AppRole,
@@ -152,6 +153,7 @@ export type SkipReason =
   | "notAllowed"
   | "ownDocument"
   | "detailsPending"
+  | "noFile"
   | "notFound"
   | "unchanged";
 
@@ -161,6 +163,7 @@ export const SKIP_LABEL: Record<SkipReason, string> = {
   notAllowed: "it isn't the next step on its status path",
   ownDocument: "you added it, so someone else needs to approve it",
   detailsPending: "required details still need checking",
+  noFile: "its file is not in yet",
   notFound: "it was removed or is no longer visible",
   unchanged: "it already had this value",
 };
@@ -170,6 +173,8 @@ export interface BulkDocFacts {
   legalHold: boolean;
   sensitivity: string;
   pendingRequired: number;
+  /** Whether the file is in; omitted for moves that do not need it. */
+  pipelineState: PipelineState;
   /** The person making the change is the one who added the document (four-eyes). */
   isOwn: boolean;
 }
@@ -212,6 +217,7 @@ export function bulkSkipReason(
   if (!can(role, transitionCapability(to))) return "noPermission";
   if (d.status === to) return "unchanged";
   if (!isTransitionAllowed(d.status, to)) return "notAllowed";
+  if (fileBlocker(to, d.pipelineState)) return "noFile";
   // Four-eyes, same rule as the single-document approval: you can't approve what you added.
   if (to === "approved" && d.isOwn) return "ownDocument";
   if (to === "approved" && d.pendingRequired > 0) return "detailsPending";

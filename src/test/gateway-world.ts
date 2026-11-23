@@ -51,6 +51,7 @@ export function docRow(over: Row = {}): Row {
     description: null,
     document_type: "contract",
     status: "draft",
+    pipeline_state: "ready",
     sensitivity: "internal",
     legal_hold: false,
     effective_date: null,

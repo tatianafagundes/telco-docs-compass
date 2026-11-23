@@ -156,7 +156,7 @@ The callback must answer directly: redirects are not followed, a delivery times 
 | 403 | `scopeMissing` | ask the tenant admin for the scope |
 | 404 | `notFound`, `relatedEntityNotFound` | the document or record does not exist in your organisation |
 | 405 | `methodNotAllowed` | use a method the path supports |
-| 409 | `transitionNotAllowed`, `requiredDetailsPending`, `fourEyesRequired`, `approvedContentLocked`, `contentLocked`, `frozen`, `legalHold`, `retention`, `idempotencyInProgress`, `idempotencyMismatch` | the document's state refuses it; read the message, do not retry blindly (except `idempotencyInProgress`) |
+| 409 | `transitionNotAllowed`, `fileMissing` (send the content first: sending for approval, approving and making effective need a checked file), `requiredDetailsPending`, `fourEyesRequired`, `approvedContentLocked`, `contentLocked`, `frozen`, `legalHold`, `retention`, `idempotencyInProgress`, `idempotencyMismatch` | the document's state refuses it; read the message, do not retry blindly (except `idempotencyInProgress`) |
 | 413 | `bodyTooLarge`, `tooLarge` | send the file by `url` or `uploadUrl` |
 | 415 | `unsupportedMediaType` | PATCH needs `application/merge-patch+json` |
 | 422 | `attachmentUnreachable`, `hashMismatch` | the file at `url` could not be fetched, or does not match `contentHash` |

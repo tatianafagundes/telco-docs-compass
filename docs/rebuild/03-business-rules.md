@@ -16,6 +16,7 @@ Error shape for internal operations: `{code, category, retryable, customerFacing
 | ID | Rule |
 |---|---|
 | BR-010 | Allowed transitions: draft→in_review; in_review→approved; approved→effective; effective→superseded or expired; superseded→archived; expired→archived; archived→none. Anything else is refused with `doc.transition.notAllowed`. |
+| BR-010a | Sending for approval, approving and making effective need a checked file (`pipeline_state` ready, which includes a file kept without reading). Otherwise refused with `doc.transition.noFile` (API: 409 `fileMissing`; bulk: skipped "its file is not in yet"). The screen shows the step unavailable with where the file is. |
 | BR-011 | in_review→draft happens only through "report problem / send back" (needs `review`). |
 | BR-012 | Capability per target: in_review needs edit; approved needs review; every other target needs manage. |
 | BR-013 | Frozen statuses are superseded, expired and archived. Editing details is refused with `doc.edit.frozen`. |

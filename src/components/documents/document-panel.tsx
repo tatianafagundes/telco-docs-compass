@@ -120,7 +120,8 @@ export function DocumentPanel({
     me.data?.userId ?? "",
   );
   const checkIsPrimary =
-    !shared && actionLayout(role, doc.status, review.gate.reason, own).primary === "check";
+    !shared &&
+    actionLayout(role, doc.status, review.gate.reason, own, doc.pipeline_state).primary === "check";
   const extraMenu = [
     ...(!shared && can(role, "manage")
       ? [{ label: "Manage access", onSelect: () => setSharing(true) }]

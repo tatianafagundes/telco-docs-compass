@@ -36,4 +36,16 @@ describe("actionLayout (one primary action)", () => {
     expect(gateHint("Approve", 1)).toBe("Approve is available after you check 1 required detail.");
     expect(gateHint("Approve", 3)).toBe("Approve is available after you check 3 required details.");
   });
+  it("should hold the next step while the file is not in, before any details gate", () => {
+    const l = actionLayout("reviewer", "in_review", GATE, false, "uploading");
+    expect(l.primary).toBe("next");
+    expect(l.next).toMatchObject({ available: false });
+    expect(l.next?.reason).toContain("has not arrived");
+    expect(actionLayout("contributor", "draft", undefined, false, "scanning").next?.available).toBe(
+      false,
+    );
+    expect(actionLayout("contributor", "draft", undefined, false, "ready").next?.available).toBe(
+      true,
+    );
+  });
 });

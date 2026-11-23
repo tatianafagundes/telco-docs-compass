@@ -9,7 +9,7 @@ import { TextField } from "@/components/erad/text-field";
 import type { AppRole } from "@/services/document-rules";
 import type { ApproveGate } from "@/services/review-rules";
 import { Link } from "@tanstack/react-router";
-import type { DocStatus } from "@/schemas/document";
+import type { DocStatus, PipelineState } from "@/schemas/document";
 import type { ReactNode } from "react";
 import { Lock } from "lucide-react";
 import { DocumentMenu, type MenuEntry } from "@/components/documents/document-menu";
@@ -19,6 +19,7 @@ interface Props {
   doc: {
     id: string;
     status: DocStatus;
+    pipeline_state: PipelineState;
     legal_hold: boolean;
     retain_until: string | null;
     name: string;
@@ -62,7 +63,7 @@ export function DocumentActionsBar({
     setReference("");
   };
 
-  const layout = actionLayout(role, doc.status, approveGate?.reason, own);
+  const layout = actionLayout(role, doc.status, approveGate?.reason, own, doc.pipeline_state);
   const next = layout.next;
   const manage = manageState(role);
   const todayIso = new Date().toISOString().slice(0, 10);

@@ -48,7 +48,9 @@ async function applyBatch(admin: Db, job: JobRow, ids: string[], role: AppRole) 
   const docs = must(
     await admin
       .from("documents")
-      .select("id, status, legal_hold, sensitivity, document_type, current_version_id, created_by")
+      .select(
+        "id, status, legal_hold, sensitivity, document_type, current_version_id, created_by, pipeline_state",
+      )
       .in("id", ids)
       .eq("tenant_id", job.tenant_id)
       .is("deleted_at", null),
@@ -117,6 +119,7 @@ async function applyBatch(admin: Db, job: JobRow, ids: string[], role: AppRole) 
             legalHold: d.legal_hold,
             sensitivity: d.sensitivity,
             pendingRequired,
+            pipelineState: d.pipeline_state,
             isOwn: isOwnDocument(d.created_by, job.created_by),
           }
         : null,

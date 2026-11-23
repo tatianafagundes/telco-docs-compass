@@ -72,6 +72,7 @@ describe("bulkSkipReason", () => {
     legalHold: false,
     sensitivity: "internal",
     pendingRequired: 0,
+    pipelineState: "ready" as const,
     isOwn: false,
   };
   it("should skip approval of a document the same person added (four-eyes)", () => {
@@ -156,6 +157,7 @@ describe("bulkStartCapability: starting a job needs what each document will need
           legalHold: false,
           sensitivity: "internal",
           pendingRequired: 0,
+          pipelineState: "ready",
           isOwn: false,
         } as const;
         const skip = bulkSkipReason(
@@ -167,5 +169,33 @@ describe("bulkStartCapability: starting a job needs what each document will need
         expect(mayStart).toBe(skip !== "noPermission");
       }
     }
+  });
+});
+
+describe("bulkSkipReason and the file", () => {
+  const facts = {
+    status: "draft" as const,
+    legalHold: false,
+    sensitivity: "internal",
+    pendingRequired: 0,
+    isOwn: false,
+  };
+  it("should skip sending for approval while the file is not in", () => {
+    expect(
+      bulkSkipReason(
+        "manager",
+        "transition",
+        { to: "in_review" },
+        { ...facts, pipelineState: "uploading" },
+      ),
+    ).toBe("noFile");
+    expect(
+      bulkSkipReason(
+        "manager",
+        "transition",
+        { to: "in_review" },
+        { ...facts, pipelineState: "ready" },
+      ),
+    ).toBeNull();
   });
 });

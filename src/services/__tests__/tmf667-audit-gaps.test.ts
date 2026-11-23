@@ -14,6 +14,7 @@ const doc = {
   description: null,
   document_type: "quote",
   status: "draft" as const,
+  pipeline_state: "ready" as const,
   sensitivity: "internal",
   legal_hold: false,
   effective_date: null,

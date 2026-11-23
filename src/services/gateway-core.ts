@@ -41,7 +41,7 @@ export interface SystemCtx {
 }
 
 export const DOC_COLS =
-  "id, tenant_id, name, description, document_type, status, sensitivity, legal_hold, effective_date, expiry_date, created_at, updated_at, current_version_id, characteristic, external_identifier, retain_until, bundle_id, registered_by_client, created_by";
+  "id, tenant_id, name, description, document_type, status, sensitivity, legal_hold, effective_date, expiry_date, created_at, updated_at, current_version_id, characteristic, external_identifier, retain_until, bundle_id, registered_by_client, created_by, pipeline_state";
 
 /**
  * Verifies the system key (erad_…) or a short-lived OAuth token (eradt_…), checks expiry, scope and

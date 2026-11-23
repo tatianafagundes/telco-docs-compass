@@ -1,6 +1,16 @@
 import { blockedByRole, nextStep, sendBackState, type NextStep } from "@/services/document-actions";
 import type { AppRole } from "@/services/document-rules";
-import type { DocStatus } from "@/schemas/document";
+import type { DocStatus, PipelineState } from "@/schemas/document";
+import { fileBlocker } from "@/services/document-rules";
+/** Why a step waits for the file, by where the file is. */
+export const NO_FILE_REASON: Partial<Record<PipelineState, string>> = {
+  uploading:
+    "The file has not arrived yet. Add it with a new version, or wait for the system that sends it.",
+  scanning: "The file is still being checked for viruses.",
+  reading: "The file is still being read.",
+  failed: "Reading the file failed. Retry, or keep it without reading.",
+  quarantined: "The file was quarantined. Replace it with a new version.",
+};
 import { AUTHOR_APPROVE_REASON } from "@/services/review-flow-rules";
 export interface ActionLayout {
   /**
@@ -18,10 +28,20 @@ export function actionLayout(
   status: DocStatus,
   gateReason: string | null | undefined,
   own: boolean,
+  pipelineState: PipelineState = "ready",
 ): ActionLayout {
   const raw = nextStep(role, status);
   // A step this role can never take is not shown at all (R21).
-  const step = raw && blockedByRole(raw) ? null : raw;
+  const shown = raw && blockedByRole(raw) ? null : raw;
+  // No checked file: the step waits for it, whatever else is pending (same rule as the server).
+  const step =
+    shown?.available && fileBlocker(shown.to, pipelineState)
+      ? {
+          ...shown,
+          available: false,
+          reason: NO_FILE_REASON[pipelineState] ?? "The file is not in yet.",
+        }
+      : shown;
   const approving = step?.to === "approved" && step.available;
   const gated = !!(approving && gateReason);
   const authorBlocked = !!(approving && !gated && own);

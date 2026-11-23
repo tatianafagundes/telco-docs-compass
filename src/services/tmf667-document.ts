@@ -1,5 +1,5 @@
 // Our document row mapped to a TMF667 Document resource. Pure: no I/O.
-import type { DocStatus } from "@/schemas/document";
+import type { DocStatus, PipelineState } from "@/schemas/document";
 import {
   ERAD_SCHEMA_PATH,
   TMF_BASE_PATH,
@@ -13,6 +13,8 @@ export interface DocRow {
   description: string | null;
   document_type: string;
   status: DocStatus;
+  /** Whether the file is in: "ready" once it arrived and was checked. */
+  pipeline_state: PipelineState;
   sensitivity: string;
   legal_hold: boolean;
   effective_date: string | null;

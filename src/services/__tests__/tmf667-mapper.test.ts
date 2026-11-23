@@ -18,6 +18,7 @@ const doc = {
   description: null,
   document_type: "contract",
   status: "approved" as const,
+  pipeline_state: "ready" as const,
   sensitivity: "confidential",
   legal_hold: false,
   effective_date: "2026-01-01",

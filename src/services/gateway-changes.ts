@@ -4,6 +4,7 @@ import { approvalRefusal } from "@/services/document-approval";
 import { z } from "zod";
 import type { DocStatus } from "@/schemas/document";
 import {
+  fileBlocker,
   isTransitionAllowed,
   systemMayApprove,
   type SpecCharacteristic,
@@ -40,6 +41,16 @@ export async function applyTransition(
   target: DocStatus,
 ): Promise<{ status: number; body: unknown } | null> {
   if (!isTransitionAllowed(doc.status, target)) return refusedMove(doc.status, target);
+  if (fileBlocker(target, doc.pipeline_state))
+    return {
+      status: 409,
+      body: tmfError(
+        409,
+        "fileMissing",
+        "Conflict",
+        "The document has no checked file yet. Upload its content first, then change its lifecycleState.",
+      ),
+    };
   if (target === "approved") {
     const { data: specs } = await ctx.admin.rpc("effective_specifications", {
       p_tenant: ctx.tenantId,

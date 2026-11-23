@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addDocumentsBlocker,
+  fileBlocker,
   shareCappedRole,
   strongestShare,
   can,
@@ -224,5 +225,16 @@ describe("strongestShare and shareCappedRole", () => {
     expect(shareCappedRole("manager", "view")).toBe("viewer");
     expect(shareCappedRole("manager", "edit")).toBe("contributor");
     expect(shareCappedRole("viewer", "edit")).toBe("viewer");
+  });
+});
+
+describe("fileBlocker", () => {
+  it("needs a checked file to send for approval, approve or make effective", () => {
+    for (const to of ["in_review", "approved", "effective"] as const) {
+      expect(fileBlocker(to, "ready")).toBeNull();
+      for (const st of ["uploading", "scanning", "reading", "failed", "quarantined"] as const)
+        expect(fileBlocker(to, st)).toBe("doc.transition.noFile");
+    }
+    expect(fileBlocker("archived", "uploading")).toBeNull();
   });
 });
