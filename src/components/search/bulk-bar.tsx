@@ -108,7 +108,7 @@ export function BulkBar(p: {
         </Button>
         {!useAll ? (
           <Button variant="ghost" onClick={p.onClear}>
-            Clear selection
+            Clear
           </Button>
         ) : null}
       </div>

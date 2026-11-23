@@ -302,7 +302,7 @@ function Results(p: {
           {hasAnyFilter(p.filters) ? (
             <Button variant="ghost" onClick={p.onClearAll}>
               <X aria-hidden="true" />
-              Clear filters
+              Clear
             </Button>
           ) : null}
           <div className="ml-auto">
@@ -363,7 +363,7 @@ function Results(p: {
             icon={FileSearch}
             title="No documents match"
             cause="You can try fewer filters or a shorter word. Numbers like O-7731 also find the record itself."
-            action={<Button onClick={p.onClearAll}>Clear filters</Button>}
+            action={<Button onClick={p.onClearAll}>Clear</Button>}
           />
         ) : (
           <ResultsTable

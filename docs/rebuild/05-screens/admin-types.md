@@ -7,7 +7,7 @@
 Document types (TMF667 DocumentSpecification): required details, accepted file types, size, review, signature, personal data, default sensitivity, retention, business process.
 
 ## Layout and actions
-Table of types with a source tag (BR-084). Side panel to edit, with lock/extend/override rules (BR-081–083) and impact text (BR-086). "Add a document type" (Code, Name). "Unsaved changes" guard. Reset to the group version.
+Table of types with a source tag (BR-084). Side panel to edit, with lock/extend/override rules (BR-081–083) and impact text (BR-086). "Create document type" (Code, Name). "Unsaved changes" guard. Reset to the group version.
 
 ## States
 Locked or extend-only reasons are shown next to the setting.

@@ -131,7 +131,7 @@ function TypesPage() {
             ? "Types defined here are shared with every country in the group."
             : sourceNote(view.tenant.groupName)}
         </p>
-        {canAdd ? <Button onClick={() => setAdding(true)}>Add a document type</Button> : null}
+        {canAdd ? <Button onClick={() => setAdding(true)}>Create document type</Button> : null}
       </div>
       <div className="relative flex min-h-[480px] gap-0">
         <div className="min-w-0 flex-1">
@@ -167,8 +167,8 @@ function TypesPage() {
       <Dialog
         open={adding}
         onOpenChange={setAdding}
-        title="Add a document type"
-        description="The new type starts with no settings. You can fill them in after adding it."
+        title="Create document type"
+        description="The new type starts with no settings. You can fill them in after creating it."
         actions={
           <>
             <Button onClick={() => setAdding(false)}>Cancel</Button>
@@ -177,7 +177,7 @@ function TypesPage() {
               unavailable={!newName.trim() || !/^[a-zA-Z][a-zA-Z0-9]{1,40}$/.test(newCode)}
               onClick={() => add.mutate()}
             >
-              Add type
+              Create
             </Button>
           </>
         }

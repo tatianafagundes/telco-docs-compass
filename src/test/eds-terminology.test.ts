@@ -17,6 +17,9 @@ const BANNED: [RegExp, string][] = [
     /["'>`]\s*Log ?In\b|["'>`]\s*Login\b|["'>`]\s*Log ?Out\b|["'>`]\s*Logout\b/,
     'write "Log in" / "Log out" in sentence case',
   ],
+  [/["'>`]\s*Clear (filters|all|selection)\b/i, 'use "Clear"'],
+  [/["'>`]\s*Add (a |new )\w+ type\b/i, 'use "Create" for a new entity'],
+  [/["'>`]\s*(Submit|Continue|Proceed)\s*["'<`]/, 'use "Finish" or "Next"'],
 ];
 describe("EDS terminology", () => {
   const all = files("src").map((p) => ({ p, text: readFileSync(p, "utf8") }));

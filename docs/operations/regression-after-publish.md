@@ -6,7 +6,7 @@ gateway end to end. Run these against the preview once a change is on `main`.
 
 ## 1. Screens (5 minutes, by hand)
 
-Sign in as a manager of the Sweden tenant and as its admin, then check:
+Log in as a manager of the Sweden tenant and as its admin, then check:
 
 - Documents: the start page lists recent and expiring documents; opening one shows the side panel.
 - A document in review: approve it (needs another person than the one who added it), see the activity entry.
@@ -31,7 +31,7 @@ Sign in as a manager of the Sweden tenant and as its admin, then check:
   the area. Document types say "Inherited", "Changed here" or "Locked" with the group named once above.
   A record lists documents in a table that sorts by Name, Type and Changed. A document in review with
   details to check shows "Check details" as its one primary action and "Send back to draft" in More actions.
-  Searching shows "n documents for "word"" with Clear filters and Sort by on one row. Connected systems
+  Searching shows "n documents for "word"" with Clear and Sort by on one row. Connected systems
   lists disconnected ones collapsed under "Disconnected (n)".
 ## 2. API end to end (automated)
 
