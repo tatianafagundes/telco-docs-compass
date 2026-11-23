@@ -143,8 +143,8 @@ export function eventMatches(
   doc?: { status?: DocStatus | null; documentType?: string | null },
 ): boolean {
   const types = parseEventTypes(query);
-  // Opt-in events go only to subscriptions that ask for them by name.
-  if (OPT_IN_EVENTS.has(eventType)) return !!types && types.includes(eventType);
+  // Opt-in events go only to subscriptions that ask for them by name, and then pass the same filters.
+  if (OPT_IN_EVENTS.has(eventType) && !types?.includes(eventType)) return false;
   if (!query) return true;
   if (types && !types.includes(eventType) && !types.includes(v4EventType(eventType))) return false;
   const status = queryValue(query, "status");

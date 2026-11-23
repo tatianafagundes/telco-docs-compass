@@ -22,6 +22,13 @@ describe("file events are opt-in", () => {
     expect(eventMatches(null, "DocumentBatchEvent")).toBe(false);
   });
 });
+describe("opt-in events still honour the subscription filters", () => {
+  it("does not send a file event for another document type", () => {
+    const q = "eventType=DocumentFileStoredEvent&documentType=contract";
+    expect(eventMatches(q, "DocumentFileStoredEvent", { documentType: "invoice" })).toBe(false);
+    expect(eventMatches(q, "DocumentFileStoredEvent", { documentType: "contract" })).toBe(true);
+  });
+});
 describe("hold change on change events", () => {
   const row = (payload: unknown) => ({
     id: 1,
