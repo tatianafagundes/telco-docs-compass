@@ -48,3 +48,12 @@ describe("connected systems screen", () => {
     expect(src).not.toContain("How about");
   });
 });
+describe("connect again", () => {
+  it("offers it on a disconnected system and starts from its settings with a new key", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync("src/components/admin/connected-systems.tsx", "utf8");
+    expect(src).toContain("Connect again");
+    expect(src).toContain("useState(from?.name ??");
+    expect(src).toContain("It gets a new key; the old one stays disconnected.");
+  });
+});

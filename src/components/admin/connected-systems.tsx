@@ -4,6 +4,7 @@ import { Copy, Gauge, KeyRound, Plug, RotateCw, Unplug } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { tableDate } from "@/lib/table-format";
 import { Button } from "@/components/erad/button";
 import { Card } from "@/components/erad/card";
 import { Checkbox } from "@/components/erad/checkbox";
@@ -59,6 +60,8 @@ export function ConnectedSystems() {
   const qc = useQueryClient();
   const list = useQuery({ queryKey: systemsKey, queryFn: () => api.listSystems() });
   const [adding, setAdding] = useState(false);
+  // "Connect again" starts the dialog from a disconnected system's kind, name and permissions.
+  const [again, setAgain] = useState<ConnectedSystem | null>(null);
   const [shownKey, setShownKey] = useState<{ name: string; key: string } | null>(null);
   const [revoking, setRevoking] = useState<ConnectedSystem | null>(null);
   const [limiting, setLimiting] = useState<ConnectedSystem | null>(null);
@@ -123,6 +126,10 @@ export function ConnectedSystems() {
           onLimits={setLimiting}
           onRevoke={setRevoking}
           onConnect={() => setAdding(true)}
+          onConnectAgain={(s) => {
+            setAgain(s);
+            setAdding(true);
+          }}
         />
       )}
       <Card title="For your integration team">
@@ -149,10 +156,16 @@ export function ConnectedSystems() {
       </Card>
 
       <AddSystemDialog
+        key={again?.id ?? "new"}
         open={adding}
-        onOpenChange={setAdding}
+        from={again}
+        onOpenChange={(o) => {
+          setAdding(o);
+          if (!o) setAgain(null);
+        }}
         onCreated={(name, key) => {
           setAdding(false);
+          setAgain(null);
           setShownKey({ name, key });
           void qc.invalidateQueries({ queryKey: systemsKey });
         }}
@@ -223,16 +236,26 @@ export function ConnectedSystems() {
 
 function AddSystemDialog({
   open,
+  from,
   onOpenChange,
   onCreated,
 }: {
   open: boolean;
+  /** A disconnected system to connect again: its old key stays revoked, a new one is issued. */
+  from: ConnectedSystem | null;
   onOpenChange: (o: boolean) => void;
   onCreated: (name: string, key: string) => void;
 }) {
-  const [kind, setKind] = useState<SystemKind>("orderCare");
-  const [name, setName] = useState("Order care");
-  const [scopes, setScopes] = useState<Scope[]>(DEFAULT_SCOPES.orderCare);
+  const fromKind = (SYSTEM_KINDS as readonly string[]).includes(from?.systemKind ?? "")
+    ? (from?.systemKind as SystemKind)
+    : null;
+  const [kind, setKind] = useState<SystemKind>(fromKind ?? "orderCare");
+  const [name, setName] = useState(from?.name ?? "Order care");
+  const [scopes, setScopes] = useState<Scope[]>(
+    from
+      ? (from.scopes.filter((x) => (SCOPES as readonly string[]).includes(x)) as Scope[])
+      : DEFAULT_SCOPES.orderCare,
+  );
   const create = useMutation({
     mutationFn: () => api.createSystem({ name: name.trim(), systemKind: kind, scopes }),
     onSuccess: (r) => onCreated(r.system.name, r.key),
@@ -248,8 +271,12 @@ function AddSystemDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Connect a system"
-      description="Choose only what this system needs. You can disconnect it at any time."
+      title={from ? `Connect ${from.name} again` : "Connect a system"}
+      description={
+        from
+          ? "It gets a new key; the old one stays disconnected. Its earlier settings are filled in."
+          : "Choose only what this system needs. You can disconnect it at any time."
+      }
       actions={
         <>
           {reason ? <span className="type-paragraph-14 text-text-secondary">{reason}</span> : null}
@@ -308,6 +335,7 @@ function SystemList(p: {
   onLimits: (s: ConnectedSystem) => void;
   onRevoke: (s: ConnectedSystem) => void;
   onConnect: () => void;
+  onConnectAgain: (s: ConnectedSystem) => void;
 }) {
   const [query, setQuery] = useState("");
   const { connected, disconnected } = splitSystems(p.systems, query, kindLabel);
@@ -428,9 +456,12 @@ function SystemList(p: {
                 <Tag small>Disconnected</Tag>
                 {s.revokedAt ? (
                   <span className="type-label-12 text-text-secondary">
-                    {format(new Date(s.revokedAt), "d MMM yyyy")}
+                    {`Disconnected ${tableDate(s.revokedAt)}`}
                   </span>
                 ) : null}
+                <Button variant="ghost" className="ml-auto" onClick={() => p.onConnectAgain(s)}>
+                  Connect again
+                </Button>
               </li>
             ))}
           </ul>
