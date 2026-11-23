@@ -47,9 +47,9 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
   - For phases 4–5: answers and downloads are authorised with `scan`/`extract` only, never by widening `read`; an external step with no system (`by` null) must show "no system connected" and is never offered to anyone; Try again resolves the owner as it is now (the spec's rule), a document keeps its mode only while its step lasts.
 
 ## 4. Events out
-- [ ] 4.1 Tests that every path that changes `pipeline_state` or purges goes through the guarded update the trigger listens to; no app-side event inserts for the file events (R1.1–R1.4).
+- [x] 4.1 Tests that every path that changes `pipeline_state` or purges goes through the guarded update the trigger listens to; no app-side event inserts for the file events (R1.1–R1.4).
 - [x] 4.2 `tmf667-events.ts`: `OPT_IN_EVENTS` before the no-query branch and then the status and type filters (seg-review M2); hold changes give `changedAttributes: ["legalHold"]` without the value (R1.3, R1.5); `file-events-opt-in.test.ts`. Done early: the trigger writes the events as soon as the migration applies.
-- [ ] 4.3 Test that no sensitive string (description, hold reason, value, threat name, person name) reaches any outbox row or delivered body (R1.6, R6.4).
+- [x] 4.3 Test that no sensitive string (description, hold reason, value, threat name, person name) reaches any outbox row or delivered body (R1.6, R6.4). Done: `file-events-paths.test.ts` (static, reviewed writers), `file-events-no-content.test.ts` (PGlite, every event kind, delivered bodies, poisoned payloads). Logs are spied in 5.6 with the callbacks, which are the first code that handles threat names and values.
 - [ ] 4.4 Review: `code-reviewer` on phase 4.
 
 ## 5. Callbacks and confirm upload
