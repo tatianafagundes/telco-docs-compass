@@ -1,5 +1,7 @@
 # 10 — Cassandra 5 data model (query-first)
 
+> **DXP decision:** one keyspace per tenant (`erad_<tenant>`) plus `erad_platform`, as in CPR; see `18-tenancy-and-data-protection.md`. The tables below go inside each tenant keyspace.
+
 Keyspace `erad`, NetworkTopologyStrategy, RF 3. Default consistency is LOCAL_QUORUM. Ids are `uuid` (time-based `timeuuid` where ordering matters).
 
 > Cassandra has no joins, foreign keys, triggers or row-level security. Every screen query below has its own table. Writes update all affected tables in one logged batch, and access checks run in Java.

@@ -14,6 +14,7 @@ This pack describes the current application (TanStack Start + Postgres) precisel
 8. `09`–`13` — target architecture, Cassandra, OpenSearch, Keycloak, Angular
 9. `14-non-functional.md`, `15-test-strategy.md`, `16-traceability.csv`
 10. `17-kiro-steering/` — drop into `.kiro/steering` and `.kiro/specs`
+11. `18-tenancy-and-data-protection.md` — DXP decision: keyspace, index and bucket per tenant (CPR Organization Management pattern), residency, keys, LGPD/GDPR, audit export. It overrides 10 and 11 where they differ.
 
 `contracts/` holds the JSON schemas and OpenAPI files; `fixtures/` holds synthetic seed data.
 

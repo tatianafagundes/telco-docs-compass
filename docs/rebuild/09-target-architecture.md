@@ -5,7 +5,7 @@
   - Java 21 and Spring Boot 3.x (Web, Security OAuth2 Resource Server, Validation, Actuator).
   - DataStax Java driver 4.x for Cassandra 5.
   - opensearch-java client.
-  - S3-compatible object storage.
+  - S3-compatible object storage: ADP Object Storage MN (`eric-data-object-storage-mn`, MinIO), one bucket per tenant, keys in the Key Management service (`18-tenancy-and-data-protection.md`).
 - **Database:** Cassandra 5. Use Storage-Attached Indexes (SAI) only for low-cardinality admin lookups. OpenSearch handles everything search-related.
 - **Identity:** Keycloak 2x (see 12).
 - **Frontend:** Angular 18+ with standalone components and signals, and `keycloak-angular`.

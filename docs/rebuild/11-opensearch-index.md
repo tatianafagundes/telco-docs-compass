@@ -1,5 +1,7 @@
 # 11 — OpenSearch index
 
+> **DXP decision:** one index per tenant (`erad-documents-<tenant>`), as in CPR, with the reindex REST endpoint and the CPR Kafka sync for geo-redundancy; see `18-tenancy-and-data-protection.md`. Keep the `tenant_id` filter as a second check.
+
 Index `erad-documents-v1`, alias `erad-documents`. Use one shared index with tenant routing (`_routing = tenant_id`), or one index per tenant for very large tenants.
 
 ## Mapping
