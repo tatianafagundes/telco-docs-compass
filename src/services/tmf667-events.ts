@@ -16,6 +16,16 @@ export const V4_EVENT_TYPES = [
   "DocumentDeleteEvent",
 ] as const;
 const LEGACY_ONLY = ["DocumentStateChangeEvent", "DocumentAttributeValueChangeEvent"];
+/**
+ * Events a subscription receives only when its query names them exactly: batch events and the file
+ * hooks (declared extensions, not TMF667 standard). Existing subscriptions never start getting them.
+ */
+export const OPT_IN_EVENTS: ReadonlySet<string> = new Set([
+  "DocumentBatchEvent",
+  "DocumentFileStoredEvent",
+  "DocumentFileReadyToReadEvent",
+  "DocumentFilePurgedEvent",
+]);
 
 export function v4EventType(internal: string): string {
   return V4_EVENT[internal] ?? internal;
@@ -59,6 +69,7 @@ export function toTmfEvent(
     previous?: string;
     documentIds?: unknown;
     action?: unknown;
+    legalHold?: unknown;
   };
   if (row.event_type === "DocumentBatchEvent") {
     const ids = Array.isArray(p.documentIds)
@@ -85,11 +96,14 @@ export function toTmfEvent(
   }
   const eventType = eventNameFor(query, row.event_type);
   const state = p.lifecycleState as DocStatus | undefined;
+  const holdOnly = typeof p.legalHold === "boolean";
   const changed =
     row.event_type === "DocumentStateChangeEvent"
       ? ["status"]
       : row.event_type === "DocumentAttributeValueChangeEvent"
-        ? ["attachment", "characteristic", "legalHold"]
+        ? holdOnly
+          ? ["legalHold"]
+          : ["attachment", "characteristic", "legalHold"]
         : undefined;
   return {
     eventId: String(row.id),
@@ -113,6 +127,8 @@ export function toTmfEvent(
           : state
             ? { status: toTmfStatus(state), lifecycleState: state }
             : {}),
+        // The hold flag only, never its reason or reference.
+        ...(holdOnly ? { legalHold: p.legalHold as boolean } : {}),
       },
     },
     ...(changed ? { changedAttributes: changed } : {}),
@@ -129,8 +145,8 @@ export function eventMatches(
   doc?: { status?: DocStatus | null; documentType?: string | null },
 ): boolean {
   const types = parseEventTypes(query);
-  // Batch events go only to subscriptions that ask for them by name.
-  if (eventType === "DocumentBatchEvent") return !!types && types.includes("DocumentBatchEvent");
+  // Opt-in events go only to subscriptions that ask for them by name.
+  if (OPT_IN_EVENTS.has(eventType)) return !!types && types.includes(eventType);
   if (!query) return true;
   if (types && !types.includes(eventType) && !types.includes(v4EventType(eventType))) return false;
   const status = queryValue(query, "status");
