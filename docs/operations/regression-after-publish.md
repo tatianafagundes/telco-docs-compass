@@ -41,6 +41,9 @@ Log in as a manager of the Sweden tenant and as its admin, then check:
 - Review follow-ups: as a contributor on a document in review, Approve and Send back are not shown (not
   disabled). The results filter icon hides and shows the filters. As the group administrator, a change to
   a document (for example through a direct link) answers "works with settings and counts, not documents".
+- No file, no approval: a document without its file shows Approve unavailable with "The file has not arrived yet"; through the API, `POST .../transition` answers 409 `fileMissing`.
+- Navigation and tables: the menu button next to Documents switches the left navigation to icons (names in tooltips) and back; it is remembered. A record with more than 25 documents shows pages (1–25 of n). Dates in tables read 2026-11-10.
+- Connected systems: open "Disconnected (n)", choose Connect again: the dialog has the old name and permissions, and a new key is shown once.
 ## 2. API end to end (automated)
 
 From a checkout, with Python 3 and `pip install requests playwright` then `python -m playwright install chromium`:

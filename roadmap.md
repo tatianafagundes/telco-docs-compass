@@ -10,8 +10,7 @@
 - [x] Prompt 12 – hardening pass: layouts 1440/1920 light+dark, keyboard order, icon names, isolation proofs, quick security scan, banned-phrase check, reset test data, held-delete block
 - [x] Hardening pass (2026-11-17): tenant isolation, checked writes, idempotency that runs once, API and token limits, one rule per business decision, split services, docs
 - [ ] UI review backlog R19 and R23; R20 and R26 need user tests (`docs/design/ui-review-2026-11.md`); P1, P2 and the rest of P3 are done
-- [ ] Design review follow-ups: values on the policy cards, counts on every facet, Holds cells that read as placeholders, paging on long record tables, a log in help link, reconnecting a system
-- [ ] Decide whether a document can be in review with no file (the TMF API allows it today); confirm the two token divergences in `docs/decisions/01-foundation-gaps.md`
+- [ ] Documents already in review with no file (created before the rule): send them back or wait for the file; confirm the two token divergences in `docs/decisions/01-foundation-gaps.md`
 - [ ] Log in page: add the Ericsson logo from an approved brand asset, and show the date and time of the previous log in (Ericsson security requirement; needs the server to keep the previous value)
 - [ ] Ask Lovable for a unique index on `extraction_fields (version_id, name)`; entering a missing detail is safe without it (guarded update), other writers are not
 - [ ] Human security review
