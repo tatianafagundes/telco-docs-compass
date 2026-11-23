@@ -3,7 +3,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { seamError } from "@/services/document-rules";
-import { advanceStep, SIMULATED_OWNERS } from "@/services/pipeline-step";
+import { resolveOwners } from "@/services/external-processing";
+import { advanceStep } from "@/services/pipeline-step";
 import { forbidden, loadRole, runWrite } from "@/services/seam-runtime";
 import { adminClient } from "@/services/shared/server-context";
 
@@ -37,7 +38,8 @@ export const advancePipeline = createServerFn({ method: "POST" })
             return new Uint8Array(await file.arrayBuffer());
           },
           now: () => new Date().toISOString(),
-          owners: SIMULATED_OWNERS,
+          // The organisation switch decides who handles a step that starts now (D1).
+          owners: () => resolveOwners(env.admin, env.tenantId, new Date()),
         }),
     );
   });

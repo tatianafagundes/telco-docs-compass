@@ -74,8 +74,15 @@ export function sameContentHash(stored: string | null | undefined, computedHex: 
 
 // ---- Step transitions ----
 
-/** Who handles a step if it starts now, decided by the caller from the organisation switch (D1). */
-export type StepOwner = { mode: "simulated" } | { mode: "external"; by: string; byClient: string };
+/**
+ * Who handles a step if it starts now, decided by the caller from the organisation switch (D1). An
+ * external step with no system (switch on, no active key) still waits: nobody can download or answer
+ * it, and it fails after the timeout; it never falls back to simulation.
+ */
+export type StepOwner =
+  | { mode: "simulated" }
+  | { mode: "external"; by: string; byClient: string }
+  | { mode: "external"; by: null; byClient: null };
 /** A result sent by an outside system: which key sent it, for which version and attempt. */
 export interface ResultFrom {
   clientId: string;
@@ -127,7 +134,7 @@ function start(step: Step, prev: PipelineDetail, ctx: StepContext): PipelineDeta
   const o = ctx.owner[step];
   return {
     mode: o.mode,
-    ...(o.mode === "external"
+    ...(o.mode === "external" && o.by !== null
       ? { by: cleanLabel(o.by, MAX_SYSTEM_NAME_CHARS), byClient: o.byClient }
       : {}),
     since: ctx.now,

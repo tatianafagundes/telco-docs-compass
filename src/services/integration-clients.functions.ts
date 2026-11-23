@@ -4,7 +4,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { seamError, type SeamResult } from "@/services/document-rules";
-import { forbidden, runRead } from "@/services/seam-runtime";
+import { audit, forbidden, runRead } from "@/services/seam-runtime";
+import { createSystemStep } from "@/services/integration-client-create";
 import { LIMIT_BOUNDS } from "@/services/rate-limit-rules";
 import { SCOPES, sha256Hex, SYSTEM_KINDS } from "@/services/tmf667-mapper";
 import { adminClient } from "@/services/shared/server-context";
@@ -102,29 +103,17 @@ export const createSystem = createServerFn({ method: "POST" })
   .handler(
     async ({ data, context }): Promise<SeamResult<{ system: ConnectedSystem; key: string }>> =>
       runRead(context, "systems.create", null, async (env) => {
-        if (!isTenantAdmin(env.role)) return forbidden();
         const { key, prefix } = newKey();
         const admin = await adminClient();
-        const { data: row, error } = await admin
-          .from("integration_clients")
-          .insert({
-            tenant_id: env.tenantId,
-            name: data.name,
-            system_kind: data.systemKind,
-            scopes: [...new Set(data.scopes)],
-            key_prefix: prefix,
-            key_hash: await sha256Hex(key),
-            created_by: env.userId,
-            expires_at: expiry(),
-          })
-          .select(COLS)
-          .single();
-        if (error || !row)
-          return { ok: false, error: seamError("seam.unavailable", "unavailable", "retry") };
-        return { ok: true, data: { system: map(row), key } };
+        const created = await createSystemStep<Parameters<typeof map>[0]>(
+          { ...env, admin },
+          data,
+          { prefix, hash: await sha256Hex(key), expiresAt: expiry() },
+          COLS,
+        );
+        return created.ok ? { ok: true, data: { system: map(created.data), key } } : created;
       }),
   );
-
 const idSchema = z.object({ id: z.string().uuid() });
 
 export const rotateSystemKey = createServerFn({ method: "POST" })
@@ -162,9 +151,12 @@ export const revokeSystem = createServerFn({ method: "POST" })
         .update({ revoked_at: new Date().toISOString() })
         .eq("id", data.id)
         .eq("tenant_id", env.tenantId)
-        .select("id");
+        .is("revoked_at", null)
+        .select("id, name");
       if (!rows || rows.length === 0)
         return { ok: false, error: seamError("system.notFound", "notFound", "none") };
+      // Disconnecting is recorded: a file waiting for this system now fails after the timeout.
+      await audit({ ...env, admin }, "systemDisconnected", null, rows[0]!.name);
       must(
         await admin.from("event_subscriptions").delete().eq("client_id", data.id),
         "writing event subscriptions",

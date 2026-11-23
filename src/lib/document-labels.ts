@@ -76,6 +76,10 @@ export function activityLabel(action: string): string {
 /** Friendly message for a failed action; never the raw code. */
 export function friendlyError(code: string | undefined): string {
   switch (code) {
+    case "system.scopesExclusive":
+      return "Checking files and reading files each need a key of their own. Choose only that permission.";
+    case "system.processingKeyExists":
+      return "This organisation already has a system connected for this. Disconnect it first.";
     case "access.roleTooLow":
       return "Your role doesn't allow this action.";
     case "access.groupAdminNoDocuments":

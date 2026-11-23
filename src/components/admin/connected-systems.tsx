@@ -42,6 +42,8 @@ const SCOPE_LABEL: Record<Scope, string> = {
   hold: "Place and release legal holds",
   delete: "Delete documents (holds and keep-until dates still apply)",
   subscribe: "Receive change notifications",
+  scan: "Check files for threats and report the result",
+  extract: "Read details from files and report what it found",
 };
 
 const DEFAULT_SCOPES: Record<SystemKind, Scope[]> = {

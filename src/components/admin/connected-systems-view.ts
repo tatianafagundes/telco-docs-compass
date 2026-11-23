@@ -9,6 +9,8 @@ export const SCOPE_SHORT: Record<Scope, string> = {
   hold: "Hold",
   delete: "Delete",
   subscribe: "Notifications",
+  scan: "Check files",
+  extract: "Read files",
 };
 export function canLine(scopes: readonly string[]): string {
   return scopes.map((x) => SCOPE_SHORT[x as Scope] ?? x).join(", ");

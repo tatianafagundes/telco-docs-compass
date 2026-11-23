@@ -17,6 +17,9 @@ export const SCOPES = [
   "hold",
   "delete",
   "subscribe",
+  // Processing keys (file hooks): exclusive, so such a key can do nothing else (D4).
+  "scan",
+  "extract",
 ] as const;
 export type Scope = (typeof SCOPES)[number];
 

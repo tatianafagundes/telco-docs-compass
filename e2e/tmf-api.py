@@ -96,9 +96,15 @@ async def mint_key(page, name: str, all_scopes: bool) -> str:
     dialog = page.get_by_role("dialog")
     await dialog.get_by_label("Name shown in activity").fill(name)
     boxes = dialog.get_by_role("checkbox")
-    for i in range(await boxes.count()):
+    # The antivirus and reader permissions are exclusive (a key with one has no other), so "all" skips them.
+    exclusive = ("Check files for threats", "Read details from files")
+    n = await boxes.count()
+    for i in range(n):
         b = boxes.nth(i)
-        want = all_scopes or i == 0  # first scope is "read"
+        label = (await b.get_attribute("aria-label")) or (await b.evaluate("e => e.closest('label')?.innerText || ''"))
+        # They are listed last, which also decides it when the label cannot be read.
+        is_exclusive = any(x in label for x in exclusive) if label else i >= n - 2
+        want = (all_scopes and not is_exclusive) or i == 0  # first scope is "read"
         if (await b.get_attribute("aria-checked") == "true") != want:
             await b.click()
     await dialog.get_by_role("button", name="Connect and show key").click()

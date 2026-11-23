@@ -999,6 +999,7 @@ export type Database = {
         Row: {
           cross_tenant_share: string
           display_name: string
+          external_processing: Json
           frontend_strategy: string
           hard_floors: Json
           id: string
@@ -1010,6 +1011,7 @@ export type Database = {
         Insert: {
           cross_tenant_share?: string
           display_name: string
+          external_processing?: Json
           frontend_strategy?: string
           hard_floors?: Json
           id: string
@@ -1021,6 +1023,7 @@ export type Database = {
         Update: {
           cross_tenant_share?: string
           display_name?: string
+          external_processing?: Json
           frontend_strategy?: string
           hard_floors?: Json
           id?: string
