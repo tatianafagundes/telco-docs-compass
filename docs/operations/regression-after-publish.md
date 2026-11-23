@@ -38,6 +38,9 @@ Log in as a manager of the Sweden tenant and as its admin, then check:
 - Share level: share a document "Can view" with a Sweden contributor who has no access to its record. They
   open it from Shared with me and cannot change it; the server refuses an edit too. As the group
   administrator, adding documents is refused by the server ("works with settings and counts, not documents").
+- Review follow-ups: as a contributor on a document in review, Approve and Send back are not shown (not
+  disabled). The results filter icon hides and shows the filters. As the group administrator, a change to
+  a document (for example through a direct link) answers "works with settings and counts, not documents".
 ## 2. API end to end (automated)
 
 From a checkout, with Python 3 and `pip install requests playwright` then `python -m playwright install chromium`:

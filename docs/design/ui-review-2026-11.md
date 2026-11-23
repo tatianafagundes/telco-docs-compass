@@ -112,6 +112,8 @@ A holistic review of the screens of Telco Docs Compass: who uses it, how each jo
 
 Effort: S under a day, M a few days, L more. Source: me, design reviewer (D), UX researcher (U).
 
+**Multi-perspective review of P2 and P3 (2026-11-24).** Code, security, QA and design reviewers looked at everything since P1. Fixed: document changes fail closed when no record or live share is left; the group administrator cannot change documents or start bulk changes; the address after log in stays on this site; log in errors say when to wait; the Admin chevron is no longer a disabled button; setting sources use gray tags so they never read as a status; a locked type's fields look unavailable; one primary action on the record page; Connected systems offers Connect a system when none is; a tenant's page is titled by the tenant; See all links name their list. P3 done: R21 (actions a role never has are hidden), R22 (filter panel can be hidden), R24 (token test against EDS; two divergences recorded to confirm), R25 (upload differences written in `docs/architecture/accessibility.md`). Open: R19, R23, and R20 and R26, which need user tests. Also still open from the design review: policy cards without values, facet counts on every facet, placeholder-like cells on Holds, paging on long record tables, a log in help link, the Ericsson logo and the previous log in, reconnecting a system, and whether a document that is in review with no file should exist at all.
+
 ### P1: fix soon
 
 | ID | Finding | Fix | Effort | Source |
