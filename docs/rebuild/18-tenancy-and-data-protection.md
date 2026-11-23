@@ -25,10 +25,42 @@ CPR-specific GDPR or audit behaviour.
 | TD-02 | One shared keyspace, `erad_platform`, only for what must be found before the tenant is known or across tenants: the tenant registry (id, parent, region, keyspace, index, bucket, key id), connected-system keys by hash, cross-tenant grants, and the rate-limit counters. No document data. | A system key arrives without a tenant; a grant links two tenants. |
 | TD-03 | One search index per tenant, `erad-documents-<tenant>`, behind an alias. The indexer is per tenant and exposes the reindex REST endpoint like the CPR services. | Same as CPR. Search can never cross tenants by a missing filter. |
 | TD-04 | Geo-redundancy as CPR: Cassandra replicates the keyspaces; the index is rebuilt or synchronised through the CPR Kafka and Reindex Management path. | No second mechanism to operate. |
-| TD-05 | Files in Object Storage MN: one bucket per tenant, `erad-<tenant>`; the object key is `<document>/<version>`; objects are never overwritten. Download only through pre-signed links issued after the access check (ADR-12). | Bucket per tenant mirrors keyspace per tenant. |
-| TD-06 | Legal hold uses object lock (retention or legal hold on the object) where Object Storage MN allows it; otherwise the bucket policy refuses deletes and the gap is written down. | The prototype store is not locked. |
+| TD-05 | Files go to the customer's own store through a storage port (see "Pluggable file storage"). Per tenant: one bucket or container, object key `<document>/<version>`, objects never overwritten, download only through short-lived links issued after the access check (ADR-12). | Each customer brings its store; bucket per tenant mirrors keyspace per tenant. |
+| TD-06 | Legal hold uses the store's object lock when the adapter reports it. When it does not, the service still refuses deletes and the screen says the hold is not enforced by the store. | Not every customer store has WORM. |
 | TD-07 | The group (master) tenant may technically read every keyspace, as in DXP, but the application keeps BR rules: the group administrator reads counts and settings only, never documents (ADR-08). A test guards that the master module has no document DTOs. | The platform allows more than the product does. |
 | TD-08 | Tenant configuration (inheritance, locks, floors) stays in the application (`tenant` module); deployment-level settings go to CM Mediator, read through CM Proxy like CPR. | Business configuration changes per tenant at runtime; CM is deployment configuration. |
+
+| TD-09 | Both topologies are supported: one DXP per country, or one multi-region DXP for several countries. The customer chooses at deployment. Single region is the case where every tenant has the same region. | Decided 2026-11-24: the customer chooses. |
+| TD-10 | Encryption keys go through a key port: the default adapter is the ADP Key Management service (Vault); a customer adapter can point to the customer's KMS or HSM (BYOK). Keycloak carries the tenant in the token, which selects the key; Keycloak does not hold data keys. | Keycloak is identity, not key management. |
+
+## Pluggable file storage
+The customer runs its own store, so the service never talks to one product. In DXP terms each adapter is a
+Connector (southbound to the customer's system), and the document microservice calls a single storage port.
+
+Storage port (one per tenant, chosen in the tenant registry as a storage profile):
+| Operation | Meaning |
+| --- | --- |
+| `capabilities()` | What the store can do: object lock (retention, legal hold), server-side encryption with a customer key, versioning, pre-signed links, regions. The service adapts to it. |
+| `put(tenant, key, stream, sha256)` | Store a new object; fails if the key exists. Returns the store's checksum, compared with ours. |
+| `head(tenant, key)` | Size and checksum, to confirm an upload arrived (closes the TMF667 upload gap). |
+| `downloadLink(tenant, key, seconds)` | A short-lived link, or a stream through the service when the store has no pre-signed links. |
+| `uploadLink(tenant, key, seconds, sha256)` | For direct upload from the browser or a connected system, when supported. |
+| `setHold(tenant, key, on)` / `setRetention(tenant, key, until)` | Object lock when supported; otherwise not supported, recorded. |
+| `delete(tenant, key)` | Purge. Refused by the service before the call when a hold or keep-until date applies. |
+
+Adapters to build first: S3-compatible (covers ADP Object Storage MN, AWS S3, Ceph, NetApp StorageGRID and
+other MinIO or S3 stores) and Azure Blob. Others (for example a customer document management system over
+CMIS) as Connectors when a customer needs them.
+
+Hooks (events the service emits; the customer plugs its own systems in):
+| Hook | When | Typical use |
+| --- | --- | --- |
+| `file.stored` | after `put` and checksum match | the customer's antivirus scan; the reply sets the file to clean or quarantined |
+| `file.ready-to-read` | after the scan is clean | OCR or extraction (AI) of details |
+| `file.held` / `file.released` | legal hold changes | the customer's records or legal system |
+| `file.purged` | after permanent deletion | the customer's own copies and backups |
+Hooks go through the outbox and the ADP Message Bus (Kafka), with the same delivery rules as the TMF events
+(retries, dead letter, no file content in the event).
 
 ## Where data lives (residency)
 - Each tenant has a region in the tenant registry. Its keyspace is replicated only to that region's data
@@ -67,8 +99,12 @@ CPR-specific GDPR or audit behaviour.
 | AE-05 | Only a role made for it (auditor or compliance) may export; a manager may not. This role is new in Keycloak (chapter 12). |
 | AE-06 | Optional: stream audit events to the customer's SIEM through the ADP Message Bus (Kafka). |
 
+## Answered (2026-11-24)
+- Topology: the customer chooses (TD-09), so residency is built in from the start.
+- BYOK: wanted; through the key port (TD-10). Keycloak selects the tenant, the customer's KMS holds the key.
+- File store: the customer brings its own, so storage is a port with adapters and hooks (TD-05, TD-06).
+
 ## Open questions
-1. One DXP per country, or one multi-region DXP for several countries? It decides how much of the residency section is needed.
-2. Has a customer asked for its own key (BYOK)? It decides whether column encryption in Cassandra is built now.
-3. Is Object Storage MN part of the DXP deployment the customer runs, and is object lock available in that version?
-4. Keyspace naming, keyspace creation and the reindex contract: take them from the CPR Organization Management implementation.
+1. Keyspace naming, keyspace creation and the reindex contract: take them from the CPR Organization Management implementation.
+2. Which stores the first customers run (S3-compatible, Azure Blob, something else), and whether they have object lock.
+3. Which KMS or HSM a BYOK customer uses, and whether DXP already has a key-provider integration to reuse.

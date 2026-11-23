@@ -13,7 +13,7 @@
 - [ ] Documents already in review with no file (created before the rule): send them back or wait for the file; confirm the two token divergences in `docs/decisions/01-foundation-gaps.md`
 - [ ] Log in page: add the Ericsson logo from an approved brand asset, and show the date and time of the previous log in (Ericsson security requirement; needs the server to keep the previous value)
 - [ ] Ask Lovable for a unique index on `extraction_fields (version_id, name)`; entering a missing detail is safe without it (guarded update), other writers are not
-- [ ] DXP rebuild: confirm the open questions in `docs/rebuild/18-tenancy-and-data-protection.md` (one DXP per country or multi-region, BYOK, Object Storage MN and object lock, CPR keyspace and reindex contract)
+- [ ] DXP rebuild: confirm the open questions in `docs/rebuild/18-tenancy-and-data-protection.md` (CPR keyspace and reindex contract, the first customers' stores, the BYOK key provider)
 - [ ] Human security review
 - [ ] 200% zoom and screen-reader walkthrough by a person
 - [ ] Add as new version from the upload dialog
