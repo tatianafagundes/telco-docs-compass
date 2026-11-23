@@ -1,8 +1,9 @@
 # File hooks: design (v2)
 
 ## Constraints
-- No schema change by us (`AGENTS.md`). Two requests go to Lovable (D1 switch column, D2 trigger); the
-  design works without them, with the stated fallbacks.
+- Schema: one migration in this repo, `drizzle/migrations/0016_file_hooks.sql` (switch column, file-event
+  trigger, `legalHold` on the change event). Its SQL was run on PGlite: one event per transition, none on a
+  no-op, payload keys as whitelisted; `src/test/file-hooks-migration.test.ts` guards the keys.
 - `event_outbox.event_type` is free text and `integration_clients.scopes` is `text[]`: no migration for new
   event types or scopes.
 - `src/services` files stay at or under 300 lines: new code goes in new files.
@@ -12,11 +13,10 @@
 | File | Role |
 | --- | --- |
 | `src/services/file-hook-rules.ts` (new, pure) | event names, opt-in set, payload whitelist, `stepTransition(state, detail, result)`, download rule, field validation (zod), limits, quarantine-rate rule |
-| `src/services/file-hook-events.ts` (new) | `emitFileEvent` (D2 fallback, through `must()`), `repairMissing` for R2.10 |
-| `src/services/external-processing.ts` (new) | organisation switch (D1 with fallback), active scanner/reader (D3), `startStep` (records mode, by, since, step, attempt), timeout step for the scheduled run |
+| `src/services/external-processing.ts` (new) | organisation switch (D1, `tenants.external_processing`), active scanner/reader (D3), `startStep` (records mode, by, since, step, attempt), timeout step for the scheduled run |
 | `src/services/gateway-file-results.ts` (new) | `postScanResult`, `postExtractionResult`, `confirmUpload` |
 | routes | `document.$id.attachment.$attachmentId.scanResult.ts`, `.extractionResult.ts`, `.uploaded.ts` + `documentManagement/v4` twins |
-| changed | `tmf667-shared.ts` (scopes), `integration-clients.functions.ts` (D3, D4, admin only), `gateway-core.ts` (D4 re-check), `tmf667-events.ts` (opt-in set, whitelist, `legalHold` on change events), `gateway-reads.ts` (download rule incl. quarantined versions), `pipeline.functions.ts` (guarded, step-aware retry, `externalPending`, server SHA-256), `gateway-create.ts` (ordering), `document-content.functions.ts` (addVersion carries quarantined versions, restore rule), `retention.functions.ts` (purge event with version ids), `maintenance.ts` (calls the timeout step), `use-upload.ts`, record page and panel (waiting, refetch, announcements), `upload-progress.tsx` (copy by reason), `connected-systems.tsx` (labels, switch, warnings), `document-labels.ts`, `limits.md` |
+| changed | `tmf667-shared.ts` (scopes), `integration-clients.functions.ts` (D3, D4, admin only), `gateway-core.ts` (D4 re-check), `tmf667-events.ts` (opt-in set, whitelist, `legalHold` on change events), `gateway-reads.ts` (download rule incl. quarantined versions), `pipeline.functions.ts` (guarded, step-aware retry, `externalPending`, server SHA-256), `gateway-create.ts` (ordering), `document-content.functions.ts` (addVersion carries quarantined versions, restore rule), `maintenance.ts` (calls the timeout step), `use-upload.ts`, record page and panel (waiting, refetch, announcements), `upload-progress.tsx` (copy by reason), `connected-systems.tsx` (labels, switch, warnings), `document-labels.ts`, `limits.md` |
 
 ## pipeline_detail (jsonb, no schema change)
 ```json
@@ -56,13 +56,13 @@ Every write is `updateDocumentIf` expecting `pipeline_state`, `current_version_i
 | DocumentChangeEvent (existing) | adds legalHold (boolean) when the hold changed |
 `eventMatches`: an `OPT_IN_EVENTS` set (batch + the three) is checked before the "no query" branch.
 
-## Lovable requests (D1, D2)
-1. Tenant column `external_processing jsonb default '{}'` (`{ scan: bool, read: bool }`).
-2. A separate trigger `AFTER UPDATE OF pipeline_state, current_version_id, purged_at ON documents` emitting
-   Stored (into scanning), ReadyToRead (into reading) and Purged (purged_at set), joining
-   `document_versions` for hash, size and media type, skipping test-data resets; plus `legal_hold` in the
-   payload of the existing attribute-change event.
-When they land, the app-side emission and the D1 fallback are removed (tasks 9.x).
+## Migration 0016 (D1, D2, D6)
+1. `tenants.external_processing jsonb not null default '{}'` (`{ scan: bool, read: bool }`).
+2. Trigger `documents_file_events` `AFTER UPDATE OF pipeline_state, purged_at ON documents`: Stored (into
+   scanning, with hash, size and media type of the current version, and the attempt), ReadyToRead (into
+   reading), Purged (purged_at set, with every version id).
+3. `documents_to_outbox` gives a hold change its own branch with `{ legalHold }`.
+Applied to the hosted database when Lovable syncs `main`; check the preview after publishing.
 
 ## DXP mapping
 Events become Kafka records keyed by tenant and document. The callbacks become result events produced by

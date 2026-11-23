@@ -13,17 +13,17 @@ results; a confirm-upload endpoint for `uploadUrl` uploads; an organisation swit
 processing; per-document processing mode; timeouts; screens, copy and accessibility; docs and tests.
 Out: a storage port (the store stays Supabase here), OCR started from the screens.
 
-## Decisions taken in review (D) — the ones marked "to confirm" need the product owner
+## Decisions taken in review (D), confirmed 2026-11-24
 | Id | Decision |
 | --- | --- |
-| D1 | External processing is an explicit organisation switch ("Use the organisation's own antivirus", "Use the organisation's own reader"), not inferred from keys. Revoking a scanner never turns simulation back on. **To confirm:** stored in a new tenant column requested from Lovable; until it exists, the switch is "on" once the organisation has ever connected a scanner (revoked included), so the fallback never weakens protection. |
-| D2 | Events are written by a database trigger requested from Lovable (atomic with the change, complete for every path). **To confirm:** until it exists, the app writes them right after the guarded update and repairs a missing event on the client's retry (R2.10). |
+| D1 | External processing is an explicit organisation switch ("Use the organisation's own antivirus", "Use the organisation's own reader"), not inferred from keys. Revoking a scanner never turns simulation back on. Stored in `tenants.external_processing` (`{ scan, read }`, migration `0016_file_hooks.sql`). |
+| D2 | Events are written by a database trigger (`documents_file_events`, migration `0016_file_hooks.sql`), atomic with the change and complete for every path (screens, API, bulk, scheduled run). The app never inserts these events itself. |
 | D3 | One active scanner and one active reader per organisation; a second is refused while one is active. |
 | D4 | `scan` and `extract` are exclusive scopes: a key that has one has no other scope. |
 | D5 | Quarantine is per version and permanent; a quarantined version can never be downloaded, restored or made current again. |
 | D6 | Hold changes reuse the existing `DocumentChangeEvent` with `legalHold` added to the payload; no new hold event (it would double bulk traffic). |
 | D7 | Names: `DocumentFileStoredEvent`, `DocumentFileReadyToReadEvent`, `DocumentFilePurgedEvent`. They are declared extensions, not TMF667 standard events. Doc 18 is aligned to them. |
-| D8 | Timeout default `EXTERNAL_RESULT_TIMEOUT_MINUTES = 30`; uploads never confirmed fail after `UPLOAD_CONFIRM_TIMEOUT_HOURS = 24`. **To confirm.** |
+| D8 | Timeout default `EXTERNAL_RESULT_TIMEOUT_MINUTES = 30`; uploads never confirmed fail after `UPLOAD_CONFIRM_TIMEOUT_HOURS = 24`. |
 
 ## Terms
 - **Scanner / reader:** a connected system whose key has only `scan` / only `extract` (D4), and that is the
@@ -41,8 +41,9 @@ Out: a storage port (the store stays Supabase here), OCR started from the screen
 2. WHEN a document enters `reading` THEN emit `DocumentFileReadyToReadEvent` { versionId, attempt }.
 3. WHEN a legal hold value actually changes THEN the existing `DocumentChangeEvent` SHALL carry
    `legalHold: true|false`. A no-op hold or release emits nothing new. Reason and reference are never sent.
-4. WHEN a document is permanently deleted THEN emit `DocumentFilePurgedEvent` { versionIds } listing the
-   versions whose file removal succeeded (empty list allowed). The usability-test reset SHALL NOT emit.
+4. WHEN a document is permanently deleted THEN emit `DocumentFilePurgedEvent` { versionIds } listing every
+   version of the document (all their files are removed by the purge; empty list allowed). The
+   usability-test reset of the synthetic `aurora-*` tenants emits it too (the trigger cannot tell them apart).
 5. The three new events SHALL be delivered only to subscriptions whose query names them in `eventType`
    (exact, case-sensitive). Subscriptions with no query, an empty query or other event types SHALL NOT
    receive them.
@@ -73,8 +74,8 @@ Out: a storage port (the store stays Supabase here), OCR started from the screen
 8. A repeated identical result for a version already moved by this client in this attempt answers 200
    with the stored outcome (a scanner whose reply was lost does not loop on 409).
 9. Two results racing: exactly one applies (guarded update on state, version and attempt).
-10. If the state moved but the event or activity entry was not written (D2 fallback), the client's retry
-   SHALL write the missing ones and answer 200.
+10. The event is written by the trigger in the same transaction as the state change, so a state change
+   without its event cannot happen.
 
 ### R3 Extraction result in
 1. A reader SHALL be able to download the current version only while the document is in `reading` with

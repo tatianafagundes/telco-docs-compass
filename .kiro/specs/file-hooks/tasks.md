@@ -5,8 +5,8 @@ it; English only. "Review" tasks are done by the named agent on the diff of that
 before the next phase. Requirements: `requirements.md`; design: `design.md`.
 
 ## 0. Decisions and requests
-- [ ] 0.1 Product owner confirms D1, D2 and D8 (switch storage, trigger, timeouts).
-- [ ] 0.2 Send the two Lovable requests (design "Lovable requests"); record the answer in `roadmap.md`.
+- [x] 0.1 D1, D2 and D8 confirmed (2026-11-24): switch column and trigger written in this repo.
+- [x] 0.2 Migration `0016_file_hooks.sql` (switch, file-event trigger, `legalHold` on change events), checked on PGlite, guarded by `src/test/file-hooks-migration.test.ts`. After publishing: confirm on the preview that the migration applied (an upload emits `DocumentFileStoredEvent`).
 - [ ] 0.3 Docs: align names in `docs/rebuild/18-tenancy-and-data-protection.md` (D7) and add BR rules for R1–R6 in `docs/rebuild/03-business-rules.md`.
 
 ## 1. Pure rules (no I/O)
@@ -29,13 +29,13 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
 - [ ] 3.3 Review: `seg-review` on phase 3.
 
 ## 4. Events out
-- [ ] 4.1 `file-hook-events.ts`: Stored, ReadyToRead, Purged written after the guarded update; purge lists removed version ids; reset does not emit (R1.1–R1.4).
+- [ ] 4.1 Tests that every path that changes `pipeline_state` or purges goes through the guarded update the trigger listens to; no app-side event inserts for the file events (R1.1–R1.4).
 - [ ] 4.2 `tmf667-events.ts`: opt-in set before the no-query branch; whitelist; `legalHold` on change events only when it changed (R1.3, R1.5, R1.6).
 - [ ] 4.3 Test that no sensitive string (description, hold reason, value, threat name, person name) reaches any outbox row or delivered body (R1.6, R6.4).
 - [ ] 4.4 Review: `code-reviewer` on phase 4.
 
 ## 5. Callbacks and confirm upload
-- [ ] 5.1 `gateway-file-results.ts` `postScanResult` with the check order of R2.3, receipt check, idempotency per document, version and attempt, R2.8 and R2.10.
+- [ ] 5.1 `gateway-file-results.ts` `postScanResult` with the check order of R2.3, receipt check, idempotency per document, version and attempt, R2.8.
 - [ ] 5.2 `postExtractionResult` (R3).
 - [ ] 5.3 `confirmUpload` (R4.6); `gateway-create.ts` ordering (R4.5).
 - [ ] 5.4 Routes and legacy twins; `gateway-api.ts` exports; route `AGENTS.md` rules.
@@ -63,8 +63,3 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
 - [ ] 8.4 `e2e/file-hooks.py`: scanner key on a test tenant; clean, infected, replay, stale attempt, hash mismatch, other tenant 404; revokes the key at the end.
 - [ ] 8.5 Final multi-perspective review of the whole range (`code-reviewer`, `seg-review`, `qa-test-engineer`, `design-review`); fix findings.
 - [ ] 8.6 Per-commit check, full regression, gitleaks; human security review sign-off (R6.6); publish to `main`; run `e2e/file-hooks.py` on the preview and record the result.
-
-## 9. When Lovable delivers (D1, D2)
-- [ ] 9.1 Switch read from the new column; remove the D1 fallback; test.
-- [ ] 9.2 Remove app-side emission and R2.10 repair; test that the trigger's events match the whitelist.
-- [ ] 9.3 Review: `code-reviewer`; docs updated.
