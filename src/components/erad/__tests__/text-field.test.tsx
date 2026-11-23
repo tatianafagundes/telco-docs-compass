@@ -21,4 +21,15 @@ describe("TextField error", () => {
     expect(screen.getByText("Your work address")).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
   });
+  it("marks the error with a red icon and keeps the message in the text colour", () => {
+    render(<TextField label="Password" error="That did not match." />);
+    const desc = document.getElementById(
+      screen.getByLabelText("Password").getAttribute("aria-describedby") ?? "",
+    );
+    expect(desc?.className).toContain("text-text-main");
+    expect(desc?.className).not.toContain("text-border-error");
+    expect(desc?.querySelector("[data-error-icon]")?.getAttribute("class")).toContain(
+      "text-border-error",
+    );
+  });
 });

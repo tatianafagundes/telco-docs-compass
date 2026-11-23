@@ -1,4 +1,5 @@
 import * as React from "react";
+import { AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface TextFieldProps extends Omit<
@@ -53,8 +54,20 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
         {hasDesc ? (
           <span
             id={descId}
-            className={cn("type-label-12", error ? "text-border-error" : "text-text-secondary")}
+            // EDS: the error icon is red and the message uses the text colour, so the message reads
+            // at 4.5:1 in both themes (red text on the dark layer is about 3.3:1).
+            className={cn(
+              "type-label-12 flex items-start gap-1",
+              error ? "text-text-main" : "text-text-secondary",
+            )}
           >
+            {error ? (
+              <AlertCircle
+                aria-hidden="true"
+                data-error-icon=""
+                className="mt-px size-3.5 shrink-0 text-border-error"
+              />
+            ) : null}
             {error ?? helper}
           </span>
         ) : null}
