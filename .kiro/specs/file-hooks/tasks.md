@@ -40,7 +40,11 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
 ## 3. Organisation switch and keys
 - [x] 3.1 `external-processing.ts`: switch read from `tenants.external_processing`, active scanner and reader, `startStep`.
 - [x] 3.2 Scopes `scan`, `extract`: D3 and D4 at creation (admin only, recorded) and in `authenticate`; `ALL_SCOPES` in the test world updated on purpose. Done: `processing-keys.ts` (pure), `integration-client-create.ts` (D3, D4, recorded), `authenticate` re-check (403 `notDesignated`, 503 when the keys cannot be read), migration 0020 (CHECK and partial unique index), `setProcessingSwitch` / `getProcessingSwitch` (organisation administrator, recorded), `resolveOwners` wired into `advancePipeline`, `ALL_SCOPES` kept without the exclusive scopes, `e2e/tmf-api.py` skips them for "all scopes". A switch on with no active key gives an external step with no system (waits, then times out).
-- [ ] 3.3 Review: `seg-review` on phase 3.
+- [x] 3.3 Review: `seg-review` on phase 3: PASS WITH FINDINGS (no Critical/High). Fixed: M1 lost update on the switch and M2 audit after the effect (atomic `set_external_processing`, compensation on key creation, disconnect records first and finishes on retry), M3 processing-key check after the rate limit with a scope filter, L1 switch shape CHECK, L3 key rotation recorded, L5 names cleaned, L7 no token for a non-designated key. Left, with reasons:
+  - L2: migration 0020's CHECK validates existing rows; no row can hold `scan`/`extract` before this release (the scopes did not exist), and the table is small. Run `select count(*) from integration_clients where scopes && array['scan','extract']` before applying if in doubt.
+  - L4: any member can read `external_processing` through the database (tenants are readable by members); accepted, it says only whether the organisation's own antivirus and reader are on.
+  - L6: turning the antivirus off needs a strong warning and confirmation in the screens (7.4); no second approval.
+  - For phases 4–5: answers and downloads are authorised with `scan`/`extract` only, never by widening `read`; an external step with no system (`by` null) must show "no system connected" and is never offered to anyone; Try again resolves the owner as it is now (the spec's rule), a document keeps its mode only while its step lasts.
 
 ## 4. Events out
 - [ ] 4.1 Tests that every path that changes `pipeline_state` or purges goes through the guarded update the trigger listens to; no app-side event inserts for the file events (R1.1–R1.4).
