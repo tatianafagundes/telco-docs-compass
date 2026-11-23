@@ -1,4 +1,5 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { navCurrent } from "@/lib/nav-section";
 import { useQueryClient } from "@tanstack/react-query";
 import { Building2, FileText, Lock, LogOut, Moon, Settings, Share2, Sun } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -40,6 +41,7 @@ export function AppShell({ tenantName, userName, role, children }: AppShellProps
   const isMaster = role === "master_admin";
   const kids = useQuery({ ...childTenantsQuery, enabled: isMaster });
   const NAV = navFor(role);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { theme, toggle } = useTheme();
   useDropGuard();
   const navigate = useNavigate();
@@ -149,22 +151,28 @@ export function AppShell({ tenantName, userName, role, children }: AppShellProps
         {/* 240px navigation; collapses to 80px below 1280px (reflow for zoom, WCAG 1.4.10). */}
         <nav aria-label="Main" className="w-20 shrink-0 bg-layer-application py-2 xl:w-60">
           <ul className="flex flex-col">
-            {NAV.map(({ to, label, icon: Icon }) => (
-              <li key={to}>
-                <Link
-                  to={to}
-                  aria-label={label}
-                  className="focus-ring type-label-14 flex h-10 items-center justify-center gap-2 px-4 text-text-main hover:bg-item-hover xl:justify-start"
-                  activeProps={{
-                    className: "bg-item-selected text-text-on-primary hover:bg-item-selected-hover",
-                    "aria-current": "page",
-                  }}
-                >
-                  <Icon className="size-4 shrink-0" aria-hidden="true" />
-                  <span className="hidden xl:inline">{label}</span>
-                </Link>
-              </li>
-            ))}
+            {NAV.map(({ to, label, icon: Icon }) => {
+              const current = navCurrent(to, pathname);
+              return (
+                <li key={to}>
+                  <Link
+                    to={to}
+                    aria-label={label}
+                    // "page" for the page itself, "true" for a page inside the section (a record, a review).
+                    aria-current={current === "page" ? "page" : current ? "true" : undefined}
+                    activeOptions={{ exact: true }}
+                    className={
+                      current
+                        ? "focus-ring type-label-14 flex h-10 items-center justify-center gap-2 bg-item-selected px-4 text-text-on-primary hover:bg-item-selected-hover xl:justify-start"
+                        : "focus-ring type-label-14 flex h-10 items-center justify-center gap-2 px-4 text-text-main hover:bg-item-hover xl:justify-start"
+                    }
+                  >
+                    <Icon className="size-4 shrink-0" aria-hidden="true" />
+                    <span className="hidden xl:inline">{label}</span>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </nav>
         <main
