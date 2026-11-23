@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { homeFor } from "@/lib/nav-section";
-import { ArrowRight, FileSearch, Search, Upload, X } from "lucide-react";
+import { ArrowRight, FileSearch, Filter, Search, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/erad/button";
 import { EmptyState } from "@/components/erad/empty-state";
@@ -283,15 +283,29 @@ function Results(p: {
     });
   const allLoaded = rows.length > 0 && rows.every((r) => selected.has(r.id));
   const sort = p.filters.sort ?? "updated";
-
+  // EDS filter pattern: the filter icon hides and shows the vertical filter panel.
+  const [filtersShown, setFiltersShown] = useState(true);
   return (
     <div className="flex min-h-[560px] flex-1 gap-6">
-      <aside className="hidden w-56 shrink-0 md:block">
-        <FacetPanel filters={p.filters} onChange={p.onChange} />
-      </aside>
+      {filtersShown ? (
+        <aside id="result-filters" aria-label="Filters" className="hidden w-56 shrink-0 md:block">
+          <FacetPanel filters={p.filters} onChange={p.onChange} />
+        </aside>
+      ) : null}
       <div className="flex min-w-0 flex-1 flex-col gap-3">
         {/* One toolbar row: what is shown, a way back to everything, and the order. */}
         <div className="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden md:inline-flex"
+            aria-expanded={filtersShown}
+            {...(filtersShown ? { "aria-controls": "result-filters" } : {})}
+            aria-label={filtersShown ? "Hide filters" : "Show filters"}
+            onClick={() => setFiltersShown((v) => !v)}
+          >
+            <Filter aria-hidden="true" />
+          </Button>
           <p className="type-label-14-medium" role="status" aria-live="polite">
             {count.isPending
               ? "Counting…"
