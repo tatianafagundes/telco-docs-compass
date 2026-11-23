@@ -46,8 +46,11 @@ export function SpecTable({
   view,
   activeCode,
   onOpen,
+  note = true,
 }: {
   view: ConfigView;
+  /** Name the group once above the table; off when the page intro already says it. */
+  note?: boolean;
   activeCode?: string;
   onOpen: (code: string) => void;
 }) {
@@ -82,7 +85,7 @@ export function SpecTable({
   ];
   return (
     <div className="flex flex-col gap-2 overflow-x-auto">
-      {view.tenant.isGroup ? null : (
+      {view.tenant.isGroup || !note ? null : (
         <p className="type-paragraph-14 text-text-secondary">{sourceNote(view.tenant.groupName)}</p>
       )}
       <DataTable

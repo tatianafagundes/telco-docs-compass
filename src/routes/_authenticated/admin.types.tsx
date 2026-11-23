@@ -8,6 +8,7 @@ import { Dialog } from "@/components/erad/dialog";
 import { SidePanel } from "@/components/erad/side-panel";
 import { TextField } from "@/components/erad/text-field";
 import { SpecPanel, type Draft } from "@/components/admin/spec-panel";
+import { sourceNote } from "@/services/tenant-rules";
 import { SpecTable } from "@/components/admin/spec-table";
 import { configQuery, failureText } from "@/hooks/use-config";
 import { useMe } from "@/hooks/use-me";
@@ -128,13 +129,18 @@ function TypesPage() {
         <p className="type-paragraph-14 text-text-secondary">
           {view.tenant.isGroup
             ? "Types defined here are shared with every country in the group."
-            : `Types come from ${view.tenant.groupName}. You can see where each setting is defined.`}
+            : sourceNote(view.tenant.groupName)}
         </p>
         {canAdd ? <Button onClick={() => setAdding(true)}>Add a document type</Button> : null}
       </div>
       <div className="relative flex min-h-[480px] gap-0">
         <div className="min-w-0 flex-1">
-          <SpecTable view={view} {...(open ? { activeCode: open } : {})} onOpen={openSpec} />
+          <SpecTable
+            note={false}
+            view={view}
+            {...(open ? { activeCode: open } : {})}
+            onOpen={openSpec}
+          />
         </div>
         {spec ? (
           <SidePanel
