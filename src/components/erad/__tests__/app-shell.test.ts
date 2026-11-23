@@ -19,4 +19,12 @@ describe("app shell", () => {
   it("never renders the Admin chevron as a disabled button", () => {
     expect(source).not.toMatch(/disabled=\{inside\}/);
   });
+  it("lets people show or hide the navigation labels, and links the product name home (EDS)", () => {
+    expect(source).toContain('aria-controls="main-nav"');
+    expect(source).toContain("Hide navigation labels");
+    expect(source).toMatch(/<Link to=\{homeFor\(role\)\}[^>]*>\s*Documents/);
+  });
+  it("puts the label in a tooltip when only icons show", () => {
+    expect(source).toContain("<Tooltip content={label}>");
+  });
 });

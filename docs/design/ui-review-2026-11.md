@@ -150,7 +150,7 @@ Effort: S under a day, M a few days, L more. Source: me, design reviewer (D), UX
 | R20 | The record link repeated on every row may compete with the title | test with users before removing; keep it in the panel either way | S | D, me |
 | R21 | A viewer sees three disabled actions with reasons | keep the reason for actions a role can unlock; hide the ones it never can | S | me, D, U |
 | R22 | The filter panel cannot collapse (EDS filter pattern) | collapse toggle | M | me |
-| R23 | The left navigation cannot be hidden; local navigation is a flat list | toggle; navigation tree if sections grow | M | me |
+| R23 | The left navigation cannot be hidden; local navigation is a flat list | **done 2026-11-24**: the menu button in the system bar switches between labels and an icon rail (labels in tooltips), kept per browser; Admin is a navigation tree; the product name links home | M | me |
 | R24 | Nothing tests that the tokens still equal EDS | a test comparing `tokens.css` to the EDS token values | S | D |
 | R25 | Differences from the EDS file upload pattern are not written down | note the reasons in `docs/architecture/accessibility.md` or a component note | S | D |
 | R26 | "Send back" and "Report a problem" may read as one action | test; rename if needed | S | U |

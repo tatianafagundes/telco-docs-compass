@@ -1,5 +1,7 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { adminAreas, navCurrent, type AdminArea } from "@/lib/nav-section";
+import { adminAreas, homeFor, navCurrent, type AdminArea } from "@/lib/nav-section";
+import { useNavMode } from "@/hooks/use-nav-mode";
+import { Tooltip } from "@/components/erad/tooltip";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
@@ -8,6 +10,7 @@ import {
   FileText,
   Lock,
   LogOut,
+  Menu,
   Moon,
   Plug,
   ScrollText,
@@ -58,6 +61,7 @@ export function AppShell({ tenantName, userName, role, children }: AppShellProps
   const NAV = navFor(role);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { theme, toggle } = useTheme();
+  const nav = useNavMode();
   useDropGuard();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -84,7 +88,20 @@ export function AppShell({ tenantName, userName, role, children }: AppShellProps
       </a>
       <header className="bg-layer-system text-text-on-primary">
         <div className="mx-auto flex h-12 max-w-[1920px] items-center gap-3 px-4">
-          <span className="type-title-16-medium">Documents</span>
+          <button
+            type="button"
+            onClick={nav.toggle}
+            aria-expanded={nav.mode === "full"}
+            aria-controls="main-nav"
+            aria-label={nav.mode === "full" ? "Hide navigation labels" : "Show navigation labels"}
+            className="focus-ring -ml-2 flex size-8 items-center justify-center rounded-control hover:bg-btn-default-hover"
+          >
+            <Menu aria-hidden="true" className="size-4" />
+          </button>
+          {/* EDS: the home link is always visible; the product name in the system bar is it. */}
+          <Link to={homeFor(role)} className="focus-ring type-title-16-medium rounded-control">
+            Documents
+          </Link>
           <span className="rounded-badge border border-status-purple px-2 type-label-12 leading-6">
             Prototype · synthetic data only
           </span>
@@ -164,15 +181,31 @@ export function AppShell({ tenantName, userName, role, children }: AppShellProps
         </div>
       </header>
       <div className="mx-auto flex w-full max-w-[1920px] flex-1">
-        {/* 240px navigation; collapses to 80px below 1280px (reflow for zoom, WCAG 1.4.10). */}
-        <nav aria-label="Main" className="w-20 shrink-0 bg-layer-application py-2 xl:w-60">
+        {/* 240px with labels or an 80px icon rail; the menu button switches (EDS local navigation). */}
+        <nav
+          id="main-nav"
+          aria-label="Main"
+          className={`${nav.mode === "full" ? "w-60" : "w-20"} shrink-0 bg-layer-application py-2`}
+        >
           <ul className="flex flex-col">
             {NAV.map(({ to, label, icon }) =>
               to === "/admin" ? (
-                <AdminNavItem key={to} role={role} pathname={pathname} icon={icon} />
+                <AdminNavItem
+                  key={to}
+                  role={role}
+                  pathname={pathname}
+                  icon={icon}
+                  rail={nav.mode === "rail"}
+                />
               ) : (
                 <li key={to}>
-                  <NavLink to={to} label={label} icon={icon} current={navCurrent(to, pathname)} />
+                  <NavLink
+                    to={to}
+                    label={label}
+                    icon={icon}
+                    current={navCurrent(to, pathname)}
+                    rail={nav.mode === "rail"}
+                  />
                 </li>
               ),
             )}
@@ -191,35 +224,41 @@ export function AppShell({ tenantName, userName, role, children }: AppShellProps
 }
 
 type NavIcon = typeof FileText;
-const ITEM =
-  "focus-ring type-label-14 flex h-10 min-w-0 flex-1 items-center justify-center gap-2 px-4 xl:justify-start";
+const ITEM = "focus-ring type-label-14 flex h-10 min-w-0 flex-1 items-center gap-2 px-4";
+/** In the icon rail the label moves to a tooltip; the accessible name stays the label. */
+function WithTip({ rail, label, children }: { rail: boolean; label: string; children: ReactNode }) {
+  return rail ? <Tooltip content={label}>{children}</Tooltip> : <>{children}</>;
+}
 function NavLink(p: {
   to: string;
   label: string;
   icon: NavIcon;
   current: "page" | "section" | null;
   child?: boolean;
+  rail: boolean;
 }) {
   const Icon = p.icon;
   return (
-    <Link
-      to={p.to}
-      aria-label={p.label}
-      // "page" for the page itself, "true" for a page inside the section (a record, a review).
-      aria-current={p.current === "page" ? "page" : p.current ? "true" : undefined}
-      activeOptions={{ exact: true }}
-      className={
-        p.current
-          ? `${ITEM} bg-item-selected text-text-on-primary hover:bg-item-selected-hover`
-          : `${ITEM} text-text-main hover:bg-item-hover`
-      }
-    >
-      <Icon
-        className={p.child ? "size-4 shrink-0 xl:ml-6" : "size-4 shrink-0"}
-        aria-hidden="true"
-      />
-      <span className="hidden truncate xl:inline">{p.label}</span>
-    </Link>
+    <WithTip rail={p.rail} label={p.label}>
+      <Link
+        to={p.to}
+        aria-label={p.label}
+        // "page" for the page itself, "true" for a page inside the section (a record, a review).
+        aria-current={p.current === "page" ? "page" : p.current ? "true" : undefined}
+        activeOptions={{ exact: true }}
+        className={`${ITEM} ${p.rail ? "justify-center" : ""} ${
+          p.current
+            ? "bg-item-selected text-text-on-primary hover:bg-item-selected-hover"
+            : "text-text-main hover:bg-item-hover"
+        }`}
+      >
+        <Icon
+          className={p.child && !p.rail ? "ml-6 size-4 shrink-0" : "size-4 shrink-0"}
+          aria-hidden="true"
+        />
+        {p.rail ? null : <span className="truncate">{p.label}</span>}
+      </Link>
+    </WithTip>
   );
 }
 const AREA_ICON: Record<AdminArea, NavIcon> = {
@@ -233,7 +272,17 @@ const AREA_ICON: Record<AdminArea, NavIcon> = {
  * Admin as an EDS navigation tree: the label opens Admin, the chevron only shows or hides its
  * areas. Inside Admin the areas stay open and the current area, not Admin, is highlighted.
  */
-function AdminNavItem({ role, pathname, icon }: { role: string; pathname: string; icon: NavIcon }) {
+function AdminNavItem({
+  role,
+  pathname,
+  icon,
+  rail,
+}: {
+  role: string;
+  pathname: string;
+  icon: NavIcon;
+  rail: boolean;
+}) {
   const areas = adminAreas(role);
   const inside = navCurrent("/admin", pathname) !== null;
   const [open, setOpen] = useState(inside);
@@ -242,34 +291,32 @@ function AdminNavItem({ role, pathname, icon }: { role: string; pathname: string
   return (
     <li>
       <div className="flex items-center">
-        <Link
-          to="/admin"
-          aria-label="Admin"
-          // In a tree the current area is the current item, not its parent.
-          activeOptions={{ exact: true }}
-          className={`${ITEM} text-text-main hover:bg-item-hover ${inside ? "type-label-14-medium" : ""}`}
-        >
-          <Icon className="size-4 shrink-0" aria-hidden="true" />
-          <span className="hidden xl:inline">Admin</span>
-        </Link>
-        {inside ? (
+        <WithTip rail={rail} label="Admin">
+          <Link
+            to="/admin"
+            aria-label="Admin"
+            // In a tree the current area is the current item, not its parent.
+            activeOptions={{ exact: true }}
+            className={`${ITEM} ${rail ? "justify-center" : ""} text-text-main hover:bg-item-hover ${inside ? "type-label-14-medium" : ""}`}
+          >
+            <Icon className="size-4 shrink-0" aria-hidden="true" />
+            {rail ? null : <span>Admin</span>}
+          </Link>
+        </WithTip>
+        {rail ? null : inside ? (
           // Inside Admin the areas stay open, so there is nothing to toggle: a plain mark, not a
           // button that cannot be pressed.
-          <span
-            aria-hidden="true"
-            className="hidden h-10 w-10 shrink-0 items-center justify-center xl:flex"
-          >
+          <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center">
             <ChevronDown className="size-4 rotate-180" />
           </span>
         ) : (
-          // Below 1280px the navigation shows icons only; Admin then opens its first area.
           <button
             type="button"
             aria-expanded={shown}
             {...(shown ? { "aria-controls": "admin-areas" } : {})}
             aria-label={shown ? "Hide Admin areas" : "Show Admin areas"}
             onClick={() => setOpen((o) => !o)}
-            className="focus-ring hidden h-10 w-10 shrink-0 items-center justify-center hover:bg-item-hover xl:flex"
+            className="focus-ring flex h-10 w-10 shrink-0 items-center justify-center hover:bg-item-hover"
           >
             <ChevronDown
               aria-hidden="true"
@@ -290,6 +337,7 @@ function AdminNavItem({ role, pathname, icon }: { role: string; pathname: string
                 icon={AREA_ICON[a.to]}
                 current={navCurrent(a.to, pathname)}
                 child
+                rail={rail}
               />
             </li>
           ))}
