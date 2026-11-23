@@ -4,6 +4,7 @@ import { Button } from "@/components/erad/button";
 import { Checkbox } from "@/components/erad/checkbox";
 import { Select } from "@/components/erad/select";
 import { SourceTag } from "@/components/admin/source-tag";
+import { sectionNotes } from "@/components/admin/spec-notes";
 import { specFacts } from "@/components/admin/spec-table";
 import { api } from "@/services/api";
 import type { ConfigView, EffectiveSpec } from "@/services/tenant-config.functions";
@@ -11,6 +12,7 @@ import {
   configChangeBlocker,
   impactText,
   settingSource,
+  SPEC_SETTINGS,
   type SpecSetting,
 } from "@/services/tenant-rules";
 
@@ -63,10 +65,16 @@ export function SpecPanel(p: SpecPanelProps) {
     enabled: isGroup && p.role === "master_admin" && !p.readOnly,
   });
 
-  const control = (f: SpecSetting) => {
+  const notes = sectionNotes(
+    SPEC_SETTINGS.map((f) => ({
+      source: f in draft ? "changed" : settingSource(specFacts(view, spec), f),
+      reason: blockReason(p, f),
+    })),
+  );
+  const control = (f: SpecSetting, i: number) => {
     const reason = blockReason(p, f);
     const v = value(f);
-    const source = settingSource(specFacts(view, spec), f);
+    const own = notes.perField[i] ?? { source: null, reason: null };
     const field =
       f === "requiresReview" || f === "containsPersonalData" ? (
         <Checkbox
@@ -119,10 +127,14 @@ export function SpecPanel(p: SpecPanelProps) {
     return (
       <li key={f} className="flex flex-col gap-1 border-b border-border-subtle pb-4">
         {field}
-        <div className="flex flex-wrap items-center gap-2">
-          <SourceTag source={f in draft ? "changed" : source} groupName={view.tenant.groupName} />
-          {reason ? <span className="type-label-12 text-text-secondary">{reason}</span> : null}
-        </div>
+        {own.source || own.reason ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {own.source ? <SourceTag source={own.source} /> : null}
+            {own.reason ? (
+              <span className="type-label-12 text-text-secondary">{own.reason}</span>
+            ) : null}
+          </div>
+        ) : null}
       </li>
     );
   };
@@ -133,17 +145,15 @@ export function SpecPanel(p: SpecPanelProps) {
         <h3 className="type-title-16-medium">{spec.name}</h3>
         <code className="type-label-12 text-text-secondary">{spec.code}</code>
       </div>
-      <ul className="flex flex-col gap-4">
-        {(
-          [
-            "retentionPolicyRef",
-            "signatureRequired",
-            "requiresReview",
-            "containsPersonalData",
-            "defaultSensitivity",
-          ] as const
-        ).map(control)}
-      </ul>
+      {notes.source || notes.reason ? (
+        <div className="flex flex-col items-start gap-1">
+          {notes.source ? <SourceTag source={notes.source} /> : null}
+          {notes.reason ? (
+            <p className="type-paragraph-14 text-text-secondary">{notes.reason}</p>
+          ) : null}
+        </div>
+      ) : null}
+      <ul className="flex flex-col gap-4">{SPEC_SETTINGS.map(control)}</ul>
       <BusinessProcess spec={spec} />
       {isGroup && !p.readOnly ? (
         <div className="flex flex-col gap-2">

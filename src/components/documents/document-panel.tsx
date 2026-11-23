@@ -100,9 +100,7 @@ export function DocumentPanel({
           {storedPipelineLabel(doc.pipeline_state, false)}
         </Tag>
         {doc.legal_hold ? (
-          <Tag tone="major" icon={<Lock aria-hidden="true" className="size-4" />}>
-            On hold
-          </Tag>
+          <Tag icon={<Lock aria-hidden="true" className="size-4 shrink-0" />}>On hold</Tag>
         ) : null}
       </div>
       {shared || showRecord ? <RecordLine entityId={entityId} /> : null}

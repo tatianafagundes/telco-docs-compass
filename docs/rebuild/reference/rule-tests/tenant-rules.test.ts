@@ -6,6 +6,7 @@ import {
   relationSentence,
   settingSource,
   sourceLabel,
+  sourceNote,
   type ChangeFacts,
 } from "@/services/tenant-rules";
 
@@ -23,10 +24,11 @@ const base: ChangeFacts = {
 };
 
 describe("tenant-rules", () => {
-  it("should label sources with the real organisation name", () => {
-    expect(sourceLabel("inherited", GROUP)).toBe("From Aurora Telecom Group");
-    expect(sourceLabel("locked", GROUP)).toBe("Locked by Aurora Telecom Group");
-    expect(sourceLabel("changed", GROUP)).toBe("Changed here");
+  it("should keep source labels short and name the group once in the note", () => {
+    const sources = ["inherited", "changed", "locked", "own"] as const;
+    expect(sources.map(sourceLabel)).toEqual(["Inherited", "Changed here", "Locked", "Added here"]);
+    for (const s of sources) expect(sourceLabel(s).length).toBeLessThanOrEqual(20);
+    expect(sourceNote(GROUP)).toContain("from Aurora Telecom Group");
   });
 
   it("should read changed fields from overridden_fields", () => {

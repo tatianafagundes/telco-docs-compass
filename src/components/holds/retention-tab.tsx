@@ -6,9 +6,10 @@ import { DataTable } from "@/components/erad/data-table";
 import { EmptyState } from "@/components/erad/empty-state";
 import { SkeletonRow } from "@/components/erad/misc";
 import { Tag } from "@/components/erad/tag";
+import { SourceTag } from "@/components/admin/source-tag";
 import { configQuery } from "@/hooks/use-config";
 import { api } from "@/services/api";
-import { effectiveRetentionDays, yearsLabel } from "@/services/tenant-rules";
+import { effectiveRetentionDays, sourceNote, yearsLabel } from "@/services/tenant-rules";
 
 export function RetentionTab() {
   const config = useQuery(configQuery);
@@ -49,6 +50,7 @@ export function RetentionTab() {
       <p className="type-paragraph-14 text-text-secondary">
         Retention periods here are demo values. Real periods need legal input for each country and
         document type.
+        {tenant.isGroup ? null : ` ${sourceNote(tenant.groupName)}`}
       </p>
       <div className="overflow-x-auto">
         <DataTable
@@ -60,21 +62,16 @@ export function RetentionTab() {
             {
               key: "src",
               header: "Where defined",
-              cell: (r) => (
-                <Tag
-                  tone={
-                    r.locked ? "indeterminate" : r.tenantId === tenant.id ? "purple" : "cleared"
-                  }
-                >
-                  {tenant.isGroup
-                    ? "Set here"
-                    : r.locked
-                      ? `Locked by ${tenant.groupName}`
-                      : r.tenantId === tenant.id
-                        ? "Changed here"
-                        : `From ${tenant.groupName}`}
-                </Tag>
-              ),
+              cell: (r) =>
+                tenant.isGroup ? (
+                  <Tag tone="purple">Set here</Tag>
+                ) : (
+                  <SourceTag
+                    source={
+                      r.locked ? "locked" : r.tenantId === tenant.id ? "changed" : "inherited"
+                    }
+                  />
+                ),
             },
             {
               key: "keep",

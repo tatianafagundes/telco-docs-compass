@@ -69,7 +69,7 @@ function AuthPage() {
           <h1 id="auth-title" className="type-title-18-medium">
             Documents
           </h1>
-          <Tag tone="purple" icon={false} className="self-start">
+          <Tag tone="purple" className="self-start">
             Prototype · synthetic data only
           </Tag>
         </div>

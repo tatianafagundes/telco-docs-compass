@@ -2,7 +2,7 @@ import { DataTable, type Column } from "@/components/erad/data-table";
 import { Tooltip } from "@/components/erad/tooltip";
 import { SourceTag } from "@/components/admin/source-tag";
 import type { ConfigView, EffectiveSpec } from "@/services/tenant-config.functions";
-import { settingSource } from "@/services/tenant-rules";
+import { settingSource, sourceNote } from "@/services/tenant-rules";
 
 interface Process {
   id?: string;
@@ -72,9 +72,7 @@ export function SpecTable({
     {
       key: "where",
       header: "Where defined",
-      cell: (s) => (
-        <SourceTag source={settingSource(specFacts(view, s))} groupName={view.tenant.groupName} />
-      ),
+      cell: (s) => <SourceTag source={settingSource(specFacts(view, s))} />,
     },
     {
       key: "retention",
@@ -83,7 +81,10 @@ export function SpecTable({
     },
   ];
   return (
-    <div className="overflow-x-auto">
+    <div className="flex flex-col gap-2 overflow-x-auto">
+      {view.tenant.isGroup ? null : (
+        <p className="type-paragraph-14 text-text-secondary">{sourceNote(view.tenant.groupName)}</p>
+      )}
       <DataTable
         caption="Document types"
         columns={columns}

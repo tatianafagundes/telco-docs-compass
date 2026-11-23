@@ -94,7 +94,7 @@ Error shape for internal operations: `{code, category, retryable, customerFacing
 | BR-081 | A country may not change a locked type ("Locked by <group>.") or any type when the area mode is locked or inherit ("Document types are set by <group>."). |
 | BR-082 | In extend mode a country may change only containsPersonalData and requiresReview on group types (`config.extendOnly`). |
 | BR-083 | Retention below the group floor is refused: "Retention cannot be shorter than N years. Set by <group>." Years = round(days/365). |
-| BR-084 | Setting source labels: inherited "From <group>", changed "Changed here", locked "Locked by <group>", own "Added here". |
+| BR-084 | Setting source labels (within 20 characters): inherited "Inherited", changed "Changed here", locked "Locked", own "Added here". The group is named once per screen: "Inherited and Locked settings come from <group>." |
 | BR-085 | Relation sentence: extend "Adds its own to the group's setting", override "Replaces the group's setting", locked "Locked by the group", default "Uses the group's setting". |
 | BR-086 | Impact text: "Applies to N tenants. M tenant(s) has/have overridden this and keeps its/keep their version." |
 | BR-087 | Effective specification = group row if locked, else the country row if present, else the group row. It is visible only to callers in that tenant. |

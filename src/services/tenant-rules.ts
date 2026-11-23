@@ -33,17 +33,23 @@ export function settingSource(row: EffectiveSpecFacts, field?: string): SettingS
   return row.overriddenFields?.includes(field) ? "changed" : "inherited";
 }
 
-export function sourceLabel(source: SettingSource, groupName: string): string {
+/** Short tag label (EDS: within 20 characters). The group is named once, in `sourceNote`. */
+export function sourceLabel(source: SettingSource): string {
   switch (source) {
     case "inherited":
-      return `From ${groupName}`;
+      return "Inherited";
     case "changed":
       return "Changed here";
     case "locked":
-      return `Locked by ${groupName}`;
+      return "Locked";
     case "own":
       return "Added here";
   }
+}
+
+/** The one sentence that names where Inherited and Locked settings come from. */
+export function sourceNote(groupName: string): string {
+  return `Inherited and Locked settings come from ${groupName}. Locked settings cannot be changed here.`;
 }
 
 /** One sentence describing how this country relates to the group's setting. */

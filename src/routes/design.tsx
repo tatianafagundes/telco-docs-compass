@@ -1,6 +1,6 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
-import { FileText, Inbox, History, Sparkles, Download, Trash2 } from "lucide-react";
+import { FileText, Inbox, History, Lock, Sparkles, Download, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/erad/button";
 import { TextField } from "@/components/erad/text-field";
@@ -167,9 +167,12 @@ function Board({ theme }: { theme: "light" | "dark" }) {
         <Tag tone="cleared">Ready</Tag>
         <Tag tone="warning">In review</Tag>
         <Tag tone="major">Expired</Tag>
-        <Tag tone="minor">On hold</Tag>
         <Tag tone="critical">Quarantined</Tag>
         <Tag tone="indeterminate">Draft</Tag>
+        <Tag icon={<Lock aria-hidden="true" className="size-4 shrink-0" />}>On hold</Tag>
+        <Tag tone="critical" severity>
+          Not saved
+        </Tag>
         <Tag tone="warning" small>
           2 to check
         </Tag>
@@ -267,7 +270,7 @@ function Board({ theme }: { theme: "light" | "dark" }) {
           Signed (qualified) · Ends 29 Feb 2028 · Renews automatically
         </Card>
         <div className="w-full">
-          <Banner tone="minor" status="On hold">
+          <Banner icon={<Lock aria-hidden="true" className="size-4 shrink-0" />} status="On hold">
             Delete unavailable: legal hold DSP-2026-031.
           </Banner>
         </div>

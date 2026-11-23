@@ -5,7 +5,7 @@ import { z } from "zod";
 import { PageHeader } from "@/components/erad/page-header";
 import { EmptyState } from "@/components/erad/empty-state";
 import { SidePanel } from "@/components/erad/side-panel";
-import { Check, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AddDocuments } from "@/components/upload/add-documents";
 import { useUpload } from "@/hooks/use-upload";
@@ -207,7 +207,7 @@ function RecordPage() {
                         {STATUS_LABEL[d.status]}
                       </Tag>
                       {d.legal_hold ? (
-                        <Tag tone="major" icon={<Lock aria-hidden="true" className="size-4" />}>
+                        <Tag icon={<Lock aria-hidden="true" className="size-4 shrink-0" />}>
                           On hold
                         </Tag>
                       ) : null}
@@ -220,11 +220,7 @@ function RecordPage() {
                         </Tag>
                       ) : null}
                       {d.pipeline_state === "ready" && addedHere.has(d.id) ? (
-                        <Tag
-                          tone="cleared"
-                          small
-                          icon={<Check aria-hidden="true" className="size-4" />}
-                        >
+                        <Tag tone="cleared" small>
                           Ready
                         </Tag>
                       ) : null}

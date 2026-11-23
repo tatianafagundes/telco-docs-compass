@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { Eye } from "lucide-react";
 import { Banner } from "@/components/erad/banner";
 import { SidePanel } from "@/components/erad/side-panel";
 import { PolicyCards } from "@/components/admin/policy-cards";
@@ -47,7 +48,7 @@ function ChildView() {
   return (
     <div className="flex flex-col gap-4">
       <Banner
-        tone="purple"
+        icon={<Eye aria-hidden="true" className="size-4 shrink-0" />}
         status="Read-only"
         action={
           <Link to="/admin/tenants" className="focus-ring type-label-14 underline">

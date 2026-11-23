@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
-import { AlertTriangle, CheckCircle2, CircleCheck, Info, ShieldAlert } from "lucide-react";
+import { CircleCheck } from "lucide-react";
 import { Button } from "@/components/erad/button";
 import { Tag } from "@/components/erad/tag";
 import { DocumentMenu } from "@/components/documents/document-menu";
 import { BAND_TAG, fieldLabel, type ReviewField } from "@/services/review-rules";
 import type { MatchResult } from "@/services/review-flow-rules";
 import { cn } from "@/lib/utils";
-
-const BAND_ICON = { high: CheckCircle2, medium: Info, low: AlertTriangle } as const;
 
 export interface FieldRowProps {
   field: ReviewField & { reviewed_at?: string | null };
@@ -124,7 +122,6 @@ export function FieldRow({
   }
 
   const band = field.band ? BAND_TAG[field.band] : null;
-  const Icon = field.band ? BAND_ICON[field.band] : null;
   return (
     <li
       role="option"
@@ -146,7 +143,7 @@ export function FieldRow({
         ) : null}
         <span className="ml-auto flex flex-wrap gap-1">
           {match === "differs" ? (
-            <Tag tone="major" small icon={<ShieldAlert aria-hidden="true" className="size-4" />}>
+            <Tag tone="major" small>
               Differs from record
             </Tag>
           ) : null}
@@ -155,8 +152,8 @@ export function FieldRow({
               Matches record
             </Tag>
           ) : null}
-          {match === null && band && Icon ? (
-            <Tag tone={band.tone} small icon={<Icon aria-hidden="true" className="size-4" />}>
+          {match === null && band ? (
+            <Tag tone={band.tone} small>
               {band.label}
             </Tag>
           ) : null}
