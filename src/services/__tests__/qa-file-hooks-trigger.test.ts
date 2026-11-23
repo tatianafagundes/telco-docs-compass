@@ -16,6 +16,7 @@ const MIGRATIONS = [
   "0016_file_hooks.sql",
   "0017_file_hooks_safe_attempt.sql",
   "0018_file_hooks_hardening.sql",
+  "0019_file_hooks_events_review.sql",
 ];
 let db: PGlite;
 type Ev = { event_type: string; payload: Record<string, unknown> };
@@ -139,15 +140,10 @@ describe("QA trigger: when events are written", () => {
   // DEFECT (low-medium, 0018 documents_to_outbox): the hold branch sits inside `ELSE` of the
   // status / delete chain, so an update that changes the status AND the hold writes only the status
   // event. R1.3 says a hold that actually changes SHALL name legalHold; this one never does.
-  it.fails(
-    "names legalHold when the hold and the status change in one update (BUG: hold event lost)",
-    async () => {
-      const e = await run(
-        `UPDATE documents SET status='in_review', legal_hold=true WHERE id='${D}'`,
-      );
-      expect(e.map((x) => x.payload)).toContainEqual({ changed: "legalHold" });
-    },
-  );
+  it("names legalHold when the hold and the status change in one update (fixed in 0019)", async () => {
+    const e = await run(`UPDATE documents SET status='in_review', legal_hold=true WHERE id='${D}'`);
+    expect(e.map((x) => x.payload)).toContainEqual({ changed: "legalHold" });
+  });
   it("a hold released names legalHold too, with no value", async () => {
     await db.exec(`UPDATE documents SET legal_hold=true WHERE id='${D}'`);
     expect(await run(`UPDATE documents SET legal_hold=false WHERE id='${D}'`)).toEqual([
@@ -158,23 +154,15 @@ describe("QA trigger: when events are written", () => {
   // version of THIS document and tenant (0018 added that only to Stored). With no current version the
   // event is written with versionId null (the whitelist then drops it: a subscriber gets
   // { attempt } and no version to fetch); with another tenant's version it names a foreign id.
-  it.fails(
-    "writes no ReadyToRead event when the document has no current version (BUG: event with null versionId)",
-    async () => {
-      await db.exec(`UPDATE documents SET current_version_id=NULL WHERE id='${D}'`);
-      expect(await run(`UPDATE documents SET pipeline_state='reading' WHERE id='${D}'`)).toEqual(
-        [],
-      );
-    },
-  );
-  it.fails(
-    "never names another tenant's version in a ReadyToRead event (BUG: unchecked current_version_id)",
-    async () => {
-      await db.exec(`UPDATE documents SET current_version_id='${V_OTHER}' WHERE id='${D}'`);
-      const e = await run(`UPDATE documents SET pipeline_state='reading' WHERE id='${D}'`);
-      expect(JSON.stringify(e)).not.toContain(V_OTHER);
-    },
-  );
+  it("writes no ReadyToRead event when the document has no current version (fixed in 0019)", async () => {
+    await db.exec(`UPDATE documents SET current_version_id=NULL WHERE id='${D}'`);
+    expect(await run(`UPDATE documents SET pipeline_state='reading' WHERE id='${D}'`)).toEqual([]);
+  });
+  it("never names another tenant's version in a ReadyToRead event (fixed in 0019)", async () => {
+    await db.exec(`UPDATE documents SET current_version_id='${V_OTHER}' WHERE id='${D}'`);
+    const e = await run(`UPDATE documents SET pipeline_state='reading' WHERE id='${D}'`);
+    expect(JSON.stringify(e)).not.toContain(V_OTHER);
+  });
 });
 
 describe("QA trigger payloads meet the TypeScript whitelist (contract between SQL and fileEventPayload)", () => {
@@ -371,18 +359,15 @@ describe("QA trigger attempt vs the TypeScript reading of the same jsonb", () =>
   // '"03"' (text): trigger event says 3, readDetail says 0. {"attempt":3.0}: trigger says 0 ('3.0' fails
   // the digit pattern), readDetail says 3. The event a scanner receives and the attempt the server will
   // accept back then differ, so the scanner's answer is refused as stale. Only hand-written rows.
-  it.fails(
-    "the trigger's attempt equals readDetail's attempt for the same stored value (BUG: '03' and 3.0)",
-    async () => {
-      const diffs: string[] = [];
-      for (const lit of ["3", '"03"', "3.0", "0.0", '"3"', "-0"]) {
-        const sql = await triggerAttempt(lit);
-        const ts = readDetail(JSON.parse(`{"attempt":${lit}}`)).attempt + 0;
-        if (sql !== ts) diffs.push(`${lit}: trigger=${sql} readDetail=${ts}`);
-      }
-      expect(diffs).toEqual([]);
-    },
-  );
+  it("the trigger's attempt equals readDetail's attempt for the same stored value (fixed in 0019)", async () => {
+    const diffs: string[] = [];
+    for (const lit of ["3", '"03"', "3.0", "0.0", '"3"', "-0"]) {
+      const sql = await triggerAttempt(lit);
+      const ts = readDetail(JSON.parse(`{"attempt":${lit}}`)).attempt + 0;
+      if (sql !== ts) diffs.push(`${lit}: trigger=${sql} readDetail=${ts}`);
+    }
+    expect(diffs).toEqual([]);
+  });
   it("covers every literal without throwing in Postgres (the trigger never aborts an update)", async () => {
     for (const lit of LITERALS)
       await expect(triggerAttempt(lit), lit).resolves.toBeTypeOf("number");

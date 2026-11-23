@@ -134,6 +134,13 @@
       "when": 1794323376722,
       "tag": "0018_file_hooks_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794323976722,
+      "tag": "0019_file_hooks_events_review",
+      "breakpoints": true
     }
   ]
 }

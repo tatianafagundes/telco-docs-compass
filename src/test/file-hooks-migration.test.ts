@@ -9,6 +9,7 @@ const sql = [
   "0016_file_hooks.sql",
   "0017_file_hooks_safe_attempt.sql",
   "0018_file_hooks_hardening.sql",
+  "0019_file_hooks_events_review.sql",
 ]
   .map((f) => readFileSync(`drizzle/migrations/${f}`, "utf8"))
   .join("\n")
@@ -48,8 +49,10 @@ describe("file hooks migration", () => {
     expect(sql).toContain("external_processing jsonb NOT NULL DEFAULT '{}'::jsonb");
   });
   it("hardens the latest definitions: empty search_path and versions bound to document and tenant", () => {
-    const latest = readFileSync("drizzle/migrations/0018_file_hooks_hardening.sql", "utf8");
-    expect(latest.match(/SET search_path = ''/g)?.length).toBe(2);
-    expect(latest).toContain("document_id = NEW.id AND tenant_id = NEW.tenant_id");
+    for (const f of ["0018_file_hooks_hardening.sql", "0019_file_hooks_events_review.sql"]) {
+      const latest = readFileSync(`drizzle/migrations/${f}`, "utf8");
+      expect(latest.match(/SET search_path = ''/g)?.length).toBe(2);
+      expect(latest).toContain("document_id = NEW.id AND tenant_id = NEW.tenant_id");
+    }
   });
 });

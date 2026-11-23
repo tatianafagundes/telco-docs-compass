@@ -30,6 +30,7 @@ beforeEach(async () => {
     "0016_file_hooks.sql",
     "0017_file_hooks_safe_attempt.sql",
     "0018_file_hooks_hardening.sql",
+    "0019_file_hooks_events_review.sql",
   ])
     await db.exec(readFileSync(`drizzle/migrations/${f}`, "utf8"));
   await db.exec(`CREATE TRIGGER documents_outbox AFTER INSERT OR UPDATE ON documents
@@ -95,7 +96,10 @@ describe("file-event trigger", () => {
   it("reports a version change made together with a hold change", async () => {
     await db.exec(`INSERT INTO document_versions VALUES ('33333333-3333-4333-8333-333333333333','${D}','t1','h2',1,'text/plain');
       UPDATE documents SET legal_hold=true, current_version_id='33333333-3333-4333-8333-333333333333' WHERE id='${D}';`);
-    expect((await events()).map((e) => e.payload)).toEqual([{ changed: "legalHold" }, {}]);
+    expect((await events()).map((e) => e.payload)).toEqual(
+      expect.arrayContaining([{ changed: "legalHold" }, {}]),
+    );
+    expect(await events()).toHaveLength(2);
   });
   it("writes no Stored event for a version of another document or tenant", async () => {
     await db.exec(`INSERT INTO document_versions VALUES ('44444444-4444-4444-8444-444444444444','99999999-9999-4999-8999-999999999999','t2','h3',1,'text/plain');
