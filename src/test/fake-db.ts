@@ -31,8 +31,18 @@ export interface DbAnswer {
   count?: number;
 }
 
-/** Reads `a.b` from nested objects, so embedded joins like `integration_clients.revoked_at` work. */
+/** Reads `a.b` from nested objects, so embedded joins like `integration_clients.revoked_at` work, and `col->>key` as jsonb text. */
 function pathValue(row: Row, path: string): unknown {
+  // `col->>key` is a jsonb field read as text, as PostgREST filters it: null when missing.
+  const arrow = path.indexOf("->>");
+  if (arrow > 0) {
+    const obj = pathValue(row, path.slice(0, arrow));
+    const key = path.slice(arrow + 3);
+    if (obj === null || typeof obj !== "object" || Array.isArray(obj)) return null;
+    const v = Object.hasOwn(obj, key) ? (obj as Row)[key] : null;
+    if (v === null || v === undefined) return null;
+    return typeof v === "object" ? JSON.stringify(v) : String(v);
+  }
   let cur: unknown = row;
   for (const part of path.split(".")) {
     if (cur === null || typeof cur !== "object") return undefined;

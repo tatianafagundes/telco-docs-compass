@@ -63,6 +63,8 @@ export function useUpload(entityId: string) {
         patch(key, { state: res.state, ...(retry ? { retried: true } : {}) });
         refresh();
         if (res.state === "ready" || res.state === "failed" || res.state === "quarantined") return;
+        // Waiting for the organisation's own antivirus or reader: the page refetches instead.
+        if (res.waiting) return;
       }
     },
     [refresh],

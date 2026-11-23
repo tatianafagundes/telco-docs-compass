@@ -2,20 +2,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { can, seamError, type SeamErr } from "@/services/document-rules";
-import { audit, forbidden, loadRole, runWrite } from "@/services/seam-runtime";
-import { nextPipelineState, simulatedOutcome } from "@/services/upload-rules";
-import type { PipelineState } from "@/schemas/document";
+import { seamError } from "@/services/document-rules";
+import { advanceStep, SIMULATED_OWNERS } from "@/services/pipeline-step";
+import { forbidden, loadRole, runWrite } from "@/services/seam-runtime";
 import { adminClient } from "@/services/shared/server-context";
 
 const BUCKET = "documents";
 
-const fail = (code: string): SeamErr => ({ ok: false, error: seamError(code, "rejected", "none") });
-
 const advanceSchema = z.object({
   idempotencyKey: z.string().min(8).max(200),
   id: z.string().uuid(),
-  /** Retry reading once after it failed. */
+  /** Restart the step that failed. */
   retry: z.boolean().optional(),
 });
 
@@ -29,64 +26,17 @@ export const advancePipeline = createServerFn({ method: "POST" })
       context,
       await adminClient(),
       { op: "advancePipeline", idempotencyKey, body, scope: { kind: "doc", id: data.id } },
-      async (env) => {
-        // Seeing a document (e.g. through a share) is not enough: processing changes need edit rights in its own organisation.
-        if (!can(env.role, "edit")) return forbidden();
-        const { data: doc } = await env.admin
-          .from("documents")
-          .select("id, name, pipeline_state, pipeline_detail, current_version_id, created_by")
-          .eq("id", data.id)
-          .eq("tenant_id", env.tenantId)
-          .maybeSingle();
-        if (!doc) return { ok: false, error: seamError("doc.notFound", "notFound") };
-        // Seeded documents never change state on their own.
-        if (!doc.created_by) return fail("pipeline.seeded");
-        let current = doc.pipeline_state as PipelineState;
-        if (data.retry) {
-          if (current !== "failed") return fail("pipeline.retry.notFailed");
-          current = "reading";
-        }
-        const { data: version } = await env.admin
-          .from("document_versions")
-          .select("storage_path")
-          .eq("id", doc.current_version_id ?? "")
-          .maybeSingle();
-        let text = "";
-        if (current === "uploading") {
-          // The file must be in storage before checking starts.
-          const { data: file } = version?.storage_path
-            ? await env.admin.storage.from(BUCKET).download(version.storage_path)
-            : { data: null };
-          if (!file)
-            return { ok: false, error: seamError("pipeline.notUploaded", "unavailable", "retry") };
-        } else if (current === "scanning" || current === "reading") {
-          const { data: file } = version?.storage_path
-            ? await env.admin.storage.from(BUCKET).download(version.storage_path)
-            : { data: null };
-          text = file ? new TextDecoder("latin1").decode(await file.arrayBuffer()) : "";
-        }
-        const next = nextPipelineState(current, simulatedOutcome(doc.name, text));
-        const detail =
-          next === "failed"
-            ? { reason: data.retry ? "unreadableAgain" : "unreadable" }
-            : next === "quarantined"
-              ? { reason: "threat" }
-              : null;
-        await env.admin
-          .from("documents")
-          .update({
-            pipeline_state: next,
-            pipeline_detail: detail,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", data.id)
-          .eq("tenant_id", env.tenantId);
-        await audit(env, "pipelineStateChange", data.id, `${current} to ${next}`);
-        return { ok: true, data: { id: data.id, state: next, retried: Boolean(data.retry) } };
-      },
+      (env) =>
+        advanceStep(env, data, {
+          download: async (path) => {
+            const { data: file } = await env.admin.storage.from(BUCKET).download(path);
+            return file ? new Uint8Array(await file.arrayBuffer()) : null;
+          },
+          now: () => new Date().toISOString(),
+          owners: SIMULATED_OWNERS,
+        }),
     );
   });
-
 /** Usability-test reset: removes every document people added (seeded rows have no creator) and their files. Group admin only. */
 export const resetTestData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
