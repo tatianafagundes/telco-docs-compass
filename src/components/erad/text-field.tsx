@@ -58,6 +58,12 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
             {error ?? helper}
           </span>
         ) : null}
+        {/* A message that appears is announced at once; the visible line above is what the field is described by. */}
+        {error ? (
+          <span role="alert" className="sr-only">
+            {error}
+          </span>
+        ) : null}
       </div>
     );
   },

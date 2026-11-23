@@ -54,6 +54,17 @@ export function AppShell({ tenantName, userName, role, children }: AppShellProps
 
   return (
     <div className="flex min-h-screen flex-col bg-layer-content">
+      {/* First stop for the keyboard: jumps past the top bar and the navigation (WCAG 2.4.1). */}
+      <a
+        href="#main-content"
+        onClick={(e) => {
+          e.preventDefault();
+          document.getElementById("main-content")?.focus();
+        }}
+        className="focus-ring type-label-14 sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[60] focus:border focus:border-border-item focus:bg-item focus:px-3 focus:py-2 focus:text-text-main"
+      >
+        Skip to main content
+      </a>
       <header className="bg-layer-system text-text-on-primary">
         <div className="mx-auto flex h-12 max-w-[1920px] items-center gap-3 px-4">
           <span className="type-title-16-medium">Documents</span>
@@ -156,7 +167,13 @@ export function AppShell({ tenantName, userName, role, children }: AppShellProps
             ))}
           </ul>
         </nav>
-        <main className="relative min-w-0 flex-1 px-4 py-4">{children}</main>
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="relative min-w-0 flex-1 px-4 py-4 outline-none"
+        >
+          {children}
+        </main>
       </div>
     </div>
   );

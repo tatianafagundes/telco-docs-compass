@@ -12,8 +12,6 @@ export interface DialogProps {
   actions?: ReactNode;
   /** Where focus goes when the dialog opens; by default the first focusable element (Close). */
   initialFocusRef?: RefObject<HTMLElement | null>;
-  /** Dims the page behind, so nothing under the dialog reads as part of it. */
-  backdrop?: boolean;
 }
 
 export function Dialog({
@@ -24,7 +22,6 @@ export function Dialog({
   children,
   actions,
   initialFocusRef,
-  backdrop = false,
 }: DialogProps) {
   // These dialogs open from ordinary buttons (no Radix Trigger), so remember the opener to return focus to it.
   // Captured during render, before Radix moves focus into the dialog.
@@ -42,7 +39,8 @@ export function Dialog({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        {backdrop ? <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/40" /> : null}
+        {/* EDS dialog: the page behind is dimmed to 60% so nothing under the dialog reads as part of it. */}
+        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/60" />
         <DialogPrimitive.Content
           onOpenAutoFocus={(e) => {
             if (initialFocusRef?.current) {

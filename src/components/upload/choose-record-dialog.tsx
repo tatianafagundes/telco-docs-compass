@@ -116,7 +116,6 @@ function FindRecord({
       title="Choose a record"
       description="Every document is kept with an order, quote or account. Choose the one these files belong to."
       initialFocusRef={field}
-      backdrop
     >
       <TextField
         ref={field}
@@ -207,7 +206,6 @@ function ChooseFiles({
       title="Choose the files"
       description={`They will be added to ${label}. Next you choose what kind of document each one is.`}
       initialFocusRef={choose}
-      backdrop
       actions={<Button onClick={onBack}>Choose a different record</Button>}
     >
       <div

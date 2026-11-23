@@ -104,9 +104,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
               ))}
               {p.rowActions ? (
                 <td className="px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                  <div className="inline-flex gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
-                    {p.rowActions(r)}
-                  </div>
+                  <div className="inline-flex gap-1">{p.rowActions(r)}</div>
                 </td>
               ) : null}
             </tr>
