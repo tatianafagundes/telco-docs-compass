@@ -6,7 +6,7 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
 
 ## 0. Decisions and requests
 - [x] 0.1 D1, D2 and D8 confirmed (2026-11-24): switch column and trigger written in this repo.
-- [x] 0.2 Migration `0016_file_hooks.sql` (switch, file-event trigger, `legalHold` on change events), checked on PGlite, guarded by `src/test/file-hooks-migration.test.ts`. After publishing: confirm on the preview that the migration applied (an upload emits `DocumentFileStoredEvent`).
+- [x] 0.2 Migrations `0016_file_hooks.sql` and `0017_file_hooks_safe_attempt.sql` (a malformed attempt never blocks an update); `src/test/file-hooks-trigger.test.ts` runs them on PGlite. Migration `0016_file_hooks.sql` (switch, file-event trigger, `legalHold` on change events), checked on PGlite, guarded by `src/test/file-hooks-migration.test.ts`. After publishing: confirm on the preview that the migration applied (an upload emits `DocumentFileStoredEvent`).
 - [ ] 0.3 Docs: align names in `docs/rebuild/18-tenancy-and-data-protection.md` (D7) and add BR rules for R1–R6 in `docs/rebuild/03-business-rules.md`.
 
 ## 1. Pure rules (no I/O)
@@ -24,13 +24,13 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
 - [ ] 2.4 Review: `seg-review` on phases 1–2 (scan bypass, TOCTOU, quarantine per version).
 
 ## 3. Organisation switch and keys
-- [ ] 3.1 `external-processing.ts`: switch with D1 fallback, active scanner and reader, `startStep`.
+- [ ] 3.1 `external-processing.ts`: switch read from `tenants.external_processing`, active scanner and reader, `startStep`.
 - [ ] 3.2 Scopes `scan`, `extract`: D3 and D4 at creation (admin only, recorded) and in `authenticate`; `ALL_SCOPES` in the test world updated on purpose.
 - [ ] 3.3 Review: `seg-review` on phase 3.
 
 ## 4. Events out
 - [ ] 4.1 Tests that every path that changes `pipeline_state` or purges goes through the guarded update the trigger listens to; no app-side event inserts for the file events (R1.1–R1.4).
-- [ ] 4.2 `tmf667-events.ts`: opt-in set before the no-query branch; whitelist; `legalHold` on change events only when it changed (R1.3, R1.5, R1.6).
+- [x] 4.2 `tmf667-events.ts`: `OPT_IN_EVENTS` before the no-query branch; `legalHold` delivered on change events, `changedAttributes: ["legalHold"]` (R1.3, R1.5); `file-events-opt-in.test.ts`. Done early: the trigger writes the events as soon as the migration applies.
 - [ ] 4.3 Test that no sensitive string (description, hold reason, value, threat name, person name) reaches any outbox row or delivered body (R1.6, R6.4).
 - [ ] 4.4 Review: `code-reviewer` on phase 4.
 

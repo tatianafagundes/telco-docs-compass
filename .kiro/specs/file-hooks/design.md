@@ -54,7 +54,7 @@ Every write is `updateDocumentIf` expecting `pipeline_state`, `current_version_i
 | DocumentFileReadyToReadEvent | versionId, attempt |
 | DocumentFilePurgedEvent | versionIds (string[]) |
 | DocumentChangeEvent (existing) | adds legalHold (boolean) when the hold changed |
-`eventMatches`: an `OPT_IN_EVENTS` set (batch + the three) is checked before the "no query" branch.
+`eventMatches`: the `OPT_IN_EVENTS` set (batch + the three) is checked before the "no query" branch (implemented with the migration).
 
 ## Migration 0016 (D1, D2, D6)
 1. `tenants.external_processing jsonb not null default '{}'` (`{ scan: bool, read: bool }`).
