@@ -1,6 +1,7 @@
 // File hooks phase 3: the organisation switch (D1), the organisation's own antivirus and reader keys
 // (D3, D4) and who handles a step that starts now.
-import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { describe, expect, it, vi } from "vitest";
 import {
   activeProcessingKeys,
   loadSwitch,
@@ -293,6 +294,24 @@ describe("connecting a system (D3, D4, R6.2)", () => {
     expect(admin.rows("integration_clients")).toHaveLength(1);
     expect(admin.rows("integration_clients")[0]!["revoked_at"]).toBeTruthy();
   });
+  it("when the key cannot be taken back either, the log says so (never the key)", async () => {
+    const admin = world().fail("document_events", "insert");
+    const real = admin.from.bind(admin);
+    admin.from = ((t: string) => {
+      const q = real(t);
+      if (t === "integration_clients" && admin.rows("integration_clients").length > 0)
+        admin.fail("integration_clients", "update");
+      return q;
+    }) as typeof admin.from;
+    const logged: string[] = [];
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation((m: unknown) => void logged.push(String(m)));
+    await expect(create(admin, ["read"])).rejects.toThrow();
+    spy.mockRestore();
+    expect(logged.join("\n")).toContain("revokeUnrecordedKey");
+    expect(logged.join("\n")).not.toMatch(/erad_|h-new/);
+  });
   it("records the system name with unsafe characters replaced", async () => {
     const admin = world();
     await createSystemStep(
@@ -309,5 +328,17 @@ describe("connecting a system (D3, D4, R6.2)", () => {
       expect((await create(admin, ["read"], role)).ok, role).toBe(false);
       expect(admin.writes).toEqual([]);
     }
+  });
+});
+describe("rotating a key", () => {
+  it("is recorded before the old key stops working", () => {
+    const src = readFileSync("src/services/integration-clients.functions.ts", "utf8");
+    const rotate = src.slice(
+      src.indexOf("export const rotateSystemKey"),
+      src.indexOf("export const revokeSystem"),
+    );
+    const recorded = rotate.indexOf('"systemKeyRotated"');
+    expect(recorded).toBeGreaterThan(0);
+    expect(recorded).toBeLessThan(rotate.indexOf("key_hash:"));
   });
 });

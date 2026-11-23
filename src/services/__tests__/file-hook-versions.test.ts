@@ -101,3 +101,19 @@ describe("the server functions use these rules", () => {
     expect(add).toMatch(/updateDocumentIf\([\s\S]*?expect: \{ \.\.\.start\.expect \}/);
   });
 });
+describe("media types are a type and subtype, never free text (they reach file events)", () => {
+  it.each([
+    ["application/pdf", true],
+    ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", true],
+    ["image/svg+xml", true],
+    ["application/my secret plan", false],
+    ["text/plain; charset=utf-8", false],
+    ["Merger plan for Borealis", false],
+    ["a/b/c", false],
+  ])("%s → %s", async (mimeType, ok) => {
+    const { registerSchema } = await import("@/schemas/document");
+    const { attachmentSchema } = await import("@/services/gateway-create-input");
+    expect(attachmentSchema.shape.mimeType.safeParse(mimeType).success).toBe(ok);
+    expect(registerSchema.shape.mimeType.safeParse(mimeType).success).toBe(ok);
+  });
+});

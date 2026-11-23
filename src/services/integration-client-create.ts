@@ -73,11 +73,16 @@ export async function createSystemStep<Row extends { id: string }>(
   try {
     await audit(env, "systemConnected", null, `${auditName(input.name)}: ${scopes.join(", ")}`);
   } catch (e) {
-    await env.admin
+    const { error: undo } = await env.admin
       .from("integration_clients")
       .update({ revoked_at: new Date().toISOString() })
       .eq("id", created.id)
       .eq("tenant_id", env.tenantId);
+    // Both failed: an active, unrecorded key exists. Say so in the log (never the key).
+    if (undo)
+      console.error(
+        JSON.stringify({ op: "systems.create", step: "revokeUnrecordedKey", system: created.id }),
+      );
     throw e;
   }
   return { ok: true, data: created };

@@ -31,6 +31,8 @@ const docId = z.string().uuid();
 const characteristic = z
   .array(z.object({ name: z.string().min(1).max(80), value: z.unknown() }))
   .max(50);
+// A media type as type/subtype only: it reaches file events, so never free text.
+const mediaType = z.string().regex(/^[\w.+-]{1,63}\/[\w.+-]{1,63}$/);
 // The screens send the full SHA-256; the server checks it against the stored file.
 const contentHash = z.string().regex(/^sha256:[0-9a-f]{64}$/);
 
@@ -49,7 +51,7 @@ export const registerSchema = z.object({
   name: z.string().trim().min(1).max(255),
   documentType: z.string().min(1).max(64),
   relatedEntity: z.object({ id: z.string().min(1).max(64), role: z.string().min(1).max(64) }),
-  mimeType: z.string().min(3).max(150),
+  mimeType: mediaType,
   size: z.number().int().nonnegative().optional(),
   sensitivity: z.enum(SENSITIVITIES).optional(),
   characteristic: characteristic.optional(),
@@ -79,7 +81,7 @@ export const addVersionSchema = z
   .object({
     idempotencyKey,
     id: docId,
-    mimeType: z.string().min(3).max(150),
+    mimeType: mediaType,
     label: z.string().trim().min(1).max(60).optional(),
     note: z.string().max(280).optional(),
     isNamed: z.boolean().optional(),

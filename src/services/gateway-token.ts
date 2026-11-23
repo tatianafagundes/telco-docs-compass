@@ -9,8 +9,7 @@
 // - a request budget per system once its key is recognised;
 // - a cap on tokens alive at once for one system.
 // The budgets live in this server instance's memory, so across instances they are approximate.
-import { activeProcessingKeys } from "@/services/external-processing";
-import { processingScope, scopesAllowed } from "@/services/processing-keys";
+import { designatedProcessingKey } from "@/services/external-processing";
 import { readRequestText } from "@/services/gateway-body";
 import { createWindowLimiter } from "@/services/rate-limit-rules";
 import { must } from "@/services/shared/must";
@@ -106,16 +105,12 @@ export async function issueToken(request: Request): Promise<Response> {
     return oauthError(401, "invalid_client", "This system key is not valid.");
   if (tokenLimiters.bySystem.hit(client.id) !== "record") return tooMany();
   // A processing key that is not the organisation's connected system for it gets no token (D3, D4).
-  const processing = processingScope(client.scopes);
-  if (processing) {
-    const keys = await activeProcessingKeys(admin, client.tenant_id, processing, new Date());
-    if (!scopesAllowed(client.scopes) || keys.length !== 1 || keys[0]!.id !== client.id)
-      return oauthError(
-        401,
-        "invalid_client",
-        "This key is not the organisation's connected system for this.",
-      );
-  }
+  if ((await designatedProcessingKey(admin, client, new Date())) === false)
+    return oauthError(
+      401,
+      "invalid_client",
+      "This key is not the organisation's connected system for this.",
+    );
   const alive = must(
     await admin
       .from("integration_tokens")

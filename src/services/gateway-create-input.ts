@@ -28,7 +28,8 @@ export const characteristicSchema = z.object({
 
 /** TMF AttachmentRefOrValue: file details only (we return an upload address), a url to fetch, or inline base64 content. */
 export const attachmentSchema = z.object({
-  mimeType: z.string().min(3).max(150),
+  // type/subtype only: it reaches file events, so never free text.
+  mimeType: z.string().regex(/^[\w.+-]{1,63}\/[\w.+-]{1,63}$/),
   name: z.string().max(255).optional(),
   size: z
     .union([

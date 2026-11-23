@@ -6,8 +6,7 @@
 //
 // Does not implement any one operation: see gateway-reads.ts, gateway-create.ts,
 // gateway-patch.ts, gateway-changes.ts and gateway-hub.ts.
-import { activeProcessingKeys } from "@/services/external-processing";
-import { processingScope, scopesAllowed } from "@/services/processing-keys";
+import { designatedProcessingKey } from "@/services/external-processing";
 import { decideRate, rateHeaders, rateKind, retryGuidance } from "@/services/rate-limit-rules";
 import { z } from "zod";
 
@@ -123,30 +122,22 @@ export async function authenticate(request: Request, needed: Scope): Promise<Sys
   // The organisation's own antivirus or reader: that one scope only (D4), and the only such key (D3),
   // checked again on every call in case the keys changed after this one was made. After the rate
   // limit, so a key that is refused here still uses up its allowance.
-  const processing = processingScope(client.scopes);
-  if (processing) {
-    const designated = scopesAllowed(client.scopes)
-      ? await activeProcessingKeys(admin, client.tenant_id, processing, new Date()).then(
-          (keys) => keys.length === 1 && keys[0]!.id === client.id,
-          () => null,
-        )
-      : false;
-    if (designated === null)
-      return errorReply(
-        tmfError(503, "unavailable", "Service Unavailable", "Try again shortly."),
-        requestId,
-      );
-    if (!designated)
-      return errorReply(
-        tmfError(
-          403,
-          "notDesignated",
-          "Forbidden",
-          "This key is not the organisation's connected system for this. Ask an administrator.",
-        ),
-        requestId,
-      );
-  }
+  const designated = await designatedProcessingKey(admin, client, new Date()).catch(() => "error");
+  if (designated === "error")
+    return errorReply(
+      tmfError(503, "unavailable", "Service Unavailable", "Try again shortly."),
+      requestId,
+    );
+  if (designated === false)
+    return errorReply(
+      tmfError(
+        403,
+        "notDesignated",
+        "Forbidden",
+        "This key is not the organisation's connected system for this. Ask an administrator.",
+      ),
+      requestId,
+    );
   await admin
     .from("integration_clients")
     .update({ last_used_at: new Date().toISOString() })

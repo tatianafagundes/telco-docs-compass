@@ -97,6 +97,23 @@ export async function activeProcessingKeys(
 }
 
 /**
+ * Whether a key may act as the organisation's own antivirus or reader: that one scope only (D4) and
+ * the organisation's only active key for it (D3). Null for a key that is no processing key. Throws
+ * when the keys cannot be read, so the caller refuses rather than lets it through.
+ */
+export async function designatedProcessingKey(
+  admin: Db,
+  client: { id: string; tenant_id: string; scopes: string[] },
+  now: Date,
+): Promise<boolean | null> {
+  const scope = processingScope(client.scopes);
+  if (!scope) return null;
+  if (!scopesAllowed(client.scopes)) return false;
+  const keys = await activeProcessingKeys(admin, client.tenant_id, scope, now);
+  return keys.length === 1 && keys[0]!.id === client.id;
+}
+
+/**
  * Who handles each step if it starts now. Switch off: the built-in simulated step. Switch on: the
  * organisation's active key for that step; with none (revoked, expired, never connected) the step
  * still waits, names no system, and fails after the timeout. Turning a scanner off never turns

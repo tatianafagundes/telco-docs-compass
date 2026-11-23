@@ -122,25 +122,32 @@ export const rotateSystemKey = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<SeamResult<{ key: string }>> =>
     runRead(context, "systems.rotate", null, async (env) => {
       if (!isTenantAdmin(env.role)) return forbidden();
-      const { key, prefix } = newKey();
       const admin = await adminClient();
+      const { data: sys } = await admin
+        .from("integration_clients")
+        .select("id, name")
+        .eq("id", data.id)
+        .eq("tenant_id", env.tenantId)
+        .is("revoked_at", null)
+        .maybeSingle();
+      if (!sys) return { ok: false, error: seamError("system.notFound", "notFound", "none") };
+      // Recorded before the old key stops working, so a failed record never locks the system out.
+      await audit({ ...env, admin }, "systemKeyRotated", null, auditName(sys.name));
+      const { key, prefix } = newKey();
       const { data: rows } = await admin
         .from("integration_clients")
         .update({ key_hash: await sha256Hex(key), key_prefix: prefix, expires_at: expiry() })
         .eq("id", data.id)
         .eq("tenant_id", env.tenantId)
         .is("revoked_at", null)
-        .select("id, name");
+        .select("id");
       if (!rows || rows.length === 0)
         return { ok: false, error: seamError("system.notFound", "notFound", "none") };
       // Tokens made with the old key must not outlive it.
       await removeTokensOf(admin, data.id);
-      // A new key for a system is recorded, never the key itself.
-      await audit({ ...env, admin }, "systemKeyRotated", null, auditName(rows[0]!.name));
       return { ok: true, data: { key } };
     }),
   );
-
 export const revokeSystem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: z.input<typeof idSchema>) => idSchema.parse(input))
