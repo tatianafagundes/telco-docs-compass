@@ -23,7 +23,8 @@ const ROLE_LABEL: Record<string, string> = {
 function navFor(role: string) {
   const admin = role === "tenant_admin" || role === "master_admin";
   return [
-    { to: "/documents", label: "Documents", icon: FileText },
+    // The group administrator sees counts and settings, never documents, so has no Documents page.
+    ...(role === "master_admin" ? [] : [{ to: "/documents", label: "Documents", icon: FileText }]),
     { to: "/shared", label: "Shared with me", icon: Share2 },
     ...(role === "manager" ? [{ to: "/holds", label: "Holds and retention", icon: Lock }] : []),
     ...(admin ? [{ to: "/admin", label: "Admin", icon: Settings }] : []),

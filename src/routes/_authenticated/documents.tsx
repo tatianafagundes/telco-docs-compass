@@ -1,4 +1,5 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
+import { homeFor } from "@/lib/nav-section";
 import { ArrowRight, FileSearch, Search, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/erad/button";
@@ -77,6 +78,12 @@ const SORT_LABEL: Record<SortKey, string> = {
 };
 
 function DocumentsPage() {
+  const me = useMe();
+  // The group administrator never works with documents: send them to where their work is.
+  if (homeFor(me.access?.role) !== "/documents") return <Navigate to="/admin" replace />;
+  return <DocumentsWorkspace />;
+}
+function DocumentsWorkspace() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/documents" });
   const me = useMe();

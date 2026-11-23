@@ -18,3 +18,11 @@ describe("navCurrent", () => {
     expect(navCurrent("/holds", "/admin/holds")).toBeNull();
   });
 });
+import { homeFor } from "@/lib/nav-section";
+describe("homeFor", () => {
+  it("starts the group administrator in Admin and everyone else in Documents", () => {
+    expect(homeFor("master_admin")).toBe("/admin");
+    for (const r of ["tenant_admin", "manager", "reviewer", "contributor", "viewer", undefined])
+      expect(homeFor(r)).toBe("/documents");
+  });
+});

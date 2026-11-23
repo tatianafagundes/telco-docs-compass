@@ -16,3 +16,8 @@ export function navCurrent(item: string, pathname: string): "page" | "section" |
   if (pathname === item) return "page";
   return (SECTIONS[item] ?? [item]).some((p) => within(pathname, p)) ? "section" : null;
 }
+
+/** Where a person starts. The group administrator never works with documents, so starts in Admin. */
+export function homeFor(role: string | undefined): "/documents" | "/admin" {
+  return role === "master_admin" ? "/admin" : "/documents";
+}
