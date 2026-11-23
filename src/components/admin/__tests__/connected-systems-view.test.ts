@@ -39,3 +39,12 @@ describe("connected systems list", () => {
     expect(canLine(["read", "register", "subscribe"])).toBe("Read, Add and edit, Notifications");
   });
 });
+describe("connected systems screen", () => {
+  it("offers Connect a system in the empty state and opens disconnected matches while filtering", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync("src/components/admin/connected-systems.tsx", "utf8");
+    expect(src).toContain("No system is connected. Connect a system to start.");
+    expect(src).toContain("open={query ? true : undefined}");
+    expect(src).not.toContain("How about");
+  });
+});

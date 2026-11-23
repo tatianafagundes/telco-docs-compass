@@ -41,3 +41,14 @@ describe("adminAreas", () => {
     expect(adminAreaOf("tenant_admin", "/admin/tenants")).toBeNull();
   });
 });
+import { adminParent } from "@/lib/nav-section";
+describe("adminParent", () => {
+  it("links back to the area from a page inside it, and not on the area itself", () => {
+    expect(adminParent("master_admin", "/admin/tenants/aurora-no")).toEqual({
+      to: "/admin/tenants",
+      label: "Tenants",
+    });
+    expect(adminParent("master_admin", "/admin/tenants")).toBeNull();
+    expect(adminParent("tenant_admin", "/admin/typesX")).toBeNull();
+  });
+});

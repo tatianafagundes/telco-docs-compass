@@ -30,3 +30,22 @@ describe("StatCounts", () => {
     expect(screen.queryByText("orderAttachment")).toBeNull();
   });
 });
+describe("StatCounts processing", () => {
+  it("says No file yet instead of a stuck Uploading", () => {
+    render(
+      <StatCounts
+        rows={[
+          {
+            documentType: "quote",
+            status: "draft",
+            pipelineState: "uploading",
+            legalHold: false,
+            n: 10,
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText("No file yet")).toBeTruthy();
+    expect(screen.queryByText("Uploading")).toBeNull();
+  });
+});

@@ -48,7 +48,12 @@ function StartSection({
       <div className="flex h-9 items-center justify-between">
         <h2 className="type-label-12 text-text-secondary">{section.title}</h2>
         {q.data && q.data.items.length > 0 ? (
-          <Button variant="ghost" onClick={() => onSeeAll(section.filters)}>
+          <Button
+            variant="ghost"
+            // Three lists have this link: the name says which one (WCAG 2.4.4).
+            aria-label={`See all, ${section.title}`}
+            onClick={() => onSeeAll(section.filters)}
+          >
             See all
             <ArrowRight aria-hidden="true" />
           </Button>

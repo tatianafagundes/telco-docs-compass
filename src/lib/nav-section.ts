@@ -47,3 +47,15 @@ export function adminAreaOf(
 ): { to: AdminArea; label: string } | null {
   return adminAreas(role).find((a) => within(pathname, a.to)) ?? null;
 }
+
+/**
+ * On a page deeper than its admin area (one tenant), the area becomes a link back, and the page
+ * is titled by what it shows. Null on the area page itself.
+ */
+export function adminParent(
+  role: string | undefined,
+  pathname: string,
+): { to: AdminArea; label: string } | null {
+  const area = adminAreaOf(role, pathname);
+  return area && pathname !== area.to ? area : null;
+}

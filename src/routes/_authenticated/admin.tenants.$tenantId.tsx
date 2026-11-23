@@ -3,6 +3,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Eye } from "lucide-react";
 import { Banner } from "@/components/erad/banner";
+import { PageHeader } from "@/components/erad/page-header";
 import { SidePanel } from "@/components/erad/side-panel";
 import { PolicyCards } from "@/components/admin/policy-cards";
 import { SpecPanel } from "@/components/admin/spec-panel";
@@ -47,16 +48,10 @@ function ChildView() {
   const spec = view.specs.find((s) => s.code === open);
   return (
     <div className="flex flex-col gap-4">
-      <Banner
-        icon={<Eye aria-hidden="true" className="size-4 shrink-0" />}
-        status="Read-only"
-        action={
-          <Link to="/admin/tenants" className="focus-ring type-label-14 underline">
-            Back to tenants
-          </Link>
-        }
-      >
-        {`Viewing ${view.tenant.displayName} as ${me.access?.tenantName ?? view.tenant.groupName} – counts and settings only`}
+      {/* The admin layout shows "Tenants" as the way back; the page is titled by the tenant. */}
+      <PageHeader title={view.tenant.displayName} />
+      <Banner icon={<Eye aria-hidden="true" className="size-4 shrink-0" />} status="Read-only">
+        {`You are viewing ${view.tenant.displayName} as ${me.access?.tenantName ?? view.tenant.groupName}. You see counts and settings only.`}
       </Banner>
       <section className="flex flex-col gap-2">
         <h2 className="type-title-16-medium">Documents</h2>

@@ -1,4 +1,4 @@
-import { PIPELINE_LABEL, STATUS_LABEL, typeLabel } from "@/lib/document-labels";
+import { STATUS_LABEL, storedPipelineLabel, typeLabel } from "@/lib/document-labels";
 import type { DocStatus, PipelineState } from "@/schemas/document";
 import type { StatRow } from "@/services/tenant-config.functions";
 
@@ -17,7 +17,8 @@ export function StatCounts({ rows }: { rows: StatRow[] }) {
     ["By status", group(rows, (r) => STATUS_LABEL[r.status as DocStatus] ?? r.status)],
     [
       "By processing",
-      group(rows, (r) => PIPELINE_LABEL[r.pipelineState as PipelineState] ?? r.pipelineState),
+      // No upload runs on this page, so a stored "uploading" means the file never arrived (R13).
+      group(rows, (r) => storedPipelineLabel(r.pipelineState as PipelineState, false)),
     ],
   ];
   return (

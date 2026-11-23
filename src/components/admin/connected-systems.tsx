@@ -122,6 +122,7 @@ export function ConnectedSystems() {
           onRotate={(s) => rotate.mutate(s)}
           onLimits={setLimiting}
           onRevoke={setRevoking}
+          onConnect={() => setAdding(true)}
         />
       )}
       <Card title="For your integration team">
@@ -306,6 +307,7 @@ function SystemList(p: {
   onRotate: (s: ConnectedSystem) => void;
   onLimits: (s: ConnectedSystem) => void;
   onRevoke: (s: ConnectedSystem) => void;
+  onConnect: () => void;
 }) {
   const [query, setQuery] = useState("");
   const { connected, disconnected } = splitSystems(p.systems, query, kindLabel);
@@ -329,7 +331,17 @@ function SystemList(p: {
       </div>
       {connected.length === 0 ? (
         <p className="type-paragraph-14 text-text-secondary">
-          {query ? "No connected system matches this filter." : "No system is connected now."}
+          {query ? (
+            "No connected system matches this filter."
+          ) : (
+            <span className="flex flex-wrap items-center gap-3">
+              No system is connected. Connect a system to start.
+              <Button onClick={p.onConnect}>
+                <Plug aria-hidden="true" />
+                Connect a system
+              </Button>
+            </span>
+          )}
         </p>
       ) : (
         <ul className="flex flex-col gap-3" aria-label="Connected systems">
@@ -374,7 +386,7 @@ function SystemList(p: {
                       {new Date(s.expiresAt) <= new Date()
                         ? "This key has expired. You can issue a new key to reconnect."
                         : expiresSoon(s.expiresAt)
-                          ? `Key expires ${format(new Date(s.expiresAt), "d MMM yyyy")}. How about issuing a new key now?`
+                          ? `Key expires ${format(new Date(s.expiresAt), "d MMM yyyy")}. Issue a new key before it expires.`
                           : `Key valid until ${format(new Date(s.expiresAt), "d MMM yyyy")}`}
                     </p>
                   ) : null}
@@ -396,7 +408,12 @@ function SystemList(p: {
         </ul>
       )}
       {disconnected.length > 0 ? (
-        <details className="flex flex-col gap-2">
+        // While filtering, matches among disconnected systems are shown, not hidden in the group.
+        <details
+          key={query ? "filtering" : "all"}
+          open={query ? true : undefined}
+          className="flex flex-col gap-2"
+        >
           <summary className="focus-ring type-label-14 cursor-pointer self-start">
             Disconnected ({disconnected.length})
           </summary>
