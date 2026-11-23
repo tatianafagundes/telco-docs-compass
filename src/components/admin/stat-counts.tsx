@@ -1,4 +1,4 @@
-import { PIPELINE_LABEL, STATUS_LABEL } from "@/lib/document-labels";
+import { PIPELINE_LABEL, STATUS_LABEL, typeLabel } from "@/lib/document-labels";
 import type { DocStatus, PipelineState } from "@/schemas/document";
 import type { StatRow } from "@/services/tenant-config.functions";
 
@@ -13,7 +13,7 @@ export function StatCounts({ rows }: { rows: StatRow[] }) {
   if (rows.length === 0)
     return <p className="type-paragraph-14 text-text-secondary">No documents yet.</p>;
   const blocks: [string, [string, number][]][] = [
-    ["By type", group(rows, (r) => r.documentType)],
+    ["By type", group(rows, (r) => typeLabel(r.documentType))],
     ["By status", group(rows, (r) => STATUS_LABEL[r.status as DocStatus] ?? r.status)],
     [
       "By processing",

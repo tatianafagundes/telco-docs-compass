@@ -50,9 +50,9 @@ export function sourceLabel(source: SettingSource, groupName: string): string {
 export function relationSentence(mode: InheritMode | undefined): string {
   switch (mode) {
     case "extend":
-      return "Adds its own";
+      return "Adds its own to the group's setting";
     case "override":
-      return "Replaces the group's";
+      return "Replaces the group's setting";
     case "locked":
       return "Locked by the group";
     default:

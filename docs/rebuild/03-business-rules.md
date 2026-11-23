@@ -95,7 +95,7 @@ Error shape for internal operations: `{code, category, retryable, customerFacing
 | BR-082 | In extend mode a country may change only containsPersonalData and requiresReview on group types (`config.extendOnly`). |
 | BR-083 | Retention below the group floor is refused: "Retention cannot be shorter than N years. Set by <group>." Years = round(days/365). |
 | BR-084 | Setting source labels: inherited "From <group>", changed "Changed here", locked "Locked by <group>", own "Added here". |
-| BR-085 | Relation sentence: extend "Adds its own", override "Replaces the group's", locked "Locked by the group", default "Uses the group's setting". |
+| BR-085 | Relation sentence: extend "Adds its own to the group's setting", override "Replaces the group's setting", locked "Locked by the group", default "Uses the group's setting". |
 | BR-086 | Impact text: "Applies to N tenants. M tenant(s) has/have overridden this and keeps its/keep their version." |
 | BR-087 | Effective specification = group row if locked, else the country row if present, else the group row. It is visible only to callers in that tenant. |
 

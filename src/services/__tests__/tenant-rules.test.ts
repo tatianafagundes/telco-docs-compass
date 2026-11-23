@@ -91,6 +91,10 @@ describe("tenant-rules", () => {
     expect(relationSentence("inherit")).toBe("Uses the group's setting");
     expect(relationSentence("locked")).toBe("Locked by the group");
   });
+  it("says in full what a country does with the group's setting", () => {
+    expect(relationSentence("extend")).toBe("Adds its own to the group's setting");
+    expect(relationSentence("override")).toBe("Replaces the group's setting");
+  });
 });
 
 import { canSeeTenants } from "@/services/tenant-rules";
