@@ -8,7 +8,7 @@ file: they are told when something happens to it, and the antivirus and OCR syst
 The same contract is kept in the DXP rebuild (`docs/rebuild/18-tenancy-and-data-protection.md`).
 
 ## Scope
-In: three new opt-in file events plus the hold flag on the existing change event; scan and extraction
+In: three new opt-in file events plus a hold change named on the existing change event; scan and extraction
 results; a confirm-upload endpoint for `uploadUrl` uploads; an organisation switch for external
 processing; per-document processing mode; timeouts; screens, copy and accessibility; docs and tests.
 Out: a storage port (the store stays Supabase here), OCR started from the screens.
@@ -21,7 +21,7 @@ Out: a storage port (the store stays Supabase here), OCR started from the screen
 | D3 | One active scanner and one active reader per organisation; a second is refused while one is active. |
 | D4 | `scan` and `extract` are exclusive scopes: a key that has one has no other scope. |
 | D5 | Quarantine is per version and permanent; a quarantined version can never be downloaded, restored or made current again. |
-| D6 | Hold changes reuse the existing `DocumentChangeEvent` with `legalHold` added to the payload; no new hold event (it would double bulk traffic). |
+| D6 | Hold changes reuse the existing `DocumentChangeEvent` naming `legalHold` in `changedAttributes`; the hold value is not sent (receivers fetch the document). No new hold event (it would double bulk traffic). |
 | D7 | Names: `DocumentFileStoredEvent`, `DocumentFileReadyToReadEvent`, `DocumentFilePurgedEvent`. They are declared extensions, not TMF667 standard events. Doc 18 is aligned to them. |
 | D8 | Timeout default `EXTERNAL_RESULT_TIMEOUT_MINUTES = 30`; uploads never confirmed fail after `UPLOAD_CONFIRM_TIMEOUT_HOURS = 24`. |
 
@@ -39,8 +39,9 @@ Out: a storage port (the store stays Supabase here), OCR started from the screen
 1. WHEN a version's file is confirmed and its SHA-256 is computed by the server THEN the system SHALL emit
    `DocumentFileStoredEvent` { versionId, contentHash (server-computed), sizeBytes, mediaType, attempt }.
 2. WHEN a document enters `reading` THEN emit `DocumentFileReadyToReadEvent` { versionId, attempt }.
-3. WHEN a legal hold value actually changes THEN the existing `DocumentChangeEvent` SHALL carry
-   `legalHold: true|false`. A no-op hold or release emits nothing new. Reason and reference are never sent.
+3. WHEN a legal hold value actually changes THEN the existing `DocumentChangeEvent` SHALL name
+   `legalHold` in `changedAttributes`, without the hold value. A no-op hold or release emits nothing new.
+   Value, reason and reference are never sent.
 4. WHEN a document is permanently deleted THEN emit `DocumentFilePurgedEvent` { versionIds } listing every
    version of the document (all their files are removed by the purge; empty list allowed). The
    usability-test reset of the synthetic `aurora-*` tenants emits it too (the trigger cannot tell them apart).

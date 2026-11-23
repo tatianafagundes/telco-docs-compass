@@ -1,8 +1,11 @@
 # File hooks: design (v2)
 
 ## Constraints
-- Schema: one migration in this repo, `drizzle/migrations/0016_file_hooks.sql` (switch column, file-event
-  trigger, `legalHold` on the change event). Its SQL was run on PGlite: one event per transition, none on a
+- Schema: migrations in this repo, `0016_file_hooks.sql` (switch column, file-event trigger, hold branch),
+  `0017_file_hooks_safe_attempt.sql` (a malformed attempt never blocks an update) and
+  `0018_file_hooks_hardening.sql` (empty search_path, version bound to document and tenant, hold and
+  version change in one update give two events, hold payload `{changed:'legalHold'}`). Their SQL runs on
+  PGlite in `src/test/file-hooks-trigger.test.ts`: one event per transition, none on a
   no-op, payload keys as whitelisted; `src/test/file-hooks-migration.test.ts` guards the keys.
 - `event_outbox.event_type` is free text and `integration_clients.scopes` is `text[]`: no migration for new
   event types or scopes.
@@ -16,7 +19,7 @@
 | `src/services/external-processing.ts` (new) | organisation switch (D1, `tenants.external_processing`), active scanner/reader (D3), `startStep` (records mode, by, since, step, attempt), timeout step for the scheduled run |
 | `src/services/gateway-file-results.ts` (new) | `postScanResult`, `postExtractionResult`, `confirmUpload` |
 | routes | `document.$id.attachment.$attachmentId.scanResult.ts`, `.extractionResult.ts`, `.uploaded.ts` + `documentManagement/v4` twins |
-| changed | `tmf667-shared.ts` (scopes), `integration-clients.functions.ts` (D3, D4, admin only), `gateway-core.ts` (D4 re-check), `tmf667-events.ts` (opt-in set, whitelist, `legalHold` on change events), `gateway-reads.ts` (download rule incl. quarantined versions), `pipeline.functions.ts` (guarded, step-aware retry, `externalPending`, server SHA-256), `gateway-create.ts` (ordering), `document-content.functions.ts` (addVersion carries quarantined versions, restore rule), `maintenance.ts` (calls the timeout step), `use-upload.ts`, record page and panel (waiting, refetch, announcements), `upload-progress.tsx` (copy by reason), `connected-systems.tsx` (labels, switch, warnings), `document-labels.ts`, `limits.md` |
+| changed | `tmf667-shared.ts` (scopes), `integration-clients.functions.ts` (D3, D4, admin only), `gateway-core.ts` (D4 re-check), `tmf667-events.ts` (opt-in set that still applies the filters, whitelist, `changedAttributes: [legalHold]` on change events), `gateway-reads.ts` (download rule incl. quarantined versions), `pipeline.functions.ts` (guarded, step-aware retry, `externalPending`, server SHA-256), `gateway-create.ts` (ordering), `document-content.functions.ts` (addVersion carries quarantined versions, restore rule), `maintenance.ts` (calls the timeout step), `use-upload.ts`, record page and panel (waiting, refetch, announcements), `upload-progress.tsx` (copy by reason), `connected-systems.tsx` (labels, switch, warnings), `document-labels.ts`, `limits.md` |
 
 ## pipeline_detail (jsonb, no schema change)
 ```json
@@ -53,7 +56,7 @@ Every write is `updateDocumentIf` expecting `pipeline_state`, `current_version_i
 | DocumentFileStoredEvent | versionId (string), contentHash (string), sizeBytes (integer), mediaType (string), attempt (integer) |
 | DocumentFileReadyToReadEvent | versionId, attempt |
 | DocumentFilePurgedEvent | versionIds (string[]) |
-| DocumentChangeEvent (existing) | adds legalHold (boolean) when the hold changed |
+| DocumentChangeEvent (existing) | `changedAttributes: ["legalHold"]` when the hold changed; the value is not sent |
 `eventMatches`: the `OPT_IN_EVENTS` set (batch + the three) is checked before the "no query" branch (implemented with the migration).
 
 ## Migration 0016 (D1, D2, D6)
@@ -61,7 +64,7 @@ Every write is `updateDocumentIf` expecting `pipeline_state`, `current_version_i
 2. Trigger `documents_file_events` `AFTER UPDATE OF pipeline_state, purged_at ON documents`: Stored (into
    scanning, with hash, size and media type of the current version, and the attempt), ReadyToRead (into
    reading), Purged (purged_at set, with every version id).
-3. `documents_to_outbox` gives a hold change its own branch with `{ legalHold }`.
+3. `documents_to_outbox` gives a hold change its own branch with `{ changed: 'legalHold' }` (0018); a version or characteristic change in the same update writes its own event too.
 Applied to the hosted database when Lovable syncs `main`; check the preview after publishing.
 
 ## DXP mapping

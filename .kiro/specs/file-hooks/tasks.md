@@ -6,7 +6,7 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
 
 ## 0. Decisions and requests
 - [x] 0.1 D1, D2 and D8 confirmed (2026-11-24): switch column and trigger written in this repo.
-- [x] 0.2 Migrations `0016_file_hooks.sql` and `0017_file_hooks_safe_attempt.sql` (a malformed attempt never blocks an update); `src/test/file-hooks-trigger.test.ts` runs them on PGlite. Migration `0016_file_hooks.sql` (switch, file-event trigger, `legalHold` on change events), checked on PGlite, guarded by `src/test/file-hooks-migration.test.ts`. After publishing: confirm on the preview that the migration applied (an upload emits `DocumentFileStoredEvent`).
+- [x] 0.2 Migrations `0016_file_hooks.sql` (switch, file-event trigger, hold branch), `0017_file_hooks_safe_attempt.sql` (a malformed attempt never blocks an update) and `0018_file_hooks_hardening.sql` (seg-review M1, L1–L3: hold value not sent, empty search_path, version bound to document and tenant, two events for a combined change); `src/test/file-hooks-trigger.test.ts` runs them on PGlite, `src/test/file-hooks-migration.test.ts` guards the payload keys. After publishing: confirm on the preview that the migration applied (an upload emits `DocumentFileStoredEvent`).
 - [ ] 0.3 Docs: align names in `docs/rebuild/18-tenancy-and-data-protection.md` (D7) and add BR rules for R1–R6 in `docs/rebuild/03-business-rules.md`.
 
 ## 1. Pure rules (no I/O)
@@ -30,7 +30,7 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
 
 ## 4. Events out
 - [ ] 4.1 Tests that every path that changes `pipeline_state` or purges goes through the guarded update the trigger listens to; no app-side event inserts for the file events (R1.1–R1.4).
-- [x] 4.2 `tmf667-events.ts`: `OPT_IN_EVENTS` before the no-query branch; `legalHold` delivered on change events, `changedAttributes: ["legalHold"]` (R1.3, R1.5); `file-events-opt-in.test.ts`. Done early: the trigger writes the events as soon as the migration applies.
+- [x] 4.2 `tmf667-events.ts`: `OPT_IN_EVENTS` before the no-query branch and then the status and type filters (seg-review M2); hold changes give `changedAttributes: ["legalHold"]` without the value (R1.3, R1.5); `file-events-opt-in.test.ts`. Done early: the trigger writes the events as soon as the migration applies.
 - [ ] 4.3 Test that no sensitive string (description, hold reason, value, threat name, person name) reaches any outbox row or delivered body (R1.6, R6.4).
 - [ ] 4.4 Review: `code-reviewer` on phase 4.
 

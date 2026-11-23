@@ -117,7 +117,7 @@ POST /hub
 
 The answer includes `signingSecret` once; store it. Events: `DocumentCreateEvent`, `DocumentChangeEvent`, `DocumentDeleteEvent`, and `DocumentBatchEvent` (one per bulk change pass, only for subscriptions that name it). Only events after the subscription was created are sent.
 
-An event carries references, never document content: fetch the document with your key. A status change carries `id`, `href`, `status` and `lifecycleState`; a delete carries `status: deleted`; other changes carry `id`, `href` and `changedAttributes`; a batch event carries a list of references. Each delivery has these headers:
+An event carries references, never document content: fetch the document with your key. A status change carries `id`, `href`, `status` and `lifecycleState`; a delete carries `status: deleted`; other changes carry `id`, `href` and `changedAttributes` (a legal hold change names `legalHold`, without its value); a batch event carries a list of references. Each delivery has these headers:
 
 | Header | Use |
 | --- | --- |
