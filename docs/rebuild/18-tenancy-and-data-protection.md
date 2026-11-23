@@ -55,10 +55,12 @@ CMIS) as Connectors when a customer needs them.
 Hooks (events the service emits; the customer plugs its own systems in):
 | Hook | When | Typical use |
 | --- | --- | --- |
-| `file.stored` | after `put` and checksum match | the customer's antivirus scan; the reply sets the file to clean or quarantined |
-| `file.ready-to-read` | after the scan is clean | OCR or extraction (AI) of details |
-| `file.held` / `file.released` | legal hold changes | the customer's records or legal system |
-| `file.purged` | after permanent deletion | the customer's own copies and backups |
+| `DocumentFileStoredEvent` | after `put` and checksum match | the customer's antivirus scan; the reply sets the file to clean or quarantined |
+| `DocumentFileReadyToReadEvent` | after the scan is clean | OCR or extraction (AI) of details |
+| `DocumentChangeEvent` with `changedAttributes: ["legalHold"]` | legal hold changes (no hold value sent) | the customer's records or legal system |
+| `DocumentFilePurgedEvent` | after permanent deletion | the customer's own copies and backups |
+Names and payloads as in the prototype (BR-150 to BR-152); the prototype's rules are in
+`reference/rules/file-hook-*.ts`.
 Hooks go through the outbox and the ADP Message Bus (Kafka), with the same delivery rules as the TMF events
 (retries, dead letter, no file content in the event).
 

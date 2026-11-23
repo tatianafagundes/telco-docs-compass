@@ -86,11 +86,11 @@ Out: a storage port (the store stays Supabase here), OCR started from the screen
    R2.3 for reader, tenant, version, state `reading`, attempt.
 3. Fields are validated as a whole before any write: names must be details of the document's type (exact
    match; unknown names refused with 400 listing them, escaped); no duplicates; value type from the
-   specification (text, number, date, enum); text values have control and bidi characters refused and at
+   specification (string, number, date, enum, boolean); string values have control and bidi characters refused and at
    most `MAX_EXTRACTED_VALUE_CHARS = 2000` code points; `confidence` a finite number in [0,1]; `source` a
    plain label `^[\w .:/-]{0,64}$`, never a link; at most `MAX_EXTRACTED_FIELDS = 100`.
 4. Accepted fields are stored as `pending` details of that version, marked as coming from the system, with
-   the band from confidence (same cut-offs as today). They are never copied into confirmed details before a
+   the band from confidence: High at 0.90 or more (a detail's own `reviewThreshold` can only raise it), Medium at 0.70 or more, Low below. No cut-off existed in code before; these are new (`HIGH_CONFIDENCE_PERCENT`, `MEDIUM_CONFIDENCE_PERCENT`), to be confirmed by the product owner. They are never copied into confirmed details before a
    person checks each one; no automatic or bulk acceptance of external values.
 5. `read` (even with no fields) → `ready`; `unreadable` → `failed` { reason: "unreadable", step: "read" };
    fields sent with `unreadable` are refused (400).

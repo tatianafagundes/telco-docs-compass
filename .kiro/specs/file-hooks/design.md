@@ -15,7 +15,12 @@
 ## Components
 | File | Role |
 | --- | --- |
-| `src/services/file-hook-rules.ts` (new, pure) | event names, opt-in set, payload whitelist, `stepTransition(state, detail, result)`, download rule, field validation (zod), limits, quarantine-rate rule |
+| `src/services/file-hook-rules.ts` (new, pure) | event names, payload whitelist, `stepTransition(state, detail, input, ctx)` with guard values |
+| `src/services/file-hook-detail.ts` (new, pure) | `readDetail`, `storedAttemptText`, `carriedQuarantine`, `quarantineHasRoom` |
+| `src/services/file-hook-download.ts` (new, pure) | download rule |
+| `src/services/file-hook-fields.ts` (new, pure) | `scanResult` and `extractionResult` bodies (zod, strict), whole-set field check, bands |
+| `src/services/file-hook-timeouts.ts` (new, pure) | timeouts, quarantine-rate rule |
+| `src/services/file-hook-text.ts` (new, pure) | unsafe characters, code-point cutting |
 | `src/services/external-processing.ts` (new) | organisation switch (D1, `tenants.external_processing`), active scanner/reader (D3), `startStep` (records mode, by, since, step, attempt), timeout step for the scheduled run |
 | `src/services/gateway-file-results.ts` (new) | `postScanResult`, `postExtractionResult`, `confirmUpload` |
 | routes | `document.$id.attachment.$attachmentId.scanResult.ts`, `.extractionResult.ts`, `.uploaded.ts` + `documentManagement/v4` twins |
@@ -39,8 +44,11 @@ reading   --read--> ready ; --unreadable--> failed{unreadable, step: read} ; --t
 failed    --Try again--> the failed step, attempt+1 (event again when external)
 uploading --older than 24 h--> failed{noFile}
 ```
-Every write is `updateDocumentIf` expecting `pipeline_state`, `current_version_id` and
-`pipeline_detail.attempt`.
+Every write is guarded on `pipeline_state`, `current_version_id` and `pipeline_detail->>'attempt'`
+(the stored text from `stepTransition(...).expect.attemptText`, null when missing; `updateDocumentIf`
+only compares columns, so phase 2 adds the jsonb guard, for example a PostgREST `pipeline_detail->>attempt`
+filter). External results carry `{ clientId, attempt }`; the applied one is kept as
+`pipeline_detail.lastResult` so a lost reply is answered again (`replay`).
 
 ## Download rule (pure)
 | Key or person | State of document | Version | Allowed |

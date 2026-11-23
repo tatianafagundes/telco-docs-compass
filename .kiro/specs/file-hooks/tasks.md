@@ -7,20 +7,20 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
 ## 0. Decisions and requests
 - [x] 0.1 D1, D2 and D8 confirmed (2026-11-24): switch column and trigger written in this repo.
 - [x] 0.2 Migrations `0016_file_hooks.sql` (switch, file-event trigger, hold branch), `0017_file_hooks_safe_attempt.sql` (a malformed attempt never blocks an update) and `0018_file_hooks_hardening.sql` (seg-review M1, L1–L3: hold value not sent, empty search_path, version bound to document and tenant, two events for a combined change); `src/test/file-hooks-trigger.test.ts` runs them on PGlite, `src/test/file-hooks-migration.test.ts` guards the payload keys. After publishing: confirm on the preview that the migration applied (an upload emits `DocumentFileStoredEvent`).
-- [ ] 0.3 Docs: align names in `docs/rebuild/18-tenancy-and-data-protection.md` (D7) and add BR rules for R1–R6 in `docs/rebuild/03-business-rules.md`.
+- [x] 0.3 Docs: align names in `docs/rebuild/18-tenancy-and-data-protection.md` (D7) and add BR rules for R1–R6 in `docs/rebuild/03-business-rules.md` (BR-150 to BR-162).
 
 ## 1. Pure rules (no I/O)
-- [ ] 1.1 `file-hook-rules.ts`: opt-in set, whitelist, payload builders. Tests: null, empty, other-type queries get none; extra keys, `__proto__`, wrong types never pass (R1.5, R1.6).
-- [ ] 1.2 `stepTransition` for every state, result, attempt and quarantined version (R2.4, R3.5, R4.4, D5). Table test.
-- [ ] 1.3 Download rule table (design) (R2.1, R3.1, D5).
-- [ ] 1.4 Field validation (R3.3): unknown and duplicate names, types, control and bidi characters, limits at N and N+1 (code points), confidence edges, `source` pattern, `engine`/`threatName` charset.
-- [ ] 1.5 Limits added to `docs/architecture/limits.md` (limits-doc test).
-- [ ] 1.6 Review: `code-reviewer` on phase 1.
+- [x] 1.1 `file-hook-rules.ts`: opt-in set, whitelist, payload builders. Tests: null, empty, other-type queries get none; extra keys, `__proto__`, wrong types never pass (R1.5, R1.6).
+- [x] 1.2 `stepTransition` for every state, result, attempt and quarantined version (R2.4, R3.5, R4.4, D5). Table test.
+- [x] 1.3 Download rule table (design) (R2.1, R3.1, D5).
+- [x] 1.4 Field validation (R3.3): unknown and duplicate names, types, control and bidi characters, limits at N and N+1 (code points), confidence edges, `source` pattern, `engine`/`threatName` charset.
+- [x] 1.5 Limits added to `docs/architecture/limits.md` (limits-doc test).
+- [x] 1.6 Review: `code-reviewer` on phase 1: approved with 8 should-fix findings, all fixed (comparable attempt guard, quarantine never shortened, external result checks and replay, timeout checks the wait, external owner names its system, step from reason, unsafe text incl. lone surrogates, names cut by code points); 16 mutations of the rules each caught by a test.
 
 ## 2. Server pipeline (simulated path made safe)
-- [ ] 2.1 `pipeline.functions.ts`: guarded updates (state, version, attempt); `pipeline_detail` with mode, since, step, attempt; Try again restarts the failed step; server SHA-256 on confirm (R4.3, R4.4, R1.1).
+- [ ] 2.1 `pipeline.functions.ts`: guarded updates (state, version, `pipeline_detail->>attempt` from `expect.attemptText`; needs a jsonb guard next to `updateDocumentIf`); `pipeline_detail` with mode, since, step, attempt; Try again restarts the failed step; server SHA-256 on confirm (R4.3, R4.4, R1.1).
 - [ ] 2.2 `externalPending` and the waiting flag when a step is external (R4.2). Test: an editor cannot advance an external scan or retry past it.
-- [ ] 2.3 `addVersion` carries `quarantinedVersions`; restore rule (R4.8, D5).
+- [ ] 2.3 `addVersion` carries `carriedQuarantine(...)` and is refused when `quarantineHasRoom` is false; restore rule (R4.8, D5).
 - [ ] 2.4 Review: `seg-review` on phases 1–2 (scan bypass, TOCTOU, quarantine per version).
 
 ## 3. Organisation switch and keys
