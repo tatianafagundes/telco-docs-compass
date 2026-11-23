@@ -8,6 +8,7 @@
 // access.integration.test.ts (RUN_ACCESS_TESTS=1).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ACCESS_DENIED_LOGGED_PER_MINUTE, accessDeniedLimiter } from "@/services/seam-runtime";
+import { withRecordAccess } from "@/test/record-access";
 import { FakeDb } from "@/test/fake-db";
 import { runWrite, type WriteEnv } from "@/services/seam-runtime";
 import type { SeamResult } from "@/services/document-rules";
@@ -31,6 +32,7 @@ function world(callerTenant: string, canSee: boolean | "unknown" = true) {
     idempotency_keys: [],
     document_events: [],
   });
+  withRecordAccess(admin, "user-1");
   return { caller, admin };
 }
 

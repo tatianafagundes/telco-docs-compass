@@ -6,7 +6,10 @@ import { FakeDb, type Row } from "@/test/fake-db";
 import { runWrite, type WriteEnv } from "@/services/seam-runtime";
 import type { AppRole, SeamResult } from "@/services/document-rules";
 const DOC = "doc-1";
-async function roleSeen(role: AppRole, admin: Record<string, Row[]>): Promise<AppRole> {
+async function attempt(
+  role: AppRole,
+  admin: Record<string, Row[]>,
+): Promise<{ seen: AppRole | null; code: string | null }> {
   const caller = new FakeDb({ user_roles: [{ user_id: "u1", tenant_id: "t-a", role }] });
   caller.onRpc("can_see_document", true);
   const db = new FakeDb({
@@ -33,8 +36,12 @@ async function roleSeen(role: AppRole, admin: Record<string, Row[]>): Promise<Ap
       return { ok: true, data: { done: true } };
     },
   );
-  expect(res.ok).toBe(true);
-  return seen as unknown as AppRole;
+  return { seen, code: res.ok ? null : res.error.code };
+}
+async function roleSeen(role: AppRole, admin: Record<string, Row[]>): Promise<AppRole> {
+  const r = await attempt(role, admin);
+  expect(r.code).toBeNull();
+  return r.seen as AppRole;
 }
 const share = (level: string, expires_at: string | null = null) => ({
   document_access_exceptions: [{ document_id: DOC, user_id: "u1", level, expires_at }],
@@ -67,5 +74,55 @@ describe("share level on the server", () => {
   });
   it("should keep the organisation administrator's role", async () => {
     expect(await roleSeen("tenant_admin", share("view"))).toBe("tenant_admin");
+  });
+  it("should treat a share with an unknown level as Can view, never as no cap", async () => {
+    expect(await roleSeen("manager", share("owner"))).toBe("viewer");
+  });
+  it("should take the strongest of several live shares", async () => {
+    const two = {
+      document_access_exceptions: [
+        { document_id: DOC, user_id: "u1", level: "view", expires_at: null },
+        { document_id: DOC, user_id: "u1", level: "edit", expires_at: null },
+      ],
+    };
+    expect(await roleSeen("manager", two)).toBe("contributor");
+  });
+  it("should refuse as not found when no record and no live share is left", async () => {
+    // e.g. the share expired after the visibility check: fail closed, never the full role.
+    const r = await attempt("manager", share("edit", "2000-01-01T00:00:00Z"));
+    expect(r).toEqual({ seen: null, code: "doc.notFound" });
+    expect((await attempt("manager", {})).code).toBe("doc.notFound");
+  });
+  it("should refuse every document change for the group administrator, even with a share", async () => {
+    const r = await attempt("master_admin", share("edit"));
+    expect(r).toEqual({ seen: null, code: "access.groupAdminNoDocuments" });
+  });
+  it("should fail closed when the shares cannot be read", async () => {
+    const caller = new FakeDb({
+      user_roles: [{ user_id: "u1", tenant_id: "t-a", role: "manager" }],
+    });
+    caller.onRpc("can_see_document", true);
+    const db = new FakeDb({
+      documents: [{ id: DOC, tenant_id: "t-a" }],
+      idempotency_keys: [],
+      document_events: [],
+    }).fail("document_access_exceptions", "select");
+    let ran = false;
+    const res = await runWrite(
+      { supabase: caller.asDb(), userId: "u1" },
+      db.asDb(),
+      {
+        op: "updateMetadata",
+        idempotencyKey: "key-00000002",
+        body: { id: DOC },
+        scope: { kind: "doc", id: DOC },
+      },
+      async () => {
+        ran = true;
+        return { ok: true, data: { done: true } };
+      },
+    );
+    expect(ran).toBe(false);
+    expect(res.ok).toBe(false);
   });
 });

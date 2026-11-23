@@ -95,7 +95,9 @@ async function applyBatch(admin: Db, job: JobRow, ids: string[], role: AppRole) 
     ...(job.params.sensitivity ? { sensitivity: job.params.sensitivity } : {}),
   };
   for (const id of ids) {
-    const d = byId.get(id);
+    // No access left for the person who started the job (share removed, or never there): skip it.
+    const docRole = role === "master_admin" ? null : (roleFor.get(id) ?? null);
+    const d = docRole ? byId.get(id) : undefined;
     let pendingRequired = 0;
     if (d && specs.length) {
       const def = specs.find((s) => s.code === d.document_type)?.definition as
@@ -106,7 +108,7 @@ async function applyBatch(admin: Db, job: JobRow, ids: string[], role: AppRole) 
       ).length;
     }
     const reason: SkipReason | null = bulkSkipReason(
-      roleFor.get(id) ?? role,
+      docRole ?? "viewer",
       job.action,
       params,
       d

@@ -3,6 +3,7 @@
 // database said.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { accessDeniedLimiter, audit, runWrite } from "@/services/seam-runtime";
+import { withRecordAccess } from "@/test/record-access";
 import { FakeDb } from "@/test/fake-db";
 import { hashBody } from "@/services/document-rules";
 
@@ -15,6 +16,7 @@ function world() {
     idempotency_keys: [],
     document_events: [],
   });
+  withRecordAccess(admin, "user-1");
   return { caller, admin };
 }
 const run = (w: ReturnType<typeof world>) =>

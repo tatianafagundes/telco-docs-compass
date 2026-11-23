@@ -54,6 +54,8 @@ export const startBulkJob = createServerFn({ method: "POST" })
   .inputValidator((input: z.input<typeof bulkInput>) => bulkInput.parse(input))
   .handler(async ({ data, context }): Promise<SeamResult<BulkJob>> =>
     runRead(context, "bulk.start", null, async (env) => {
+      if (env.role === "master_admin")
+        return { ok: false, error: seamError("access.groupAdminNoDocuments", "rejected") };
       if (!can(env.role, bulkStartCapability(data.action, data.to))) return forbidden();
       // Resolve ids as the person, so a job can only ever touch documents they can see.
       let ids: string[];

@@ -161,8 +161,19 @@ export async function runWrite<T>(
         logOp(opts.op, env.tenantId, documentId, "notFound", started);
         return denied;
       }
-      // Reached only through a share: the share level caps the role for this document.
-      env.role = await roleForDocument(env, opts.scope.id);
+      // The group administrator works with settings and counts, never with documents.
+      if (env.role === "master_admin") {
+        logOp(opts.op, env.tenantId, documentId, "access.groupAdminNoDocuments", started);
+        return { ok: false, error: seamError("access.groupAdminNoDocuments", "rejected") };
+      }
+      // Reached only through a share, the share level caps the role; no access left, not found.
+      const role = await roleForDocument(env, opts.scope.id);
+      if (!role) {
+        await auditDenied(env, `${operation} (no access left)`);
+        logOp(opts.op, env.tenantId, documentId, "notFound", started);
+        return { ok: false, error: seamError("doc.notFound", "notFound", "none") };
+      }
+      env.role = role;
     }
 
     const requestHash = await hashBody(opts.body);

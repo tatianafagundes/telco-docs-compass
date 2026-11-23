@@ -2,6 +2,7 @@
 // Rule (four-eyes): the person who added a document cannot approve it. The single-document
 // path enforces this; the bulk path must too, otherwise "approve selected" is a way around it.
 import { describe, expect, it } from "vitest";
+import { withRecordAccess } from "@/test/record-access";
 import { FakeDb } from "@/test/fake-db";
 import { processBulkJobs } from "@/services/bulk-worker";
 
@@ -18,33 +19,36 @@ function world() {
     current_version_id: "v1",
     deleted_at: null,
   };
-  return new FakeDb({
-    bulk_jobs: [
-      {
-        id: "job-1",
-        tenant_id: "t1",
-        created_by: AUTHOR, // the person pressing "approve selected"
-        actor_role: "manager",
-        action: "transition",
-        params: { to: "approved" },
-        doc_ids: ["doc-own", "doc-theirs"],
-        total: 2,
-        done: 0,
-        changed: 0,
-        skipped: {},
-        status: "queued",
-        created_at: "2026-11-10T10:00:00Z",
-      },
-    ],
-    documents: [
-      { ...base, id: "doc-own", created_by: AUTHOR },
-      { ...base, id: "doc-theirs", created_by: REVIEWER },
-    ],
-    user_roles: [{ user_id: AUTHOR, tenant_id: "t1", role: "manager" }],
-    extraction_fields: [],
-    document_events: [],
-    event_outbox: [],
-  }).onRpc("effective_specifications", []);
+  return withRecordAccess(
+    new FakeDb({
+      bulk_jobs: [
+        {
+          id: "job-1",
+          tenant_id: "t1",
+          created_by: AUTHOR, // the person pressing "approve selected"
+          actor_role: "manager",
+          action: "transition",
+          params: { to: "approved" },
+          doc_ids: ["doc-own", "doc-theirs"],
+          total: 2,
+          done: 0,
+          changed: 0,
+          skipped: {},
+          status: "queued",
+          created_at: "2026-11-10T10:00:00Z",
+        },
+      ],
+      documents: [
+        { ...base, id: "doc-own", created_by: AUTHOR },
+        { ...base, id: "doc-theirs", created_by: REVIEWER },
+      ],
+      user_roles: [{ user_id: AUTHOR, tenant_id: "t1", role: "manager" }],
+      extraction_fields: [],
+      document_events: [],
+      event_outbox: [],
+    }).onRpc("effective_specifications", []),
+    "user-author",
+  );
 }
 
 const statusOf = (db: FakeDb, id: string) =>
@@ -69,6 +73,10 @@ describe("bulk approval keeps four-eyes", () => {
 describe("bulk changes follow the share level", () => {
   it("skips a document the person reaches only through a Can view share", async () => {
     const db = world();
+    // Not through a record: only the share remains.
+    db.tables["document_relations"] = db
+      .rows("document_relations")
+      .filter((r) => r["document_id"] !== "doc-theirs");
     db.rows("document_access_exceptions").push({
       document_id: "doc-theirs",
       user_id: AUTHOR,
@@ -79,5 +87,14 @@ describe("bulk changes follow the share level", () => {
     expect(statusOf(db, "doc-theirs")).toBe("in_review");
     const job = db.rows("bulk_jobs")[0];
     expect(job?.["changed"]).toBe(0);
+  });
+});
+describe("bulk changes and the group administrator", () => {
+  it("changes nothing when the person who started the job is the group administrator", async () => {
+    const db = world();
+    db.rows("user_roles")[0]!["role"] = "master_admin";
+    await processBulkJobs(db.asDb());
+    expect(statusOf(db, "doc-theirs")).toBe("in_review");
+    expect(db.rows("bulk_jobs")[0]?.["changed"]).toBe(0);
   });
 });

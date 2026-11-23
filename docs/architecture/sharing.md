@@ -67,7 +67,9 @@ A viewer, contributor or reviewer does not see **Manage access**, and the server
 A share is "Can view" or "Can edit". When someone reaches a document only through a share (not through one of their records, and not as the organisation's administrator), the server caps their role by the share's strongest live level (`shareCappedRole` in `src/services/document-rules.ts`, applied in `runWrite` and in bulk changes through `src/services/share-access.ts`):
 - "Can view": nothing that changes the document, whatever their role. A Sweden contributor given "Can view" on a document outside their records is refused.
 - "Can edit": a contributor's work at most (details, versions, sending for approval). Reviewing, approving and managing access need access to the record.
-- An expired share counts for nothing.
+- An expired share counts for nothing. A share with an unknown level counts as "Can view".
+- No record and no live share left (for example the share expired after the visibility check, or was removed before a later bulk batch): the change is refused as not found. It never falls back to the full role.
+- The group administrator never changes documents: every document change and bulk change is refused (`access.groupAdminNoDocuments`).
 - A share from another organisation never allows a change: every write requires the document to be in the caller's own organisation.
 The `/shared/$docId` page takes the level from its address (`?level=`) to choose which buttons show. The server reads the share itself, so changing the address changes nothing it allows. Checked by `src/services/__tests__/share-level.test.ts` and `bulk-four-eyes.test.ts`.
 ## Where it lives

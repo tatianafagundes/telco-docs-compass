@@ -15,6 +15,7 @@ import { buildWorld, call, DOC_ID, docRow, TENANT } from "@/test/gateway-world";
 import { setLegalHold, transitionDocument } from "@/test/gateway-api";
 import { processBulkJobs } from "@/services/bulk-worker";
 import type { FakeDb } from "@/test/fake-db";
+import { withRecordAccess } from "@/test/record-access";
 vi.mock(
   "@/integrations/supabase/client.server",
   async () => (await import("@/test/gateway-world")).clientServerMock,
@@ -123,6 +124,7 @@ async function viaBulk(
   ];
   db.tables["user_roles"] = [{ user_id: PERSON, tenant_id: TENANT, role: "manager" }];
   db.tables["event_outbox"] = [];
+  withRecordAccess(db, PERSON);
   await processBulkJobs(db.asDb());
   const job = db.rows("bulk_jobs")[0];
   return outcome(db, job?.["changed"] === 1);

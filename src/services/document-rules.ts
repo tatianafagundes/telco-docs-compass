@@ -69,8 +69,8 @@ export function strongestShare(
   let best: ShareLevel | null = null;
   for (const s of shares) {
     if (s.expires_at && new Date(s.expires_at) <= now) continue;
-    const l = s.level as ShareLevel;
-    if (!(l in LEVEL_RANK)) continue;
+    // An unknown level counts as the weakest one, never as no cap.
+    const l: ShareLevel = s.level in LEVEL_RANK ? (s.level as ShareLevel) : "view";
     if (best === null || LEVEL_RANK[l] > LEVEL_RANK[best]) best = l;
   }
   return best;

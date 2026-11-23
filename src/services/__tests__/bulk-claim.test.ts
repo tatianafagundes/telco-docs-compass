@@ -3,6 +3,7 @@
 // same time (the inline run after "start" and the scheduled run can overlap).
 // Observable effect checked here: one audit event per document and one batch event per pass.
 import { describe, expect, it } from "vitest";
+import { withRecordAccess } from "@/test/record-access";
 import { FakeDb } from "@/test/fake-db";
 import { processBulkJobs } from "@/services/bulk-worker";
 
@@ -17,33 +18,36 @@ function world() {
     deleted_at: null,
     created_by: "someone-else",
   };
-  return new FakeDb({
-    bulk_jobs: [
-      {
-        id: "job-1",
-        tenant_id: "t1",
-        created_by: "user-reviewer",
-        actor_role: "manager",
-        action: "transition",
-        params: { to: "approved" },
-        doc_ids: ["doc-1", "doc-2"],
-        total: 2,
-        done: 0,
-        changed: 0,
-        skipped: {},
-        status: "queued",
-        created_at: "2026-11-10T10:00:00Z",
-      },
-    ],
-    documents: [
-      { ...base, id: "doc-1" },
-      { ...base, id: "doc-2" },
-    ],
-    user_roles: [{ user_id: "user-reviewer", tenant_id: "t1", role: "manager" }],
-    extraction_fields: [],
-    document_events: [],
-    event_outbox: [],
-  }).onRpc("effective_specifications", []);
+  return withRecordAccess(
+    new FakeDb({
+      bulk_jobs: [
+        {
+          id: "job-1",
+          tenant_id: "t1",
+          created_by: "user-reviewer",
+          actor_role: "manager",
+          action: "transition",
+          params: { to: "approved" },
+          doc_ids: ["doc-1", "doc-2"],
+          total: 2,
+          done: 0,
+          changed: 0,
+          skipped: {},
+          status: "queued",
+          created_at: "2026-11-10T10:00:00Z",
+        },
+      ],
+      documents: [
+        { ...base, id: "doc-1" },
+        { ...base, id: "doc-2" },
+      ],
+      user_roles: [{ user_id: "user-reviewer", tenant_id: "t1", role: "manager" }],
+      extraction_fields: [],
+      document_events: [],
+      event_outbox: [],
+    }).onRpc("effective_specifications", []),
+    "user-reviewer",
+  );
 }
 
 const job = (db: FakeDb) => db.rows("bulk_jobs")[0] as Record<string, unknown>;
@@ -98,6 +102,7 @@ describe("a batch is held by one processor at a time", () => {
     const db = world();
     const many = Array.from({ length: 250 }, (_, i) => `bulk-${i}`);
     for (const id of many) db.rows("documents").push({ ...db.rows("documents")[0], id });
+    withRecordAccess(db, "user-reviewer");
     Object.assign(job(db), { doc_ids: many, total: 250 });
     await processBulkJobs(db.asDb());
     expect([job(db)["done"], job(db)["changed"], job(db)["status"]]).toEqual([200, 200, "queued"]);
@@ -145,6 +150,7 @@ describe("a late processor cannot repeat or undo what another one did", () => {
   const manyDocs = (db: FakeDb, n: number) => {
     const ids = Array.from({ length: n }, (_, i) => `bulk-${i}`);
     for (const id of ids) db.rows("documents").push({ ...db.rows("documents")[0], id });
+    withRecordAccess(db, "user-reviewer");
     Object.assign(job(db), { doc_ids: ids, total: n });
   };
 
@@ -239,6 +245,7 @@ describe("corrupted or boundary jobs", () => {
     const db = world();
     const ids = Array.from({ length: 200 }, (_, i) => `full-${i}`);
     for (const id of ids) db.rows("documents").push({ ...db.rows("documents")[0], id });
+    withRecordAccess(db, "user-reviewer");
     Object.assign(job(db), { doc_ids: ids, total: 200 });
     await processBulkJobs(db.asDb());
     expect([job(db)["done"], job(db)["changed"], job(db)["status"]]).toEqual([200, 200, "done"]);
