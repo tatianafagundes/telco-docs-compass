@@ -1,14 +1,10 @@
 import { useState } from "react";
-import { Button } from "@/components/erad/button";
+import { Button, buttonVariants } from "@/components/erad/button";
+import { cn } from "@/lib/utils";
 import { Dialog } from "@/components/erad/dialog";
 import { useDocumentActions } from "@/hooks/use-document-actions";
-import {
-  deleteState,
-  manageState,
-  nextStep,
-  purgeState,
-  sendBackState,
-} from "@/services/document-actions";
+import { deleteState, manageState, purgeState } from "@/services/document-actions";
+import { actionLayout } from "@/components/documents/action-layout";
 import { TextField } from "@/components/erad/text-field";
 import type { AppRole } from "@/services/document-rules";
 import type { ApproveGate } from "@/services/review-rules";
@@ -16,7 +12,6 @@ import { Link } from "@tanstack/react-router";
 import type { DocStatus } from "@/schemas/document";
 import type { ReactNode } from "react";
 import { Lock } from "lucide-react";
-import { AUTHOR_APPROVE_REASON } from "@/services/review-flow-rules";
 import { DocumentMenu, type MenuEntry } from "@/components/documents/document-menu";
 
 interface Props {
@@ -67,16 +62,8 @@ export function DocumentActionsBar({
     setReference("");
   };
 
-  const step = nextStep(role, doc.status);
-  const gated = step?.to === "approved" && step.available && approveGate?.reason;
-  const authorBlocked = step?.to === "approved" && step.available && !gated && own;
-  const next =
-    step && gated
-      ? { ...step, available: false, reason: approveGate?.reason }
-      : step && authorBlocked
-        ? { ...step, available: false, reason: AUTHOR_APPROVE_REASON }
-        : step;
-  const back = sendBackState(role, doc.status);
+  const layout = actionLayout(role, doc.status, approveGate?.reason, own);
+  const next = layout.next;
   const manage = manageState(role);
   const todayIso = new Date().toISOString().slice(0, 10);
   const del = deleteState(role, doc.legal_hold, doc.retain_until, todayIso);
@@ -90,6 +77,15 @@ export function DocumentActionsBar({
     a.purge.isPending;
 
   const menu: MenuEntry[] = [
+    ...(layout.sendBack
+      ? [
+          {
+            label: "Send back to draft",
+            onSelect: () => setOpen("sendBack"),
+            reason: layout.sendBack.reason,
+          },
+        ]
+      : []),
     ...extraMenu,
     { label: "Report a problem", onSelect: () => setOpen("report") },
     {
@@ -122,46 +118,37 @@ export function DocumentActionsBar({
         <DocumentMenu entries={menu} />
       </div>
       <section aria-label="Next step" className="flex flex-col gap-3">
-        {next ? (
+        {layout.primary === "check" && next ? (
+          // A required detail blocks Approve, so checking it is the one way forward.
           <div className="flex flex-col gap-1">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <Button
-                variant="primary"
-                className="self-start"
-                unavailable={!next.available || busy}
-                onClick={() => a.transition.mutate({ to: next.to })}
-              >
-                {!next.available ? <Lock aria-hidden="true" /> : null}
-                {next.label}
-              </Button>
-              {next.reason ? (
-                <span className="type-label-12 text-text-secondary">{next.reason}</span>
-              ) : null}
-            </div>
-            {gated ? (
-              <Link
-                to="/records/$entityId/review/$docId"
-                params={{ entityId, docId: doc.id }}
-                className="focus-ring type-label-12 inline-flex min-h-6 items-center self-start underline"
-              >
-                Check details
-              </Link>
+            <Link
+              to="/records/$entityId/review/$docId"
+              params={{ entityId, docId: doc.id }}
+              className={cn(buttonVariants({ variant: "primary" }), "self-start")}
+            >
+              Check details
+            </Link>
+            <span className="type-label-12 inline-flex items-center gap-1 text-text-secondary">
+              <Lock aria-hidden="true" className="size-3.5 shrink-0" />
+              {`${next.label} after that. ${next.reason ?? ""}`.trim()}
+            </span>
+          </div>
+        ) : next ? (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <Button
+              variant="primary"
+              className="self-start"
+              unavailable={!next.available || busy}
+              onClick={() => a.transition.mutate({ to: next.to })}
+            >
+              {!next.available ? <Lock aria-hidden="true" /> : null}
+              {next.label}
+            </Button>
+            {next.reason ? (
+              <span className="type-label-12 text-text-secondary">{next.reason}</span>
             ) : null}
           </div>
         ) : null}
-        {back ? (
-          <div className="flex flex-col gap-1">
-            <Button
-              className="self-start"
-              unavailable={!back.available}
-              onClick={() => setOpen("sendBack")}
-            >
-              Send back
-            </Button>
-            <Reason text={back.reason} />
-          </div>
-        ) : null}
-
         <Dialog
           open={open === "sendBack"}
           onOpenChange={(o) => (o ? null : close())}

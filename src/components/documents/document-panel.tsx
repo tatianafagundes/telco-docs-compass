@@ -4,6 +4,7 @@ import { Button } from "@/components/erad/button";
 import { Lock } from "lucide-react";
 import { Tag } from "@/components/erad/tag";
 import { Spinner } from "@/components/erad/misc";
+import { actionLayout } from "@/components/documents/action-layout";
 import { DocumentActionsBar } from "@/components/documents/document-actions-bar";
 import { DocumentDetails } from "@/components/documents/document-details";
 import {
@@ -114,6 +115,12 @@ export function DocumentPanel({
       ) : null}
     </>
   );
+  const own = isOwnDocument(
+    (doc as { created_by?: string | null }).created_by,
+    me.data?.userId ?? "",
+  );
+  const checkIsPrimary =
+    !shared && actionLayout(role, doc.status, review.gate.reason, own).primary === "check";
   const extraMenu = [
     ...(!shared && can(role, "manage")
       ? [{ label: "Manage access", onSelect: () => setSharing(true) }]
@@ -129,10 +136,7 @@ export function DocumentPanel({
           role={role}
           doc={doc}
           approveGate={review.gate}
-          own={isOwnDocument(
-            (doc as { created_by?: string | null }).created_by,
-            me.data?.userId ?? "",
-          )}
+          own={own}
           header={headerBlock}
           extraMenu={extraMenu}
         />
@@ -141,7 +145,8 @@ export function DocumentPanel({
             tone="indeterminate"
             status={`${toCheck} to check`}
             action={
-              shared ? undefined : (
+              // When a detail blocks Approve, Check details is already the primary action above.
+              shared || checkIsPrimary ? undefined : (
                 <Link
                   id={`review-${id}`}
                   to="/records/$entityId/review/$docId"
