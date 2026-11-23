@@ -7,6 +7,7 @@ import { can, seamError, type SeamErr, type SeamResult } from "@/services/docume
 import { updateDocumentIf } from "@/services/document-update";
 import { readDetail, type Step } from "@/services/file-hook-detail";
 import {
+  sameContentHash,
   stepTransition,
   type StepInput,
   type StepOwner,
@@ -16,9 +17,19 @@ import { sha256Bytes } from "@/services/gateway-create-input";
 import { audit, forbidden, type WriteEnv } from "@/services/seam-runtime";
 import { simulatedOutcome } from "@/services/upload-rules";
 
+/** Largest stored file the server reads to hash and check; larger is refused (the type limit is lower). */
+export const MAX_PROCESS_BYTES = 26214400;
+/** The simulated check looks only at the start of a file. */
+export const SIMULATED_SNIFF_BYTES = 1048576;
 export interface StepDeps {
-  /** The stored file, or null when it is not there (yet). */
-  download: (path: string) => Promise<Uint8Array<ArrayBuffer> | null>;
+  /**
+   * The stored file, null when it is not there (yet), or "tooLarge" when the store says it is larger
+   * than `maxBytes` (checked before reading it into memory).
+   */
+  download: (
+    path: string,
+    maxBytes: number,
+  ) => Promise<Uint8Array<ArrayBuffer> | null | "tooLarge">;
   now: () => string;
   /** Who handles each step if it starts now. Until the organisation switch exists, both are simulated. */
   owners: () => Promise<Record<Step, StepOwner>>;
@@ -69,12 +80,16 @@ export async function advanceStep(
   if (!can(env.role, "edit")) return forbidden();
   const { data: doc } = await env.admin
     .from("documents")
-    .select("id, name, pipeline_state, pipeline_detail, current_version_id, created_by")
+    .select(
+      "id, name, pipeline_state, pipeline_detail, current_version_id, created_by, registered_by_client",
+    )
     .eq("id", input.id)
     .eq("tenant_id", env.tenantId)
+    .is("deleted_at", null)
     .maybeSingle();
   if (!doc) return { ok: false, error: seamError("doc.notFound", "notFound") };
-  if (!doc.created_by) return fail("pipeline.seeded");
+  // Seeded documents (no person and no system added them) never change state on their own.
+  if (!doc.created_by && !doc.registered_by_client) return fail("pipeline.seeded");
   const state = doc.pipeline_state as PipelineState;
   const retried = Boolean(input.retry);
   if (retried && state !== "failed") return fail("pipeline.retry.notFailed");
@@ -84,7 +99,7 @@ export async function advanceStep(
   const { data: version } = doc.current_version_id
     ? await env.admin
         .from("document_versions")
-        .select("id, storage_path, content_hash")
+        .select("id, storage_path, content_hash, size_bytes")
         .eq("id", doc.current_version_id)
         .eq("document_id", doc.id)
         .eq("tenant_id", env.tenantId)
@@ -97,14 +112,21 @@ export async function advanceStep(
   let step: StepInput;
   if (retried) step = { kind: "retry" };
   else {
-    const file = version.storage_path ? await deps.download(version.storage_path) : null;
+    const file = version.storage_path
+      ? await deps.download(version.storage_path, MAX_PROCESS_BYTES)
+      : null;
     if (!file) return fail("pipeline.notUploaded", "unavailable");
+    if (file === "tooLarge") return fail("pipeline.tooLarge");
     if (state === "uploading") {
-      // The hash the events and the scanners rely on is computed here, never taken from the browser.
-      if ((await sha256Bytes(file)) !== version.content_hash) return fail("pipeline.hashMismatch");
+      // The size and hash the events and the scanners rely on are the stored file's, never the browser's.
+      if (version.size_bytes !== null && file.byteLength !== version.size_bytes)
+        return fail("pipeline.sizeMismatch");
+      if (!sameContentHash(version.content_hash, await sha256Bytes(file)))
+        return fail("pipeline.hashMismatch");
       step = { kind: "confirmed" };
     } else {
-      const outcome = simulatedOutcome(doc.name, new TextDecoder("latin1").decode(file));
+      const head = file.subarray(0, SIMULATED_SNIFF_BYTES);
+      const outcome = simulatedOutcome(doc.name, new TextDecoder("latin1").decode(head));
       step =
         state === "scanning"
           ? { kind: "scanResult", result: outcome === "quarantined" ? "infected" : "clean" }

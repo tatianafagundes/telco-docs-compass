@@ -31,7 +31,8 @@ const docId = z.string().uuid();
 const characteristic = z
   .array(z.object({ name: z.string().min(1).max(80), value: z.unknown() }))
   .max(50);
-const contentHash = z.string().regex(/^sha256:[0-9a-f]{6,64}$/);
+// The screens send the full SHA-256; the server checks it against the stored file.
+const contentHash = z.string().regex(/^sha256:[0-9a-f]{64}$/);
 
 export const findSchema = z.object({
   entityId: z.string().min(1).max(64).optional(),

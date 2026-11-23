@@ -28,9 +28,13 @@ export const advancePipeline = createServerFn({ method: "POST" })
       { op: "advancePipeline", idempotencyKey, body, scope: { kind: "doc", id: data.id } },
       (env) =>
         advanceStep(env, data, {
-          download: async (path) => {
+          download: async (path, maxBytes) => {
             const { data: file } = await env.admin.storage.from(BUCKET).download(path);
-            return file ? new Uint8Array(await file.arrayBuffer()) : null;
+            if (!file) return null;
+            // The download is already buffered here: this only stops a second copy and the hash. Memory
+            // is bounded by the bucket's own size limit, which must be at most MAX_PROCESS_BYTES.
+            if (file.size > maxBytes) return "tooLarge";
+            return new Uint8Array(await file.arrayBuffer());
           },
           now: () => new Date().toISOString(),
           owners: SIMULATED_OWNERS,

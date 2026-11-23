@@ -63,13 +63,23 @@ export function fileEventPayload(type: FileEvent, payload: unknown): Record<stri
   return out;
 }
 
+/**
+ * Whether a stored content hash is the SHA-256 the server computed (lowercase hex). Stored hashes
+ * come as `sha256:<hex>` from the screens and as bare hex from the API; anything else never matches.
+ */
+export function sameContentHash(stored: string | null | undefined, computedHex: string): boolean {
+  const m = /^(?:sha256:)?([0-9a-f]{64})$/i.exec(stored ?? "");
+  return m !== null && /^[0-9a-f]{64}$/.test(computedHex) && m[1]!.toLowerCase() === computedHex;
+}
+
 // ---- Step transitions ----
 
 /** Who handles a step if it starts now, decided by the caller from the organisation switch (D1). */
 export type StepOwner = { mode: "simulated" } | { mode: "external"; by: string; byClient: string };
-/** A result sent by an outside system: which key sent it and for which attempt. */
+/** A result sent by an outside system: which key sent it, for which version and attempt. */
 export interface ResultFrom {
   clientId: string;
+  versionId: string;
   attempt: number;
 }
 export type StepInput =
@@ -134,11 +144,15 @@ function resultRefusal(
   step: Step,
   prev: PipelineDetail,
   from: ResultFrom | undefined,
+  versionId: string,
 ): StepRefusal | null {
   if (!from) return prev.mode === "external" ? "externalPending" : null;
   if (prev.mode !== "external") return "notExternal";
   if (prev.byClient !== from.clientId) return "notYourStep";
-  return from.attempt === prev.attempt && prev.step === step ? null : "staleAttempt";
+  // A late answer about an older version or attempt never applies to the current one.
+  return from.attempt === prev.attempt && prev.step === step && from.versionId === versionId
+    ? null
+    : "staleAttempt";
 }
 
 /**
@@ -184,7 +198,7 @@ export function stepTransition(
         : refuse("wrongState");
     case "scanResult": {
       if (state !== "scanning") return refuse("wrongState");
-      const no = resultRefusal("scan", prev, input.from);
+      const no = resultRefusal("scan", prev, input.from, ctx.versionId.toLowerCase());
       if (no) return refuse(no);
       const rec = recorded("scan", input.result, input.from);
       if (input.result === "clean") return ok("reading", { ...start("read", prev, ctx), ...rec });
@@ -203,7 +217,7 @@ export function stepTransition(
     }
     case "readResult": {
       if (state !== "reading") return refuse("wrongState");
-      const no = resultRefusal("read", prev, input.from);
+      const no = resultRefusal("read", prev, input.from, ctx.versionId.toLowerCase());
       if (no) return refuse(no);
       const rec = recorded("read", input.result, input.from);
       return input.result === "read"

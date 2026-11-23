@@ -3,7 +3,12 @@
 // step that waits for an outside system.
 import { describe, expect, it } from "vitest";
 import { sha256Bytes } from "@/services/gateway-create-input";
-import { advanceStep, SIMULATED_OWNERS, type StepDeps } from "@/services/pipeline-step";
+import {
+  advanceStep,
+  SIMULATED_OWNERS,
+  SIMULATED_SNIFF_BYTES,
+  type StepDeps,
+} from "@/services/pipeline-step";
 import type { WriteEnv } from "@/services/seam-runtime";
 import { FakeDb, type Row } from "@/test/fake-db";
 
@@ -17,12 +22,13 @@ async function world(
   doc: Partial<Row> = {},
   opts: {
     role?: string;
-    file?: Uint8Array<ArrayBuffer> | null;
+    file?: Uint8Array<ArrayBuffer> | null | "tooLarge";
     hash?: string;
     version?: Partial<Row>;
   } = {},
 ) {
-  const hash = opts.hash ?? (await sha256Bytes(FILE));
+  // As the screens send it: `sha256:<hex>` (the API stores bare hex).
+  const hash = opts.hash ?? `sha256:${await sha256Bytes(FILE)}`;
   const admin = new FakeDb({
     documents: [
       {
@@ -43,6 +49,7 @@ async function world(
         tenant_id: "t1",
         storage_path: `t1/${V}`,
         content_hash: hash,
+        size_bytes: FILE.byteLength,
         ...opts.version,
       },
     ],
@@ -228,5 +235,48 @@ describe("advanceStep", () => {
       data: { id: D, state: "ready", retried: false },
     });
     expect(w.admin.writesTo("documents")).toEqual([]);
+  });
+  it.each([
+    ["bare hex, as the API stores it", async () => sha256Bytes(FILE)],
+    ["upper-case hex", async () => `sha256:${(await sha256Bytes(FILE)).toUpperCase()}`],
+  ])("accepts the stored hash as %s", async (_n, h) => {
+    const w = await world({}, { hash: await h() });
+    expect((await advanceStep(w.env, { id: D }, w.deps)).ok).toBe(true);
+  });
+  it.each([
+    ["a short hash", "sha256:abcdef"],
+    ["an empty hash", ""],
+  ])("never matches %s", async (_n, hash) => {
+    const w = await world({}, { hash });
+    const r = await advanceStep(w.env, { id: D }, w.deps);
+    expect(!r.ok && r.error.code).toBe("pipeline.hashMismatch");
+  });
+  it("refuses a stored file whose size is not the declared one", async () => {
+    const w = await world({}, { version: { size_bytes: FILE.byteLength + 1 } });
+    const r = await advanceStep(w.env, { id: D }, w.deps);
+    expect(!r.ok && r.error.code).toBe("pipeline.sizeMismatch");
+    expect(w.admin.writesTo("documents")).toEqual([]);
+  });
+  it("refuses a file the store says is too large, without reading it", async () => {
+    const w = await world({}, { file: "tooLarge" });
+    const r = await advanceStep(w.env, { id: D }, w.deps);
+    expect(!r.ok && r.error.code).toBe("pipeline.tooLarge");
+    expect(w.admin.writesTo("documents")).toEqual([]);
+  });
+  it("moves a document a connected system registered (no person created it)", async () => {
+    const w = await world({ created_by: null, registered_by_client: "client-1" });
+    expect((await advanceStep(w.env, { id: D }, w.deps)).ok).toBe(true);
+  });
+  it("never moves a deleted document", async () => {
+    const w = await world({ deleted_at: "2026-11-23T10:00:00Z" });
+    const r = await advanceStep(w.env, { id: D }, w.deps);
+    expect(!r.ok && r.error.code).toBe("doc.notFound");
+  });
+  it("the simulated check reads only the start of a file", async () => {
+    const big = new Uint8Array(SIMULATED_SNIFF_BYTES + 32);
+    big.set(new TextEncoder().encode("TEST-QUARANTINE"), SIMULATED_SNIFF_BYTES + 1);
+    const w = await world({ pipeline_state: "scanning", pipeline_detail: null }, { file: big });
+    const r = await advanceStep(w.env, { id: D }, w.deps);
+    expect(r.ok && r.data.state).toBe("reading");
   });
 });

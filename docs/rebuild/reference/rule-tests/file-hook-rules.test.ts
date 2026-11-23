@@ -27,8 +27,8 @@ const ctx = (owner: StepContext["owner"] = { scan: scanOwner, read: sim }): Step
 });
 const extScan = { mode: "external", byClient: "c-scan", step: "scan", attempt: 1 };
 const extRead = { mode: "external", byClient: "c-read", step: "read", attempt: 2 };
-const fromScan = { clientId: "c-scan", attempt: 1 };
-const fromRead = { clientId: "c-read", attempt: 2 };
+const fromScan = { clientId: "c-scan", versionId: V, attempt: 1 };
+const fromRead = { clientId: "c-read", versionId: V, attempt: 2 };
 
 describe("file event payloads keep only whitelisted keys", () => {
   it("keeps the Stored keys with the right types", () => {
@@ -185,7 +185,7 @@ const TABLE: Row[] = [
     "result from another key",
     "scanning",
     extScan,
-    { kind: "scanResult", result: "clean", from: { clientId: "c-other", attempt: 1 } },
+    { kind: "scanResult", result: "clean", from: { ...fromScan, clientId: "c-other" } },
     "notYourStep",
   ],
   [
@@ -193,6 +193,13 @@ const TABLE: Row[] = [
     "scanning",
     { ...extScan, attempt: 3 },
     { kind: "scanResult", result: "clean", from: fromScan },
+    "staleAttempt",
+  ],
+  [
+    "result about an older version",
+    "scanning",
+    extScan,
+    { kind: "scanResult", result: "clean", from: { ...fromScan, versionId: V2 } },
     "staleAttempt",
   ],
   [
@@ -279,7 +286,7 @@ const TABLE: Row[] = [
     "the same result from another key",
     "quarantined",
     { ...qCur, lastResult: { step: "scan", attempt: 1, result: "infected", byClient: "c-scan" } },
-    { kind: "scanResult", result: "infected", from: { clientId: "c-x", attempt: 1 } },
+    { kind: "scanResult", result: "infected", from: { ...fromScan, clientId: "c-x" } },
     "quarantined",
   ],
   // Timeouts (R4.7)
