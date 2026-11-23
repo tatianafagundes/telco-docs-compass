@@ -21,19 +21,19 @@ In the rebuild, expose these as REST endpoints under `/api/v1` with the same err
 | find | quick find by name or identifier | any | – |
 | register | create a document on a record | contributor+ and record edit; never the group administrator | access.groupAdminNoDocuments, doc.type.unknown, doc.type.mimeNotAccepted, doc.type.tooLarge, entity.notFound, doc.register.failed, seam.idempotency.mismatch |
 | updateMetadata | change name, description, dates, sensitivity, details | edit, not frozen | doc.edit.frozen |
-| addVersion | new immutable version | edit; never the group administrator | access.groupAdminNoDocuments, doc.edit.frozen |
+| addVersion | new immutable version; restore never brings back a quarantined file | edit; never the group administrator | access.groupAdminNoDocuments, doc.edit.frozen, doc.version.quarantined, doc.version.quarantineFull, doc.changedMeanwhile |
 | getContentUrl | preview link (300 s) or download link (60 s) | visible | doc.content.locked, doc.content.unavailable, doc.version.notFound |
 | transition | status change | BR-012 | doc.transition.notAllowed, doc.approve.requiredPending, doc.approve.ownDocument |
 | setHold | place or release a legal hold | manage | – |
 | deleteDocument / restoreDeleted | soft delete and undo | manage | doc.delete.legalHold, doc.delete.retention |
-| reportProblem | send back to draft, or "keep unread" for failed reads | review | doc.keepUnread.notFailed |
+| reportProblem | send back to draft, or "keep unread" for failed reads | review | doc.keepUnread.notFailed, doc.keepUnread.notRead (the scan failed or the file never arrived), doc.changedMeanwhile |
 | grantAccess / revokeAccess / listAccess | shares and cross-tenant grants | manage | access.subject.notFound, access.subject.sameTenant, access.crossTenant.off |
 | reviewExtraction | accept, edit or reject one detail | review | extraction.field.notFound, doc.edit.frozen |
 | searchDocuments / countDocuments / facetDocuments | search (see 08) | any | search.failed |
 | findRecord | jump to a record by identifier | any | – |
 | listSavedViews / saveView / deleteView | personal and team views (team views are admin only) | any | view.notFound |
 | startBulkJob / getBulkJob | bulk changes (see 08) | per document | bulk.tooMany, bulk.empty, bulk.notFound |
-| advancePipeline | move the simulated pipeline on | uploader | pipeline.notUploaded |
+| advancePipeline | move the simulated pipeline on; answers `waiting` for a step an outside system handles | uploader | pipeline.notUploaded, pipeline.hashMismatch, pipeline.sizeMismatch, pipeline.tooLarge, pipeline.changed, pipeline.quarantined, pipeline.notRetryable |
 | resetTestData | remove test artefacts | master admin | reset.notTestData, reset.failed |
 | listHolds / retentionOverview / deletionHistory / verifyHolds / purgeDocument / retentionFor | retention and holds | admin (purge BR-052) | doc.delete.* |
 | getConfig / listChildTenants / getChildView / specUsage / saveSpecification / resetSpecification | group and country configuration | admin | access.roleTooLow, config.locked, config.extendOnly, config.belowFloor, config.unknownPolicy, config.notOverridden, tenant.notFound |

@@ -58,3 +58,5 @@ with it (and the reason must still hold).
 | `MAX_FIELD_NAME_CHARS` | 200 | `file-hook-fields.ts` | Field names from a reader, in code points; they must match the type's details anyway. |
 | `HIGH_CONFIDENCE_PERCENT` | 90 | `file-hook-fields.ts` | Cut-off for "High confidence" on details from a reader; a detail's own threshold can only raise it. |
 | `MEDIUM_CONFIDENCE_PERCENT` | 70 | `file-hook-fields.ts` | Below this a detail from a reader is "Low confidence". |
+| `MAX_PROCESS_BYTES` | 26214400 | `pipeline-step.ts` | Largest stored file the server reads to hash and check; type limits are lower. |
+| `SIMULATED_SNIFF_BYTES` | 1048576 | `pipeline-step.ts` | The simulated check looks only at the start of a file, so a large file is not decoded whole. |

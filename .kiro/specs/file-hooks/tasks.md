@@ -18,10 +18,23 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
 - [x] 1.6 Review: `code-reviewer` on phase 1: approved with 8 should-fix findings, all fixed (comparable attempt guard, quarantine never shortened, external result checks and replay, timeout checks the wait, external owner names its system, step from reason, unsafe text incl. lone surrogates, names cut by code points); 16 mutations of the rules each caught by a test.
 
 ## 2. Server pipeline (simulated path made safe)
-- [ ] 2.1 `pipeline.functions.ts`: guarded updates (state, version, `pipeline_detail->>attempt` from `expect.attemptText`; needs a jsonb guard next to `updateDocumentIf`); `pipeline_detail` with mode, since, step, attempt; Try again restarts the failed step; server SHA-256 on confirm (R4.3, R4.4, R1.1).
-- [ ] 2.2 `externalPending` and the waiting flag when a step is external (R4.2). Test: an editor cannot advance an external scan or retry past it.
-- [ ] 2.3 `addVersion` carries `carriedQuarantine(...)` and is refused when `quarantineHasRoom` is false; restore rule (R4.8, D5).
-- [ ] 2.4 Review: `seg-review` on phases 1–2 (scan bypass, TOCTOU, quarantine per version).
+- [x] 2.1 `pipeline.functions.ts` (core in `pipeline-step.ts`): guarded updates (state, version, `pipeline_detail->>attempt` from `expect.attemptText`; needs a jsonb guard next to `updateDocumentIf`); `pipeline_detail` with mode, since, step, attempt; Try again restarts the failed step; server SHA-256 on confirm (R4.3, R4.4, R1.1).
+- [x] 2.2 `externalPending` and the waiting flag when a step is external (R4.2). Test: an editor cannot advance an external scan or retry past it.
+- [x] 2.3 `addVersion` (now `document-add-version.ts`) carries `carriedQuarantine(...)` and is refused when `quarantineHasRoom` is false; restore rule (R4.8, D5).
+- [x] 2.4 Review: `seg-review` on phases 1–2: BLOCK with H1–H5, M1–M6, L1–L5. Fixed: H1 (Keep without reading guarded and only for reading failures), H2 (addVersion guarded), H3 (server hash compared in both stored forms; full 64-hex hash required), M2 (size checked, 25 MB cap, 1 MB sniff), M3 (restore refused when it shares the file or bytes with a quarantined version), M4 (attempt carried; results name the version), M6 (API-registered documents can be processed), L1, L2 (request-shape test with the real client). Each fix has a test; 9 mutations caught.
+- [ ] 2.5 Carried to later phases, release gates:
+  - H4 (API inline content goes straight to `ready`) in 5.3.
+  - H5 and M1 (the API and screens download in `uploading`, `failed` after a scan, and older quarantined versions) in 5.5: apply `downloadDecision` in `gateway-reads.ts` and `getContentUrl`, and change the tests and `e2e/tmf-api.py` that expect a link while uploading or failed.
+  - Also in 5.5: a version that was superseded before its scan finished must not be downloadable (no per-version clean record exists yet).
+  - M5: the scan is simulated; no release may claim scanning while every owner is simulated.
+  - L3/L4: check the hosted data for `failed` rows without a step and quarantined documents whose list was cleared by the old addVersion.
+  - L5: uploads that never pass the hash wait for the timeout in 6.1.
+  - A version row inserted before a lost race stays as an unused version (versions are immutable); a database function that locks the row would remove this.
+  - A restore on a seeded document waits in `uploading` (seeded documents never move).
+  - zod 3.25.76 advisory GHSA-mrhx-c7xc-m3w5 (separate ticket).
+  - The storage bucket's own size limit must be at most 25 MB (`MAX_PROCESS_BYTES`): the download is buffered before the size can be checked. Not visible in the repo; check the hosted bucket.
+  - Metadata edits (name, sensitivity, expiry) are decided from an earlier read and not guarded on `status` or `legal_hold`; older than this spec, to fix separately.
+  - Publishing to `main` behind the preview is accepted on these conditions: preview access restricted, no real customer or personal files, no wording that files are scanned or safe, 3.x, 5.3 and 5.5 open as release blockers.
 
 ## 3. Organisation switch and keys
 - [ ] 3.1 `external-processing.ts`: switch read from `tenants.external_processing`, active scanner and reader, `startStep`.
