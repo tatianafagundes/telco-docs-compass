@@ -59,6 +59,17 @@ export function can(role: AppRole, capability: Capability): boolean {
   return ROLE_RANK[role] >= ROLE_RANK[CAPABILITY_MIN[capability]];
 }
 
+/**
+ * Adding a document or a new version. The group administrator works with the settings and
+ * counts of the countries, never with their documents, so the server refuses it too (the
+ * screens already hide it). Everyone else needs edit rights.
+ */
+export function addDocumentsBlocker(role: AppRole): SeamError | null {
+  if (role === "master_admin") return seamError("access.groupAdminNoDocuments", "rejected");
+  if (!can(role, "edit")) return seamError("access.roleTooLow", "rejected", "contactSupport");
+  return null;
+}
+
 /** Forward-only status path. in_review -> draft happens only through reportProblem (sendBack). */
 export const ALLOWED_TRANSITIONS: Record<DocStatus, DocStatus[]> = {
   draft: ["in_review"],

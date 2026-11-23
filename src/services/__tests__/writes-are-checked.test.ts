@@ -55,3 +55,12 @@ describe("updates of a document row are pinned to the tenant", () => {
     expect(loose).toEqual([]);
   });
 });
+describe("adding documents is refused for the group administrator on the server", () => {
+  it("register and addVersion check addDocumentsBlocker before anything else", () => {
+    const source = readFileSync("src/services/document-content.functions.ts", "utf8");
+    for (const op of ['op: "register"', 'op: "addVersion"']) {
+      const body = source.slice(source.indexOf(op), source.indexOf(op) + 300);
+      expect(body).toContain("addDocumentsBlocker(env.role)");
+    }
+  });
+});

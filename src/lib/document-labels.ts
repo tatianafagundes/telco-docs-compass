@@ -78,6 +78,8 @@ export function friendlyError(code: string | undefined): string {
   switch (code) {
     case "access.roleTooLow":
       return "Your role doesn't allow this action.";
+    case "access.groupAdminNoDocuments":
+      return "The group administrator works with settings and counts, not documents.";
     case "doc.transition.notAllowed":
       return "This step isn't available for the document right now. The page has been refreshed.";
     case "doc.approve.ownDocument":

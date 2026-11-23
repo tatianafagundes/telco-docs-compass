@@ -8,6 +8,7 @@ import type { Database, Json } from "@/integrations/supabase/types";
 import { addVersionSchema, registerSchema, updateMetadataSchema } from "@/schemas/document";
 import {
   UPLOAD_URL_SECONDS,
+  addDocumentsBlocker,
   can,
   isFrozen,
   contentProtected,
@@ -28,7 +29,8 @@ export const register = createServerFn({ method: "POST" })
       await adminClient(),
       { op: "register", idempotencyKey, body, scope: { kind: "tenant" } },
       async (env) => {
-        if (!can(env.role, "edit")) return forbidden();
+        const blocked = addDocumentsBlocker(env.role);
+        if (blocked) return { ok: false, error: blocked };
         const { data: entity } = await env.caller
           .from("business_entities")
           .select("id, tenant_id")
@@ -169,7 +171,8 @@ export const addVersion = createServerFn({ method: "POST" })
       await adminClient(),
       { op: "addVersion", idempotencyKey, body, scope: { kind: "doc", id: data.id } },
       async (env) => {
-        if (!can(env.role, "edit")) return forbidden();
+        const blocked = addDocumentsBlocker(env.role);
+        if (blocked) return { ok: false, error: blocked };
         const doc = await loadDoc(env.admin, data.id);
         if (!doc) return fail("doc.notFound", "notFound");
         if (isFrozen(doc.status)) return fail("doc.edit.frozen", "rejected");

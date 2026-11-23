@@ -1,6 +1,7 @@
 // Pure view rules: which actions a person sees for a document, and why one is unavailable.
 import type { DocStatus } from "@/schemas/document";
 import {
+  addDocumentsBlocker,
   can,
   contentProtected,
   retentionHolds,
@@ -78,17 +79,17 @@ export function manageState(role: AppRole): ActionState {
     : { available: false, reason: ROLE_REASON.manage };
 }
 
-/** "Add documents" on the record page and the Documents page. */
+/** "Add documents" on the record page and the Documents page; the server applies the same rule. */
 export function addDocumentsState(role: AppRole): ActionState {
-  // The group administrator works with settings and counts of the countries, never with documents.
-  if (role === "master_admin")
-    return {
-      available: false,
-      reason: "The group administrator works with settings and counts, not documents.",
-    };
-  return can(role, "edit")
-    ? { available: true }
-    : { available: false, reason: "Viewers can open documents here but can't add them." };
+  const blocked = addDocumentsBlocker(role);
+  if (!blocked) return { available: true };
+  return {
+    available: false,
+    reason:
+      blocked.code === "access.groupAdminNoDocuments"
+        ? "The group administrator works with settings and counts, not documents."
+        : "Viewers can open documents here but can't add them.",
+  };
 }
 /** "Delete permanently": admins only, no hold, and past the keep-until date. */
 export function purgeState(

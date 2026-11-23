@@ -19,9 +19,9 @@ In the rebuild, expose these as REST endpoints under `/api/v1` with the same err
 | searchPeople | people in the tenant, for sharing | manager+ | – |
 | listSharedWithMe | documents shared directly with the caller | any | (BR-093) |
 | find | quick find by name or identifier | any | – |
-| register | create a document on a record | contributor+ and record edit | doc.type.unknown, doc.type.mimeNotAccepted, doc.type.tooLarge, entity.notFound, doc.register.failed, seam.idempotency.mismatch |
+| register | create a document on a record | contributor+ and record edit; never the group administrator | access.groupAdminNoDocuments, doc.type.unknown, doc.type.mimeNotAccepted, doc.type.tooLarge, entity.notFound, doc.register.failed, seam.idempotency.mismatch |
 | updateMetadata | change name, description, dates, sensitivity, details | edit, not frozen | doc.edit.frozen |
-| addVersion | new immutable version | edit | doc.edit.frozen |
+| addVersion | new immutable version | edit; never the group administrator | access.groupAdminNoDocuments, doc.edit.frozen |
 | getContentUrl | preview link (300 s) or download link (60 s) | visible | doc.content.locked, doc.content.unavailable, doc.version.notFound |
 | transition | status change | BR-012 | doc.transition.notAllowed, doc.approve.requiredPending, doc.approve.ownDocument |
 | setHold | place or release a legal hold | manage | – |

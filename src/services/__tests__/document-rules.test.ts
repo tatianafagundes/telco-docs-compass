@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  addDocumentsBlocker,
   can,
   contentLocked,
   deleteBlocker,
@@ -190,5 +191,14 @@ describe("startsWithCalendarDay", () => {
     "x2027-03-01",
   ])("%j does not", (text) => {
     expect(startsWithCalendarDay(text)).toBe(false);
+  });
+});
+
+describe("addDocumentsBlocker", () => {
+  it("should refuse the group administrator with its own reason, and roles without edit rights", () => {
+    expect(addDocumentsBlocker("master_admin")?.code).toBe("access.groupAdminNoDocuments");
+    expect(addDocumentsBlocker("viewer")?.code).toBe("access.roleTooLow");
+    for (const r of ["contributor", "reviewer", "manager", "tenant_admin"] as const)
+      expect(addDocumentsBlocker(r)).toBeNull();
   });
 });
