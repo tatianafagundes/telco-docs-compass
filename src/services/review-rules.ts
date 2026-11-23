@@ -160,3 +160,26 @@ export const PAGE_SIZE = 20;
 export function pageOf<T>(list: T[], page: number): T[] {
   return list.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 }
+
+/** The details of a document after one is set to `value` (or taken off when `value` is null). */
+export function detailsWith(
+  current: unknown,
+  name: string,
+  value: unknown,
+): { name: string; value: unknown }[] {
+  const list = (Array.isArray(current) ? current : []) as { name: string; value: unknown }[];
+  const rest = list.filter((c) => c.name !== name);
+  return value === null ? rest : [...rest, { name, value }];
+}
+
+/**
+ * Required details nobody has read at all: no row exists to accept or edit, so the only way to
+ * resolve them is to enter a value. Required details whose row is still pending are not here:
+ * those are checked in the list.
+ */
+export function missingRequiredDetails(
+  spec: SpecCharacteristic[],
+  fields: Pick<ReviewField, "name" | "status">[],
+): string[] {
+  return pendingRequiredDetails(spec, fields).filter((n) => !fields.some((f) => f.name === n));
+}

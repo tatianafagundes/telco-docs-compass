@@ -81,6 +81,14 @@ export function friendlyError(code: string | undefined): string {
       return "This document is still within its keep-until period.";
     case "doc.edit.approvedContent":
       return "This document is approved, so its content stays as it was approved. You can still rename it or update its description.";
+    case "doc.changedMeanwhile":
+      return "Someone changed this document just now. Try again.";
+    case "extraction.detail.notRequired":
+      return "That detail isn't one this document type asks for.";
+    case "extraction.detail.exists":
+      return "That detail was already read from the file. Check it in the list.";
+    case "extraction.detail.noVersion":
+      return "This document has no file yet, so there is nothing to confirm details against.";
     case "doc.edit.frozen":
       return "This document is closed, so its details are kept as they are.";
     case "config.locked":

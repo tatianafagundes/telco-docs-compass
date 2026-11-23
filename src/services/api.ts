@@ -93,6 +93,8 @@ export const api = {
     write(writes.revokeAccess, "revokeAccess", i),
   reviewExtraction: (i: WithoutKey<Parameters<typeof writes.reviewExtraction>[0]["data"]>) =>
     write(writes.reviewExtraction, "reviewExtraction", i),
+  enterMissingDetail: (i: WithoutKey<Parameters<typeof writes.enterMissingDetail>[0]["data"]>) =>
+    write(writes.enterMissingDetail, "enterMissingDetail", i),
   // holds and retention
   listHolds: async (page: number) => unwrap(await retention.listHolds({ data: { page } })),
   retentionOverview: async () => unwrap(await retention.retentionOverview()),

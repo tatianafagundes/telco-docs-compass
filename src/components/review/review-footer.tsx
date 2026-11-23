@@ -5,6 +5,8 @@ import type { FooterAction } from "@/services/review-flow-rules";
 export interface ReviewFooterProps {
   checked: number;
   total: number;
+  /** Required details nobody read; they still have to be entered before approval. */
+  missing?: number;
   action: FooterAction;
   busy: boolean;
   onNext: () => void;
@@ -16,6 +18,7 @@ export interface ReviewFooterProps {
 export function ReviewFooter({
   checked,
   total,
+  missing = 0,
   action,
   busy,
   onNext,
@@ -26,7 +29,11 @@ export function ReviewFooter({
     <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle bg-layer-content px-4 py-3">
       <div className="flex min-w-0 flex-col">
         <span className="type-label-14" aria-live="polite">
-          {total === 0 ? "No details to check" : `${checked} of ${total} checked`}
+          {total === 0
+            ? missing > 0
+              ? `${missing} required ${missing === 1 ? "detail" : "details"} to enter`
+              : "No details to check"
+            : `${checked} of ${total} checked`}
         </span>
         {total > 0 ? (
           // Width comes from progress data, the only inline style here.

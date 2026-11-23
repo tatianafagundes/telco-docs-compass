@@ -148,3 +148,26 @@ describe("review-flow-rules", () => {
     ).toBe("All details checked: 2 confirmed, 1 corrected.");
   });
 });
+import { journeyStep as step } from "@/services/review-flow-rules";
+describe("journeyStep with required details still open", () => {
+  it("stays on Check details while a required detail has no confirmed value, even with nothing pending in the list", () => {
+    expect(step("in_review", 0, 0)).toBe(1);
+    expect(step("in_review", 0, 1)).toBe(0);
+    expect(step("draft", 0, 2)).toBe(0);
+  });
+  it("does not change the later steps", () => {
+    expect(step("approved", 0, 3)).toBe(2);
+    expect(step("effective", 0, 3)).toBe(3);
+  });
+});
+import { rejectedRequiredNote } from "@/services/review-flow-rules";
+describe("rejectedRequiredNote", () => {
+  it("explains a required detail marked not in the document, which still blocks approval", () => {
+    expect(rejectedRequiredNote(1, 0)).toMatch(/^1 required detail was marked not in the document/);
+    expect(rejectedRequiredNote(3, 1)).toMatch(/^2 required details were marked/);
+  });
+  it("says nothing when the only open details are the ones still to enter, or none", () => {
+    expect(rejectedRequiredNote(2, 2)).toBeNull();
+    expect(rejectedRequiredNote(0, 0)).toBeNull();
+  });
+});

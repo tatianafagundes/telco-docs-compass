@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
-import { ArrowLeft, CircleCheck, FileText, Keyboard } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CircleCheck, FileText, Keyboard } from "lucide-react";
 import { Button } from "@/components/erad/button";
 import { Spinner } from "@/components/erad/misc";
 import { EmptyState } from "@/components/erad/empty-state";
@@ -10,14 +10,15 @@ import { DocumentPage, type SamplePage } from "@/components/review/document-page
 import { FieldRow } from "@/components/review/field-row";
 import { ReviewJourney } from "@/components/review/review-journey";
 import { ReviewFooter } from "@/components/review/review-footer";
+import { MissingDetails } from "@/components/review/missing-details";
 import { documentQuery } from "@/components/documents/document-panel";
 import { meQuery } from "@/hooks/use-me";
 import { entitiesQuery } from "@/hooks/use-access";
-import { useReviewField, useReviewState } from "@/hooks/use-review";
+import { useEnterDetail, useReviewField, useReviewState } from "@/hooks/use-review";
 import { useDocumentActions } from "@/hooks/use-document-actions";
 import { api } from "@/services/api";
 import { can, contentProtected, isFrozen } from "@/services/document-rules";
-import { toCheckCount } from "@/services/review-rules";
+import { missingRequiredDetails, toCheckCount } from "@/services/review-rules";
 import {
   confidenceReason,
   footerAction,
@@ -27,6 +28,7 @@ import {
   journeyStep,
   mostUrgent,
   outcomeSummary,
+  rejectedRequiredNote,
   pageOrder,
   recordMatch,
 } from "@/services/review-flow-rules";
@@ -69,6 +71,7 @@ function ReviewPage() {
     queryFn: () => api.getContentUrl(docId, "preview"),
   });
   const decide = useReviewField(entityId, docId);
+  const enter = useEnterDetail(entityId, docId);
   const actions = useDocumentActions(entityId, docId);
   const fields = useMemo(() => pageOrder(review.fields), [review.fields]);
   const [sel, setSel] = useState(0);
@@ -89,11 +92,14 @@ function ReviewPage() {
     };
   });
   const k = toCheckCount(fields);
+  // Required details nobody read: there is no row to check, so they are entered instead.
+  const missing = missingRequiredDetails(review.spec, review.fields);
+  const rejectedNote = rejectedRequiredNote(review.gate.pending, missing.length);
   const own = isOwnDocument((doc as { created_by?: string | null } | null)?.created_by, me.userId);
   const action = doc
     ? footerAction({ role, status: doc.status, toCheck: canReview ? k : 0, gate: review.gate, own })
     : null;
-  const step = doc ? journeyStep(doc.status, k) : null;
+  const step = doc ? journeyStep(doc.status, k, review.gate.pending) : null;
 
   const back = () => {
     void navigate({ to: "/records/$entityId", params: { entityId }, search: { doc: docId } }).then(
@@ -237,11 +243,17 @@ function ReviewPage() {
         </Button>
       </div>
 
-      {fields.length === 0 ? (
+      {fields.length === 0 && missing.length === 0 ? (
         <EmptyState
           icon={FileText}
           title="Nothing to check here"
           cause="No details were read from this document, so you can go straight to approval."
+        />
+      ) : fields.length === 0 ? (
+        <MissingDetails
+          names={missing}
+          canEnter={canReview}
+          onSave={(name, value) => enter.mutateAsync({ name, value })}
         />
       ) : (
         <>
@@ -280,7 +292,20 @@ function ReviewPage() {
                 "min-[900px]:flex",
               )}
             >
-              {k === 0 ? (
+              <MissingDetails
+                names={missing}
+                canEnter={canReview}
+                onSave={(name, value) => enter.mutateAsync({ name, value })}
+              />
+              {k === 0 && missing.length === 0 && rejectedNote ? (
+                <p className="type-label-14 flex items-start gap-2 text-text-main" role="status">
+                  <AlertTriangle
+                    aria-hidden="true"
+                    className="mt-0.5 size-4 shrink-0 text-status-major"
+                  />
+                  {rejectedNote}
+                </p>
+              ) : k === 0 && missing.length === 0 ? (
                 // EDS keeps status colours for icons and borders; the words stay in the main text colour.
                 <p className="type-label-14 flex items-center gap-2 text-text-main" role="status">
                   <CircleCheck aria-hidden="true" className="size-4 shrink-0 text-status-cleared" />
@@ -333,6 +358,7 @@ function ReviewPage() {
         <ReviewFooter
           checked={fields.length - k}
           total={fields.length}
+          missing={missing.length}
           action={action}
           busy={actions.transition.isPending}
           onNext={goNext}

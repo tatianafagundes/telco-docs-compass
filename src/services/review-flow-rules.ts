@@ -7,8 +7,14 @@ import type { ApproveGate, Band, ReviewField } from "@/services/review-rules";
 export const JOURNEY_STEPS = ["Check details", "Approve", "Effective"] as const;
 
 /** 0 = check details, 1 = approve, 2 = make effective, 3 = done; null when the journey doesn't apply. */
-export function journeyStep(status: DocStatus, toCheck: number): 0 | 1 | 2 | 3 | null {
-  if (status === "draft" || status === "in_review") return toCheck > 0 ? 0 : 1;
+export function journeyStep(
+  status: DocStatus,
+  toCheck: number,
+  /** Required details still without a confirmed value, read or not; approval waits for them. */
+  requiredPending = 0,
+): 0 | 1 | 2 | 3 | null {
+  if (status === "draft" || status === "in_review")
+    return toCheck > 0 || requiredPending > 0 ? 0 : 1;
   if (status === "approved") return 2;
   if (status === "effective") return 3;
   return null;
@@ -82,6 +88,18 @@ export function outcomeSummary(fields: Pick<ReviewField, "status">[]): string {
     n("rejected") ? `${n("rejected")} not in the document` : "",
   ].filter(Boolean);
   return parts.length ? `All details checked: ${parts.join(", ")}.` : "All details checked.";
+}
+
+/**
+ * Why approval still waits once nothing is left to check in the list: required details that were
+ * marked "not in the document". Null when nothing blocks.
+ */
+export function rejectedRequiredNote(requiredPending: number, missing: number): string | null {
+  const n = requiredPending - missing;
+  if (n <= 0) return null;
+  return n === 1
+    ? "1 required detail was marked not in the document, so approval waits. Change it to the value in the document, or send the document back."
+    : `${n} required details were marked not in the document, so approval waits. Change them to the values in the document, or send the document back.`;
 }
 
 // ---------- telecom checks ----------

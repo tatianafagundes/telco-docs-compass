@@ -16,6 +16,7 @@ const CHECKED = [
   "maintenance.ts",
   "document-access.functions.ts",
   "document-review.functions.ts",
+  "document-detail-entry.ts",
   "retention.functions.ts",
   "tenant-config-write.functions.ts",
   "idempotency-claim.ts",
@@ -42,6 +43,7 @@ describe("updates of a document row are pinned to the tenant", () => {
     "document-content.functions.ts",
     "document-status.functions.ts",
     "document-review.functions.ts",
+    "document-detail-entry.ts",
     "document-update.ts",
   ];
   it.each(FILES)("%s", (file) => {

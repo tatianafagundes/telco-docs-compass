@@ -8,6 +8,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { reportProblemSchema, reviewExtractionSchema } from "@/schemas/document";
 import { can, isFrozen, contentProtected } from "@/services/document-rules";
 import { audit, forbidden, runWrite } from "@/services/seam-runtime";
+import { detailsWith } from "@/services/review-rules";
 import { adminClient, fail, loadDoc } from "@/services/document-write-shared";
 // ---------- reportProblem ----------
 export const reportProblem = createServerFn({ method: "POST" })
@@ -91,13 +92,7 @@ export const reviewExtraction = createServerFn({ method: "POST" })
             : data.decision === "accept"
               ? field.value
               : null;
-        const current = (Array.isArray(doc.characteristic) ? doc.characteristic : []) as {
-          name: string;
-          value: Json;
-        }[];
-        const rest = current.filter((c) => c.name !== field.name);
-        const characteristic =
-          finalValue === null ? rest : [...rest, { name: field.name, value: finalValue }];
+        const characteristic = detailsWith(doc.characteristic, field.name, finalValue);
         must(
           await env.admin
             .from("documents")

@@ -40,6 +40,7 @@ Helpers, and when to use each:
 | Delete a document                                              | `deleteIfAllowed` in `document-delete.ts` (hold, retention date and master floor, then a guarded write).                                 |
 | The master tenant's minimum retention                          | `masterRetentionFloor` in `retention-floor.ts`.                                                                                          |
 | Store the first version of a document the API registered       | `storeFirstVersion` in `document-first-version.ts`.                                                                                      |
+| Enter a required detail nobody could read from the file        | `enterDetail` in `document-detail-entry.ts` (a reviewer; stored as an edited detail, so the approval gate counts it).                    |
 | Expiry and cleanup of old keys and tokens                      | `runMaintenance` in `maintenance.ts`, called by `runScheduled` in `scheduled-run.ts`. Never from a person's request.                     |
 
 Three ways to use `must()`, depending on the edge: let it throw inside `runWrite` (screens); catch `DatabaseError` and answer 503 (the API, see `runOrUnavailable` in `gateway-idempotency.ts`); catch it and return a result (`storeFirstVersion`, `deleteIfAllowed`).

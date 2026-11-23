@@ -115,6 +115,11 @@ export class FakeDb {
     this.failures.set(`${table}:${op}`, { message });
     return this;
   }
+  /** Undo every `fail`, to test a retry after a failure. */
+  clearFailures(): this {
+    this.failures.clear();
+    return this;
+  }
 
   /**
    * The next select on `table` returns `rows` instead of the current data, once. Use it to replay

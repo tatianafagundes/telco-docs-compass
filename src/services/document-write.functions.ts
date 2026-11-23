@@ -6,8 +6,10 @@
 //   document-status.functions.ts   status moves, legal hold, delete, restore
 //   document-review.functions.ts   send back with a problem, review extracted details
 //   document-access.functions.ts   grant and revoke access
+//   document-detail-entry.functions.ts   enter a required detail that was not read
 export * from "@/services/document-read.functions";
 export * from "@/services/document-content.functions";
 export * from "@/services/document-status.functions";
 export * from "@/services/document-review.functions";
 export * from "@/services/document-access.functions";
+export * from "@/services/document-detail-entry.functions";

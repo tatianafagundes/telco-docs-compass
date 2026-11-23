@@ -43,6 +43,19 @@ export function useReviewState(docId: string, documentType: string, versionId: s
   };
 }
 
+/** Enter a required detail that was not read from the file (it then counts as confirmed). */
+export function useEnterDetail(entityId: string, docId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { name: string; value: string }) =>
+      api.enterMissingDetail({ id: docId, name: v.name, value: v.value }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["extraction", docId] });
+      void qc.invalidateQueries({ queryKey: ["document", docId] });
+      void qc.invalidateQueries({ queryKey: ["documents", { entityId }] });
+    },
+  });
+}
 export function useReviewField(entityId: string, docId: string) {
   const qc = useQueryClient();
   return useMutation({

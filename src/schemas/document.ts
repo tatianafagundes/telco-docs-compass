@@ -155,3 +155,11 @@ export const reviewExtractionSchema = z
   .refine((v) => v.decision !== "edit" || v.value !== undefined, {
     message: "value is required to edit",
   });
+
+/** A required detail that nobody read from the file: a reviewer enters it, and it counts as confirmed. */
+export const enterDetailSchema = z.object({
+  idempotencyKey,
+  id: docId,
+  name: z.string().trim().min(1).max(100),
+  value: z.string().trim().min(1).max(500),
+});

@@ -115,3 +115,43 @@ describe("why can I see this", () => {
     );
   });
 });
+import { detailsWith, missingRequiredDetails } from "@/services/review-rules";
+describe("detailsWith", () => {
+  it("sets a detail, replacing one of the same name, and keeps the others", () => {
+    expect(
+      detailsWith(
+        [
+          { name: "a", value: 1 },
+          { name: "b", value: 2 },
+        ],
+        "a",
+        9,
+      ),
+    ).toEqual([
+      { name: "b", value: 2 },
+      { name: "a", value: 9 },
+    ]);
+  });
+  it("takes a detail off when the value is null, and copes with no details yet", () => {
+    expect(detailsWith([{ name: "a", value: 1 }], "a", null)).toEqual([]);
+    expect(detailsWith(null, "a", 1)).toEqual([{ name: "a", value: 1 }]);
+  });
+});
+describe("missingRequiredDetails", () => {
+  const spec = [
+    { name: "a", required: true, extractable: true },
+    { name: "b", required: true, extractable: true },
+    { name: "c", required: false, extractable: true },
+  ];
+  it("lists required details with no row at all, not those with a row still to check", () => {
+    expect(missingRequiredDetails(spec, [])).toEqual(["a", "b"]);
+    expect(missingRequiredDetails(spec, [{ name: "a", status: "pending" }])).toEqual(["b"]);
+    expect(missingRequiredDetails(spec, [{ name: "a", status: "rejected" }])).toEqual(["b"]);
+    expect(
+      missingRequiredDetails(spec, [
+        { name: "a", status: "accepted" },
+        { name: "b", status: "edited" },
+      ]),
+    ).toEqual([]);
+  });
+});

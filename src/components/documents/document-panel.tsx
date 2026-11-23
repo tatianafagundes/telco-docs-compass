@@ -106,8 +106,8 @@ export function DocumentPanel({
         ) : null}
       </div>
       {shared || showRecord ? <RecordLine entityId={entityId} /> : null}
-      {!shared && journeyStep(doc.status, toCheck) !== null ? (
-        <ReviewJourney step={journeyStep(doc.status, toCheck) ?? 0} />
+      {!shared && journeyStep(doc.status, toCheck, review.gate.pending) !== null ? (
+        <ReviewJourney step={journeyStep(doc.status, toCheck, review.gate.pending) ?? 0} />
       ) : null}
       {current ? (
         <p className="type-label-12 text-text-secondary">
@@ -157,7 +157,7 @@ export function DocumentPanel({
           >
             {bannerText(toCheck)}
           </Banner>
-        ) : review.fields.length > 0 ? (
+        ) : review.fields.length > 0 && review.gate.pending === 0 ? (
           <p className="type-label-12 text-text-secondary">
             All details read from this document are checked.
           </p>
