@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/erad/button";
 import { TextField } from "@/components/erad/text-field";
 import { Tag } from "@/components/erad/tag";
+import { loginErrorText, safePath } from "@/lib/safe-path";
 
 const search = z.object({
   redirect: z.string().optional(),
@@ -34,16 +35,6 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-function safePath(p: string | undefined) {
-  if (!p) return "/documents";
-  try {
-    const u = new URL(p, window.location.origin);
-    return u.origin === window.location.origin ? u.pathname + u.search : "/documents";
-  } catch {
-    return "/documents";
-  }
-}
-
 function AuthPage() {
   const { redirect, loggedOut } = Route.useSearch();
   const navigate = useNavigate();
@@ -59,10 +50,10 @@ function AuthPage() {
     const { error: err } = await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
     if (err) {
-      setError("That email and password did not match. You can try again.");
+      setError(loginErrorText(err.status));
       return;
     }
-    navigate({ to: safePath(redirect), replace: true });
+    navigate({ to: safePath(redirect, window.location.origin), replace: true });
   }
 
   return (
@@ -82,15 +73,15 @@ function AuthPage() {
               Prototype · synthetic data only
             </Tag>
           </div>
-          {loggedOut ? (
-            <p role="status" className="type-paragraph-14">
-              You have logged out. Log in again to continue.
-            </p>
-          ) : null}
+          <p role="status" className="type-paragraph-14 empty:hidden">
+            {loggedOut ? "You have logged out. Log in again to continue." : ""}
+          </p>
           <TextField
             label="Email"
             type="email"
             autoComplete="username"
+            // First stop on a page that is only this form (EDS sign in pattern).
+            autoFocus
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
