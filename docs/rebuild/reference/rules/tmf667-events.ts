@@ -69,7 +69,7 @@ export function toTmfEvent(
     previous?: string;
     documentIds?: unknown;
     action?: unknown;
-    legalHold?: unknown;
+    changed?: unknown;
   };
   if (row.event_type === "DocumentBatchEvent") {
     const ids = Array.isArray(p.documentIds)
@@ -96,7 +96,7 @@ export function toTmfEvent(
   }
   const eventType = eventNameFor(query, row.event_type);
   const state = p.lifecycleState as DocStatus | undefined;
-  const holdOnly = typeof p.legalHold === "boolean";
+  const holdOnly = p.changed === "legalHold";
   const changed =
     row.event_type === "DocumentStateChangeEvent"
       ? ["status"]
@@ -127,8 +127,6 @@ export function toTmfEvent(
           : state
             ? { status: toTmfStatus(state), lifecycleState: state }
             : {}),
-        // The hold flag only, never its reason or reference.
-        ...(holdOnly ? { legalHold: p.legalHold as boolean } : {}),
       },
     },
     ...(changed ? { changedAttributes: changed } : {}),

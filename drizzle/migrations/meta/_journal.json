@@ -127,6 +127,13 @@
       "when": 1794322776722,
       "tag": "0017_file_hooks_safe_attempt",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794323376722,
+      "tag": "0018_file_hooks_hardening",
+      "breakpoints": true
     }
   ]
 }

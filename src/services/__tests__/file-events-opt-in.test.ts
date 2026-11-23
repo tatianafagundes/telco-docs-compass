@@ -22,7 +22,7 @@ describe("file events are opt-in", () => {
     expect(eventMatches(null, "DocumentBatchEvent")).toBe(false);
   });
 });
-describe("hold flag on change events", () => {
+describe("hold change on change events", () => {
   const row = (payload: unknown) => ({
     id: 1,
     event_type: "DocumentAttributeValueChangeEvent",
@@ -30,20 +30,17 @@ describe("hold flag on change events", () => {
     created_at: "2026-11-24T10:00:00Z",
     payload,
   });
-  it("delivers legalHold and says that only the hold changed", () => {
-    const e = toTmfEvent("https://x.test", row({ legalHold: true }));
-    expect(e).toMatchObject({
-      event: { document: { legalHold: true } },
-      changedAttributes: ["legalHold"],
-    });
+  it("names legalHold as the changed attribute without sending its value", () => {
+    const e = toTmfEvent("https://x.test", row({ changed: "legalHold" }));
+    expect(e).toMatchObject({ changedAttributes: ["legalHold"] });
+    expect(JSON.stringify(e)).not.toMatch(/"legalHold":/);
   });
   it("never passes anything else from the payload", () => {
     const e = toTmfEvent(
       "https://x.test",
-      row({ legalHold: "yes", reason: "dispute", __proto__: { x: 1 } }),
+      row({ changed: "legalHold", legalHold: true, reason: "dispute" }),
     );
     expect(JSON.stringify(e)).not.toContain("dispute");
-    expect(JSON.stringify(e)).not.toContain('legalHold":"yes');
     expect(JSON.stringify(e)).not.toMatch(/"legalHold":/);
   });
 });
