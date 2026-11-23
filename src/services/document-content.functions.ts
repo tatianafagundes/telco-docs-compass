@@ -1,6 +1,8 @@
 // Server functions that add or change what a document holds: register it, edit its details and
 // add a version. Every one goes through `runWrite`.
 import { typeRefusal } from "@/services/upload-rules";
+import { keepUnread, versionStart } from "@/services/file-hook-versions";
+import { updateDocument } from "@/services/document-update";
 import { createServerFn } from "@tanstack/react-start";
 import type { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -143,9 +145,14 @@ export const updateMetadata = createServerFn({ method: "POST" })
         if (p.expiryDate !== undefined) update.expiry_date = p.expiryDate;
         if (p.characteristic !== undefined) update.characteristic = p.characteristic as Json;
         if (p.keepUnread) {
-          if (doc.pipeline_state !== "failed") return fail("doc.keepUnread.notFailed", "rejected");
+          const keep = keepUnread(doc.pipeline_state, doc.pipeline_detail);
+          if (!keep.ok)
+            return fail(
+              keep.code === "notFailed" ? "doc.keepUnread.notFailed" : "doc.keepUnread.notRead",
+              "rejected",
+            );
           update.pipeline_state = "ready";
-          update.pipeline_detail = { note: "notRead" };
+          update.pipeline_detail = keep.detail;
         }
         const { error } = await env.admin
           .from("documents")
@@ -177,6 +184,14 @@ export const addVersion = createServerFn({ method: "POST" })
         if (!doc) return fail("doc.notFound", "notFound");
         if (isFrozen(doc.status)) return fail("doc.edit.frozen", "rejected");
         if (contentProtected(doc.status)) return fail("doc.edit.approvedContent", "rejected");
+        // D5: every quarantined version is carried; a quarantined one is never restored.
+        const start = versionStart(
+          doc.pipeline_state,
+          doc.pipeline_detail,
+          doc.current_version_id,
+          data.restoreFromVersionId,
+        );
+        if (!start.ok) return fail(`doc.version.${start.code}`, "rejected");
         const { count } = await env.admin
           .from("document_versions")
           .select("id", { count: "exact", head: true })
@@ -184,6 +199,19 @@ export const addVersion = createServerFn({ method: "POST" })
         const n = (count ?? 0) + 1;
         const versionId = crypto.randomUUID();
         const label = data.label ? `${n} · ${data.label}` : String(n);
+        // A new or restored file is checked again from the start (R4.8), keeping the quarantine list.
+        const pointAt = (what: string) =>
+          updateDocument(
+            env.admin,
+            { id: data.id, tenantId: env.tenantId },
+            {
+              current_version_id: versionId,
+              pipeline_state: start.state,
+              pipeline_detail: start.detail,
+              updated_at: new Date().toISOString(),
+            },
+            what,
+          );
 
         if (data.restoreFromVersionId) {
           const { data: src } = await env.admin
@@ -211,14 +239,7 @@ export const addVersion = createServerFn({ method: "POST" })
             }),
             "saving a restored version",
           );
-          must(
-            await env.admin
-              .from("documents")
-              .update({ current_version_id: versionId, updated_at: new Date().toISOString() })
-              .eq("id", data.id)
-              .eq("tenant_id", env.tenantId),
-            "pointing a document at a restored version",
-          );
+          await pointAt("pointing a document at a restored version");
           await audit(
             env,
             "restore",
@@ -250,19 +271,7 @@ export const addVersion = createServerFn({ method: "POST" })
           }),
           "saving a new version",
         );
-        must(
-          await env.admin
-            .from("documents")
-            .update({
-              current_version_id: versionId,
-              pipeline_state: "uploading",
-              pipeline_detail: null,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", data.id)
-            .eq("tenant_id", env.tenantId),
-          "pointing a document at a new version",
-        );
+        await pointAt("pointing a document at a new version");
         const signed = must(
           await env.admin.storage.from(BUCKET).createSignedUploadUrl(storagePath),
           "preparing the upload address of a new version",
