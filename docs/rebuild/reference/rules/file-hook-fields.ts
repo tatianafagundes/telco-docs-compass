@@ -45,7 +45,12 @@ const fieldShape = z
       .refine((n) => codePoints(n) <= MAX_FIELD_NAME_CHARS),
     value: z.unknown(),
     confidence: z.number().finite().min(0).max(1),
-    source: z.string().regex(SOURCE).optional(),
+    // A plain label such as "page 2: table 1", never a link (R3.3).
+    source: z
+      .string()
+      .regex(SOURCE)
+      .refine((v) => !/:\/\/|^\/\/|^www\./i.test(v))
+      .optional(),
   })
   .strict();
 export type ExtractedField = z.infer<typeof fieldShape>;
@@ -92,8 +97,14 @@ const NAMES_SHOWN = 20;
 function realDate(s: string): boolean {
   const m = DATE.exec(s);
   if (!m) return false;
-  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
-  return d.toISOString().slice(0, 10) === s;
+  const d = new Date(0);
+  // setUTCFullYear keeps years 0-99 as they are (Date.UTC would read them as 1900-1999).
+  d.setUTCFullYear(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return (
+    d.getUTCFullYear() === Number(m[1]) &&
+    d.getUTCMonth() === Number(m[2]) - 1 &&
+    d.getUTCDate() === Number(m[3])
+  );
 }
 function safeText(s: string): boolean {
   return codePoints(s) <= MAX_EXTRACTED_VALUE_CHARS && !UNSAFE_TEXT.test(s);

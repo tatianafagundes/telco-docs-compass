@@ -135,7 +135,7 @@ describe("QA stepTransition: external results", () => {
   // DEFECT (low, file-hook-rules.ts:201/153): `ctx.versionId` is lowercased before the comparison, but
   // `from.versionId` is not. A scanner that echoes the version id in uppercase (valid per isUuid, and
   // Postgres prints lowercase but clients may not) gets a false `staleAttempt` and its result is dropped.
-  it.fails("accepts a result whose version id differs only in case (BUG: staleAttempt)", () => {
+  it("accepts a result whose version id differs only in case (fixed, was: staleAttempt)", () => {
     const r = stepTransition(
       "scanning",
       ext(),
@@ -251,18 +251,15 @@ describe("QA stepTransition: boundaries", () => {
   // does not start a new attempt and a late answer of the previous one matches the new step. Needs
   // 999,999,999 retries, so unreachable by people; the invariant "a start always changes the attempt"
   // is what the replay and stale checks rely on.
-  it.fails(
-    "Try again at MAX_ATTEMPT must still start a different attempt (BUG: same number)",
-    () => {
-      const r = stepTransition(
-        "failed",
-        { attempt: MAX_ATTEMPT, step: "read", reason: "unreadable" },
-        { kind: "retry" },
-        ctx(),
-      );
-      expect(r.ok && r.detail.attempt).not.toBe(MAX_ATTEMPT);
-    },
-  );
+  it("Try again at MAX_ATTEMPT must still start a different attempt (fixed, was: same number)", () => {
+    const r = stepTransition(
+      "failed",
+      { attempt: MAX_ATTEMPT, step: "read", reason: "unreadable" },
+      { kind: "retry" },
+      ctx(),
+    );
+    expect(r.ok && r.detail.attempt).not.toBe(MAX_ATTEMPT);
+  });
   it("an unguardable attempt (fraction, boolean, array, object) is refused, not written unguarded; missing counts up from 0", () => {
     for (const attempt of [1.5, true, [1], { a: 1 }])
       expect(
@@ -279,13 +276,10 @@ describe("QA stepTransition: boundaries", () => {
   // string ("5"), or beyond MAX, is guardable (storedAttemptText answers) but reads as 0, so the next
   // start writes attempt 1: the counter goes BACKWARDS from 5 to 1 and an old attempt-1 answer matches
   // again. Reachable only by a hand-edited row; the safe answer is to refuse (badDetail) or keep counting.
-  it.fails(
-    "never moves the attempt backwards when the stored attempt is the text '5' (BUG: 5 -> 1)",
-    () => {
-      const r = stepTransition("uploading", { attempt: "5" }, { kind: "confirmed" }, ctx());
-      expect(!r.ok || r.detail.attempt > 5).toBe(true);
-    },
-  );
+  it("never moves the attempt backwards when the stored attempt is the text '5' (fixed, was: 5 -> 1)", () => {
+    const r = stepTransition("uploading", { attempt: "5" }, { kind: "confirmed" }, ctx());
+    expect(!r.ok || r.detail.attempt > 5).toBe(true);
+  });
   it("a document whose attempt cannot be guarded can never move again, even by a new version (pinned dead end)", () => {
     for (const attempt of [true, 1.5, [3], { a: 1 }, 2 ** 53]) {
       expect(
@@ -376,12 +370,13 @@ describe("QA readDetail / storedAttemptText: jsonb text-guard edge cases", () =>
     ["integer", 3, 3, "3"],
     ["zero", 0, 0, "0"],
     ["max", MAX_ATTEMPT, MAX_ATTEMPT, String(MAX_ATTEMPT)],
-    ["max+1", MAX_ATTEMPT + 1, 0, "1000000000"],
-    ["negative", -3, 0, "-3"],
+    // Guardable only when it reads as the same attempt: otherwise the counter could go backwards.
+    ["max+1", MAX_ATTEMPT + 1, 0, undefined],
+    ["negative", -3, 0, undefined],
     ["negative zero", -0, 0, "0"],
-    ["text '03'", "03", 0, "03"],
-    ["text '3'", "3", 0, "3"],
-    ["empty text", "", 0, ""],
+    ["text '03'", "03", 0, undefined],
+    ["text '3'", "3", 0, undefined],
+    ["empty text", "", 0, undefined],
     ["fraction", 3.5, 0, undefined],
     ["boolean", true, 0, undefined],
     ["array", [3], 0, undefined],
@@ -922,7 +917,7 @@ describe("QA checkExtractedFields", () => {
   // DEFECT (low, file-hook-fields.ts:92 realDate): Date.UTC maps years 0..99 to 1900..1999, so a real
   // ISO date such as 0099-12-31 or 0000-01-01 is refused (false red). Dates that old are rare; the fix
   // is `setUTCFullYear` after construction.
-  it.fails("accepts a valid date in years 0000-0099 (BUG: Date.UTC maps them to 19xx)", () => {
+  it("accepts a valid date in years 0000-0099 (fixed, was: Date.UTC maps them to 19xx)", () => {
     expect(check(f("signedOn", "0099-12-31")).ok).toBe(true);
   });
   it("string length: 2000 code points pass, 2001 fail, emoji count once", () => {
@@ -959,11 +954,15 @@ describe("QA checkExtractedFields", () => {
     ["U+2062 invisible times", "\u2062"],
     ["U+3164 Hangul filler", "\u3164"],
     ["U+FFFA interlinear annotation", "\uFFFA"],
-    ["U+E0100 variation selector supplement", "\u{E0100}"],
   ] as const)
-    it.fails(`refuses ${name} in extracted text (BUG: accepted)`, () => {
+    it(`refuses ${name} in extracted text (fixed)`, () => {
       expect(UNSAFE_TEXT.test(`a${c}b`)).toBe(true);
     });
+  // Kept on purpose: ideographic variation sequences use the supplement block, as emoji use FE0F.
+  it("keeps variation selectors, which scripts and emoji need", () => {
+    expect(UNSAFE_TEXT.test("a\u{E0100}b")).toBe(false);
+    expect(UNSAFE_TEXT.test("\u2764\uFE0F")).toBe(false);
+  });
   it("multi-line text is refused (pinned: newline and tab are control characters, an address with a line break fails the whole result)", () => {
     expect(check(f("party", "Line 1\nLine 2")).ok).toBe(false);
   });
@@ -988,10 +987,12 @@ describe("QA checkExtractedFields", () => {
     for (const n of ["Party", "party ", "pаrty" /* Cyrillic a */, "PARTY"])
       expect(check(f(n, "x")).ok, n).toBe(false);
   });
-  it("source: empty becomes null; pinned: the spec's pattern lets URL-looking text through", () => {
+  it("source: empty becomes null, and a link is refused (R3.3, fixed)", () => {
     const r = checkExtractedFields([{ ...f("party", "x"), source: "" }], spec);
     expect(r.ok && r.fields[0]!.source).toBeNull();
-    expect(ext2Source("https://evil.example/x")).toBe(true); // R3.3 says "never a link"; the regex does not enforce it
+    for (const link of ["https://evil.example/x", "//evil.example", "www.evil.example", "ftp://x"])
+      expect(ext2Source(link), link).toBe(false);
+    expect(ext2Source("page 2: table 1")).toBe(true);
   });
 });
 function ext2Source(source: string) {

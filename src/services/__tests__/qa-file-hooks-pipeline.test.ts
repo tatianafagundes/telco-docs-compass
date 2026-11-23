@@ -554,16 +554,13 @@ describe("QA Keep without reading", () => {
   // reachable through the legacy rows tasks.md L3/L4 worry about) is turned into `ready`: D5 says a
   // quarantined version can never be made current-and-ready again. Downloads still refuse it, the tag
   // would say Ready.
-  it.fails(
-    "refuses to mark a listed (quarantined) current version ready (BUG: list ignored)",
-    () => {
-      expect(ok("failed", { step: "read", quarantinedVersions: [V] }, V)).toMatchObject({
-        ok: false,
-      });
-    },
-  );
+  it("refuses to mark a listed (quarantined) current version ready (fixed)", () => {
+    expect(ok("failed", { step: "read", quarantinedVersions: [V] }, V)).toMatchObject({
+      ok: false,
+    });
+  });
   it("the write guard holds against a new version or a new attempt landing meanwhile (real update path on FakeDb)", async () => {
-    for (const attempt of [3, "03", 0, undefined]) {
+    for (const attempt of [3, 0, undefined]) {
       const row = {
         id: D,
         tenant_id: "t1",

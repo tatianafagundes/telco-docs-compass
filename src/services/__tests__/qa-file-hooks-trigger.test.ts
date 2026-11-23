@@ -249,29 +249,22 @@ async function pgText(lit: string): Promise<string | null> {
 }
 describe("QA jsonb text guard against real Postgres", () => {
   it("storedAttemptText equals Postgres's `->>'attempt'` for every guardable literal that round-trips", async () => {
-    for (const lit of [
-      "3",
-      "0",
-      "-0",
-      "-1",
-      "999999999",
-      "1000000000",
-      "100",
-      '"03"',
-      '"3"',
-      '""',
-      '"x"',
-      '" 3"',
-      '"null"',
-      "1e2",
-      "null",
-    ]) {
+    for (const lit of ["3", "0", "-0", "999999999", "100", "1e2", "null"]) {
       const raw = JSON.parse(`{"attempt":${lit}}`);
       expect(storedAttemptText(raw), lit).toBe(await pgText(lit));
     }
   });
   it("a literal the text cannot represent is refused (undefined), never guessed", async () => {
     for (const lit of [
+      // Text and out-of-range numbers read as attempt 0, so guarding them would count backwards.
+      "-1",
+      "1000000000",
+      '"03"',
+      '"3"',
+      '""',
+      '"x"',
+      '" 3"',
+      '"null"',
       "1.5",
       "true",
       "[3]",

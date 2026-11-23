@@ -3,6 +3,7 @@
 import type { PipelineState } from "@/schemas/document";
 import {
   carriedQuarantine,
+  isQuarantined,
   quarantineHasRoom,
   readDetail,
   storedAttemptText,
@@ -78,6 +79,8 @@ export function keepUnread(
   const d = readDetail(rawDetail);
   if (d.reason === "noFile" || (d.step ?? "read") !== "read")
     return { ok: false, code: "notReadingFailure" };
+  // A quarantined version is never made ready (D5), whatever the failure says.
+  if (isQuarantined(d, currentVersionId)) return { ok: false, code: "notReadingFailure" };
   const attemptText = storedAttemptText(rawDetail);
   if (attemptText === undefined) return { ok: false, code: "badDetail" };
   return {

@@ -106,15 +106,14 @@ export function readDetail(raw: unknown): PipelineDetail {
 
 /**
  * The attempt exactly as `pipeline_detail->>'attempt'` reads in the database, so a guarded write can
- * compare it: null when missing or JSON null, the decimal text for an integer, the string itself for a
- * string. Anything else (objects, arrays, booleans, other numbers) is `undefined`: not guardable, and
- * the transition is refused rather than written unguarded.
+ * compare it: null when missing or JSON null, the decimal text for an attempt (0 to MAX_ATTEMPT).
+ * Anything else (text such as "3", negative or larger numbers, objects, arrays, booleans) is `undefined`: this code never writes
+ * it, it would read as attempt 0 and count backwards, so the change is refused rather than guessed.
  */
 export function storedAttemptText(raw: unknown): string | null | undefined {
   const v = ownOf(asRecord(raw))("attempt");
   if (v === undefined || v === null) return null;
-  if (typeof v === "number" && Number.isSafeInteger(v)) return String(v);
-  if (typeof v === "string") return v;
+  if (isAttempt(v)) return String(v);
   return undefined;
 }
 

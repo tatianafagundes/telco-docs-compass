@@ -412,14 +412,15 @@ describe("stepTransition", () => {
     ["missing", null, null],
     ["JSON null", { attempt: null }, null],
     ["an integer", { attempt: 3 }, "3"],
-    ["malformed text", { attempt: "x" }, "x"],
   ])("guards on the stored attempt when it is %s", (_n, detail, text) => {
     const r = stepTransition("uploading", detail, { kind: "confirmed" }, ctx());
     expect(r.ok && r.expect.attemptText).toBe(text);
   });
-  it("a malformed stored attempt counts as 0 for the next one", () => {
-    const r = stepTransition("uploading", { attempt: "x" }, { kind: "confirmed" }, ctx());
-    expect(r.ok && r.detail.attempt).toBe(1);
+  it("an attempt stored as text is refused, never counted from 0 again", () => {
+    expect(stepTransition("uploading", { attempt: "x" }, { kind: "confirmed" }, ctx())).toEqual({
+      ok: false,
+      code: "badDetail",
+    });
   });
   it("records when the step started and drops the old failure reason on retry", () => {
     const r = stepTransition(

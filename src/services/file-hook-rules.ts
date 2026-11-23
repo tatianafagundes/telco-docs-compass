@@ -150,7 +150,9 @@ function resultRefusal(
   if (prev.mode !== "external") return "notExternal";
   if (prev.byClient !== from.clientId) return "notYourStep";
   // A late answer about an older version or attempt never applies to the current one.
-  return from.attempt === prev.attempt && prev.step === step && from.versionId === versionId
+  return from.attempt === prev.attempt &&
+    prev.step === step &&
+    from.versionId.toLowerCase() === versionId
     ? null
     : "staleAttempt";
 }
@@ -189,6 +191,12 @@ export function stepTransition(
     expect: { state, attemptText, versionId: ctx.versionId },
   });
   if (state === "quarantined" || isQuarantined(prev, ctx.versionId)) return refuse("quarantined");
+  // A new step must have a new attempt number, or a late answer would match it.
+  const starts =
+    input.kind === "confirmed" ||
+    input.kind === "retry" ||
+    (input.kind === "scanResult" && input.result === "clean");
+  if (starts && prev.attempt >= MAX_ATTEMPT) return refuse("badDetail");
   const recorded = (step: Step, result: string, from?: ResultFrom) =>
     from ? { lastResult: { step, attempt: from.attempt, result, byClient: from.clientId } } : {};
   switch (input.kind) {

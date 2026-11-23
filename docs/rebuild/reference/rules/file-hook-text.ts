@@ -4,10 +4,12 @@
  * Characters never accepted in text from an outside system: C0/C1 controls, lone surrogates (jsonb
  * refuses them), line and paragraph separators, bidi marks, embeddings, overrides and isolates,
  * invisible spaces and joiners that hide content (zero-width space, word joiner, byte-order mark) and
- * tag characters. Zero-width joiner and non-joiner stay allowed: scripts and emoji need them.
+ * tag characters, invisible operators, filler characters that render as nothing (Hangul fillers) and
+ * interlinear annotation marks. Zero-width joiner and non-joiner stay allowed: scripts and emoji need
+ * them; so do the variation selectors.
  */
 export const UNSAFE_TEXT =
-  /[\p{Cc}\p{Cs}\u061C\u200B\u200E\u200F\u2028\u2029\u202A-\u202E\u2060\u2066-\u2069\uFEFF\u{E0000}-\u{E007F}]/u;
+  /[\p{Cc}\p{Cs}\u061C\u200B\u200E\u200F\u2028\u2029\u202A-\u202E\u2060-\u2064\u2066-\u2069\u115F\u1160\u3164\uFFA0\uFFF9-\uFFFB\uFEFF\u{E0000}-\u{E007F}]/u;
 const UNSAFE_ALL = new RegExp(UNSAFE_TEXT.source, "gu");
 
 export function codePoints(s: string): number {

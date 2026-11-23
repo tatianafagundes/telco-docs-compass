@@ -65,8 +65,8 @@ describe("readDetail never throws and drops what it does not know", () => {
   it("gives the stored attempt as the database reads it, or undefined when it cannot be compared", () => {
     expect(storedAttemptText({})).toBeNull();
     expect(storedAttemptText({ attempt: 7 })).toBe("7");
-    expect(storedAttemptText({ attempt: "7" })).toBe("7");
-    for (const bad of [true, [1], { n: 1 }, 1.5])
+    // Text, negative and out-of-range attempts read as 0: guarding them would count backwards.
+    for (const bad of [true, [1], { n: 1 }, 1.5, "7", "", -1, 1e9])
       expect(storedAttemptText({ attempt: bad })).toBeUndefined();
   });
 });
