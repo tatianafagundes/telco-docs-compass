@@ -19,6 +19,7 @@ import { SavedViews } from "@/components/search/saved-views";
 import {
   filtersOf,
   parseDocumentsSearch,
+  resultsSummary,
   type DocumentsSearch,
 } from "@/components/search/search-url";
 import { StartLists } from "@/components/search/start-lists";
@@ -289,18 +290,25 @@ function Results(p: {
         <FacetPanel filters={p.filters} onChange={p.onChange} />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col gap-3">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <p className="type-label-14" role="status" aria-live="polite">
-            {count.isPending ? "Counting…" : count.isError ? "Results" : countLabel(count.data)}
+        {/* One toolbar row: what is shown, a way back to everything, and the order. */}
+        <div className="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-2">
+          <p className="type-label-14-medium" role="status" aria-live="polite">
+            {count.isPending
+              ? "Counting…"
+              : count.isError
+                ? "Results"
+                : resultsSummary(countLabel(count.data), p.filters.q)}
           </p>
-          <div className="flex items-end gap-2">
-            {hasAnyFilter(p.filters) ? (
-              <Button variant="ghost" onClick={p.onClearAll}>
-                Clear all
-              </Button>
-            ) : null}
+          {hasAnyFilter(p.filters) ? (
+            <Button variant="ghost" onClick={p.onClearAll}>
+              <X aria-hidden="true" />
+              Clear filters
+            </Button>
+          ) : null}
+          <div className="ml-auto">
             <Select
-              label="Sort"
+              label="Sort by"
+              inline
               value={sort}
               onValueChange={(v) => p.onChange({ ...p.filters, sort: v as SortKey })}
               groups={[
@@ -314,7 +322,6 @@ function Results(p: {
             />
           </div>
         </div>
-
         {selected.size > 0 || matchAll ? (
           <div className="flex flex-col gap-2">
             {allLoaded && !matchAll && count.data !== undefined && count.data > rows.length ? (
@@ -356,7 +363,7 @@ function Results(p: {
             icon={FileSearch}
             title="No documents match"
             cause="You can try fewer filters or a shorter word. Numbers like O-7731 also find the record itself."
-            action={<Button onClick={p.onClearAll}>Clear all filters</Button>}
+            action={<Button onClick={p.onClearAll}>Clear filters</Button>}
           />
         ) : (
           <ResultsTable

@@ -14,12 +14,14 @@ export interface SelectProps {
   defaultValue?: string;
   placeholder?: string;
   onValueChange?: (v: string) => void;
+  /** Label beside the field instead of above it, for one-row toolbars. */
+  inline?: boolean;
 }
 
-export function Select({ label, groups, placeholder, ...props }: SelectProps) {
+export function Select({ label, groups, placeholder, inline, ...props }: SelectProps) {
   const id = React.useId();
   return (
-    <div className="flex flex-col gap-1">
+    <div className={inline ? "flex items-center gap-2" : "flex flex-col gap-1"}>
       <label id={id} className="type-label-14">
         {label}
       </label>

@@ -70,3 +70,9 @@ export function inDays(n: number): string {
   const d = new Date(Date.now() + n * 86_400_000);
   return d.toISOString().slice(0, 10);
 }
+
+/** The toolbar's one status line: how many, and for which words when there are any. */
+export function resultsSummary(count: string, q: string | undefined): string {
+  const t = q?.trim();
+  return t ? `${count} for "${t}"` : count;
+}
