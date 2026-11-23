@@ -21,7 +21,9 @@ export interface MenuEntry {
 /** "…" menu for less frequent document actions. Unavailable entries stay focusable and show their reason. */
 export function DocumentMenu({ entries }: { entries: MenuEntry[] }) {
   return (
-    <DropdownMenu>
+    // Not modal: a modal menu hides the page with aria-hidden while focus stays in the menu, which
+    // axe reports (aria-hidden-focus). Escape and a click outside still close it.
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger
         aria-label="More actions"
         className="focus-ring inline-flex size-8 shrink-0 items-center justify-center rounded-control text-text-main hover:bg-item-hover"

@@ -97,7 +97,8 @@ export function AppShell({ tenantName, userName, role, children }: AppShellProps
           >
             {theme === "light" ? <Moon className="size-4" /> : <Sun className="size-4" />}
           </button>
-          <DropdownMenu.Root>
+          {/* Not modal, like every menu here: the page behind is never hidden with aria-hidden. */}
+          <DropdownMenu.Root modal={false}>
             <DropdownMenu.Trigger
               aria-label={`Account menu for ${userName}`}
               className="focus-ring flex items-center gap-2 rounded-control px-1 py-1 hover:bg-btn-default-hover"
