@@ -1,8 +1,9 @@
 // Server functions that add or change what a document holds: register it, edit its details and
 // add a version. Every one goes through `runWrite`.
 import { typeRefusal } from "@/services/upload-rules";
-import { keepUnread, versionStart } from "@/services/file-hook-versions";
-import { updateDocument } from "@/services/document-update";
+import { keepUnread } from "@/services/file-hook-versions";
+import { updateDocumentIf } from "@/services/document-update";
+import { addVersionStep } from "@/services/document-add-version";
 import { createServerFn } from "@tanstack/react-start";
 import type { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -144,24 +145,34 @@ export const updateMetadata = createServerFn({ method: "POST" })
         if (p.sensitivity !== undefined) update.sensitivity = p.sensitivity;
         if (p.expiryDate !== undefined) update.expiry_date = p.expiryDate;
         if (p.characteristic !== undefined) update.characteristic = p.characteristic as Json;
-        if (p.keepUnread) {
-          const keep = keepUnread(doc.pipeline_state, doc.pipeline_detail);
-          if (!keep.ok)
-            return fail(
-              keep.code === "notFailed" ? "doc.keepUnread.notFailed" : "doc.keepUnread.notRead",
-              "rejected",
-            );
+        // Kept unread only as read: a version added meanwhile is never marked ready unchecked.
+        const keep = p.keepUnread
+          ? keepUnread(doc.pipeline_state, doc.pipeline_detail, doc.current_version_id)
+          : null;
+        if (keep && !keep.ok)
+          return fail(
+            keep.code === "notFailed" ? "doc.keepUnread.notFailed" : "doc.keepUnread.notRead",
+            "rejected",
+          );
+        if (keep?.ok) {
           update.pipeline_state = "ready";
           update.pipeline_detail = keep.detail;
         }
-        const { error } = await env.admin
-          .from("documents")
-          .update(update)
-          .eq("id", data.id)
-          .eq("tenant_id", env.tenantId);
-        if (error) return fail("doc.update.failed", "unavailable", "retry");
-        if (p.keepUnread)
-          await audit(env, "pipelineStateChange", data.id, "failed to ready (kept unread)");
+        const written = await updateDocumentIf(
+          env.admin,
+          { id: data.id, tenantId: env.tenantId, expect: keep?.ok ? { ...keep.expect } : {} },
+          update,
+          "updating a document's details",
+        );
+        if (!written) return fail("doc.changedMeanwhile", "conflict", "retry");
+        if (keep?.ok)
+          await audit(
+            env,
+            "pipelineStateChange",
+            data.id,
+            "failed to ready (kept unread)",
+            doc.current_version_id,
+          );
         return { ok: true, data: await loadDoc(env.admin, data.id) };
       },
     );
@@ -177,120 +188,6 @@ export const addVersion = createServerFn({ method: "POST" })
       context,
       await adminClient(),
       { op: "addVersion", idempotencyKey, body, scope: { kind: "doc", id: data.id } },
-      async (env) => {
-        const blocked = addDocumentsBlocker(env.role);
-        if (blocked) return { ok: false, error: blocked };
-        const doc = await loadDoc(env.admin, data.id);
-        if (!doc) return fail("doc.notFound", "notFound");
-        if (isFrozen(doc.status)) return fail("doc.edit.frozen", "rejected");
-        if (contentProtected(doc.status)) return fail("doc.edit.approvedContent", "rejected");
-        // D5: every quarantined version is carried; a quarantined one is never restored.
-        const start = versionStart(
-          doc.pipeline_state,
-          doc.pipeline_detail,
-          doc.current_version_id,
-          data.restoreFromVersionId,
-        );
-        if (!start.ok) return fail(`doc.version.${start.code}`, "rejected");
-        const { count } = await env.admin
-          .from("document_versions")
-          .select("id", { count: "exact", head: true })
-          .eq("document_id", data.id);
-        const n = (count ?? 0) + 1;
-        const versionId = crypto.randomUUID();
-        const label = data.label ? `${n} · ${data.label}` : String(n);
-        // A new or restored file is checked again from the start (R4.8), keeping the quarantine list.
-        const pointAt = (what: string) =>
-          updateDocument(
-            env.admin,
-            { id: data.id, tenantId: env.tenantId },
-            {
-              current_version_id: versionId,
-              pipeline_state: start.state,
-              pipeline_detail: start.detail,
-              updated_at: new Date().toISOString(),
-            },
-            what,
-          );
-
-        if (data.restoreFromVersionId) {
-          const { data: src } = await env.admin
-            .from("document_versions")
-            .select("mime_type, size_bytes, content_hash, storage_path, sample_pages, label")
-            .eq("id", data.restoreFromVersionId)
-            .eq("document_id", data.id)
-            .maybeSingle();
-          if (!src) return fail("doc.version.notFound", "notFound");
-          must(
-            await env.admin.from("document_versions").insert({
-              id: versionId,
-              document_id: data.id,
-              tenant_id: env.tenantId,
-              label,
-              is_named: data.isNamed ?? false,
-              note: data.note ?? `Restored from version ${src.label}`,
-              mime_type: src.mime_type,
-              size_bytes: src.size_bytes,
-              content_hash: src.content_hash,
-              storage_path: src.storage_path,
-              sample_pages: src.sample_pages,
-              supersedes: doc.current_version_id,
-              created_by: env.userId,
-            }),
-            "saving a restored version",
-          );
-          await pointAt("pointing a document at a restored version");
-          await audit(
-            env,
-            "restore",
-            data.id,
-            `Version ${n} from ${src.label}`.slice(0, 160),
-            versionId,
-          );
-          return {
-            ok: true,
-            data: { versionId: versionId as string, label, upload: null as UploadTicket | null },
-          };
-        }
-
-        const storagePath = `${env.tenantId}/${versionId}`;
-        must(
-          await env.admin.from("document_versions").insert({
-            id: versionId,
-            document_id: data.id,
-            tenant_id: env.tenantId,
-            label,
-            is_named: data.isNamed ?? false,
-            note: data.note ?? null,
-            mime_type: data.mimeType,
-            size_bytes: data.size ?? null,
-            content_hash: data.contentHash ?? "",
-            storage_path: storagePath,
-            supersedes: doc.current_version_id,
-            created_by: env.userId,
-          }),
-          "saving a new version",
-        );
-        await pointAt("pointing a document at a new version");
-        const signed = must(
-          await env.admin.storage.from(BUCKET).createSignedUploadUrl(storagePath),
-          "preparing the upload address of a new version",
-        );
-        await audit(env, "upload", data.id, `Version ${n}`, versionId);
-        return {
-          ok: true,
-          data: {
-            versionId: versionId as string,
-            label,
-            upload: <UploadTicket | null>{
-              versionId,
-              method: "signedUrl" as const,
-              url: signed?.signedUrl ?? "",
-              token: signed?.token ?? "",
-              expiresAt: new Date(Date.now() + UPLOAD_URL_SECONDS * 1000).toISOString(),
-            },
-          },
-        };
-      },
+      (env) => addVersionStep(env, body),
     );
   });

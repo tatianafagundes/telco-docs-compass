@@ -58,9 +58,14 @@ describe("updates of a document row are pinned to the tenant", () => {
 describe("adding documents is refused for the group administrator on the server", () => {
   it("register and addVersion check addDocumentsBlocker before anything else", () => {
     const source = readFileSync("src/services/document-content.functions.ts", "utf8");
-    for (const op of ['op: "register"', 'op: "addVersion"']) {
-      const body = source.slice(source.indexOf(op), source.indexOf(op) + 300);
-      expect(body).toContain("addDocumentsBlocker(env.role)");
-    }
+    const at = (src: string, marker: string) =>
+      src.slice(src.indexOf(marker), src.indexOf(marker) + 300);
+    expect(at(source, 'op: "register"')).toContain("addDocumentsBlocker(env.role)");
+    // addVersion runs addVersionStep, whose first check is the same blocker.
+    expect(at(source, 'op: "addVersion"')).toContain("(env) => addVersionStep(env, body)");
+    const step = readFileSync("src/services/document-add-version.ts", "utf8");
+    const body = at(step, "export async function addVersionStep(");
+    expect(body.indexOf("addDocumentsBlocker(env.role)")).toBeGreaterThan(0);
+    expect(body.indexOf("addDocumentsBlocker(env.role)")).toBeLessThan(body.indexOf("loadDoc("));
   });
 });

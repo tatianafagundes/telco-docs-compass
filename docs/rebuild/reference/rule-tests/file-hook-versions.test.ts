@@ -13,8 +13,13 @@ describe("versionStart", () => {
     expect(versionStart("ready", { quarantinedVersions: [V2], attempt: 3 }, V)).toEqual({
       ok: true,
       state: "uploading",
-      detail: { quarantinedVersions: [V2] },
+      // The attempt goes on counting, so a late answer about an earlier attempt never matches.
+      detail: { attempt: 3, quarantinedVersions: [V2] },
+      expect: { pipeline_state: "ready", current_version_id: V, "pipeline_detail->>attempt": "3" },
     });
+  });
+  it("refuses a stored attempt the database cannot compare", () => {
+    expect(versionStart("ready", { attempt: [1] }, V)).toEqual({ ok: false, code: "badDetail" });
   });
   it("adds the current version of a document quarantined before the list existed", () => {
     expect(versionStart("quarantined", { reason: "threat" }, V)).toMatchObject({
@@ -61,15 +66,21 @@ describe("keepUnread", () => {
     ["a scanner that did not answer", { reason: "noResult", step: "scan" }, false],
     ["a file that never arrived", { reason: "noFile" }, false],
   ])("%s → %s", (_n, detail, allowed) => {
-    const r = keepUnread("failed", detail);
+    const r = keepUnread("failed", detail, V);
     expect(r.ok).toBe(allowed);
     if (!r.ok) expect(r.code).toBe("notReadingFailure");
   });
   it("only for a failed document, and keeps the quarantine list", () => {
-    expect(keepUnread("scanning", null)).toEqual({ ok: false, code: "notFailed" });
-    expect(keepUnread("failed", { reason: "unreadable", quarantinedVersions: [V2] })).toEqual({
+    expect(keepUnread("scanning", null, V)).toEqual({ ok: false, code: "notFailed" });
+    expect(keepUnread("failed", { reason: "unreadable", quarantinedVersions: [V2] }, V)).toEqual({
       ok: true,
-      detail: { note: "notRead", quarantinedVersions: [V2] },
+      detail: { note: "notRead", attempt: 0, quarantinedVersions: [V2] },
+      // Guarded on the version that failed: one added meanwhile is never marked ready unchecked.
+      expect: {
+        pipeline_state: "failed",
+        current_version_id: V,
+        "pipeline_detail->>attempt": null,
+      },
     });
   });
 });
@@ -79,7 +90,14 @@ describe("the server functions use these rules", () => {
   it("never clears pipeline_detail or writes the old keep-unread detail", () => {
     expect(src).not.toMatch(/pipeline_detail:\s*null/);
     expect(src).not.toMatch(/pipeline_detail\s*=\s*\{\s*note/);
-    expect(src).toContain("keepUnread(doc.pipeline_state, doc.pipeline_detail)");
-    expect(src).toContain("versionStart(");
+    expect(src).toContain(
+      "keepUnread(doc.pipeline_state, doc.pipeline_detail, doc.current_version_id)",
+    );
+    expect(src).toMatch(
+      /updateDocumentIf\([\s\S]*?expect: keep\?\.ok \? \{ \.\.\.keep\.expect \} : \{\}/,
+    );
+    const add = readFileSync("src/services/document-add-version.ts", "utf8");
+    expect(add).not.toMatch(/pipeline_detail:\s*null/);
+    expect(add).toMatch(/updateDocumentIf\([\s\S]*?expect: \{ \.\.\.start\.expect \}/);
   });
 });
