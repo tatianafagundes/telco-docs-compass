@@ -41,7 +41,7 @@ function pathValue(row: Row, path: string): unknown {
     if (obj === null || typeof obj !== "object" || Array.isArray(obj)) return null;
     const v = Object.hasOwn(obj, key) ? (obj as Row)[key] : null;
     if (v === null || v === undefined) return null;
-    return typeof v === "object" ? JSON.stringify(v) : String(v);
+    return typeof v === "object" ? pgJsonText(v) : String(v);
   }
   let cur: unknown = row;
   for (const part of path.split(".")) {
@@ -49,6 +49,22 @@ function pathValue(row: Row, path: string): unknown {
     cur = (cur as Row)[part];
   }
   return cur;
+}
+
+const UUID_TEXT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function sameValue(a: unknown, b: unknown): boolean {
+  if (typeof a === "string" && typeof b === "string" && UUID_TEXT.test(a) && UUID_TEXT.test(b))
+    return a.toLowerCase() === b.toLowerCase();
+  return a === b;
+}
+/** jsonb as Postgres prints it: a space after each colon and comma. */
+function pgJsonText(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(pgJsonText).join(", ")}]`;
+  if (v !== null && typeof v === "object")
+    return `{${Object.entries(v)
+      .map(([k, x]) => `${JSON.stringify(k)}: ${pgJsonText(x)}`)
+      .join(", ")}}`;
+  return JSON.stringify(v);
 }
 
 /** Top-level column names of a PostgREST select string; joins like `a!inner(b)` keep their key `a`. */
@@ -296,7 +312,9 @@ class QueryBuilder implements PromiseLike<DbAnswer> {
     return this;
   }
   eq(column: string, value: unknown) {
-    this.filters.push((r) => pathValue(r, column) === value);
+    // As PostgREST: `eq.null` compares with the text "null" and never matches an empty column (use
+    // `is`), and uuids compare in any letter case.
+    this.filters.push((r) => value !== null && sameValue(pathValue(r, column), value));
     return this;
   }
   in(column: string, values: unknown[]) {

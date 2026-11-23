@@ -656,26 +656,23 @@ describe("QA FakeDb: where it can make a test pass for the wrong reason", () => 
     expect(await ids((q) => q.is("d->>attempt", null))).toEqual(["4", "5", "6"]);
     expect(await ids((q) => q.eq("d->>attempt", 3))).toEqual([]); // typed: the real filter is text, a number never equals it
     expect(await ids((q) => q.eq("d->>__proto__", "x"))).toEqual([]);
-    expect(await ids((q) => q.eq("d->>nested", '{"a":1}'))).toEqual(["3"]);
+    expect(await ids((q) => q.eq("d->>nested", '{"a":1}'))).toEqual([]); // Postgres prints {"a": 1}
   });
   // DIVERGENCE (low, test infrastructure): PostgREST `eq.null` compares with the TEXT "null" and never
   // matches a NULL column; FakeDb.eq(col, null) matches NULL rows. A service that wrote `.eq(col, null)`
   // would pass every FakeDb test and match nothing in production. (updateDocumentIf uses `.is`, so the
   // guard is safe; this is a trap for the next caller.)
-  it.fails(
-    "FakeDb.eq(col, null) must not match NULL rows, as PostgREST's eq.null does",
-    async () => {
-      expect(await ids((q) => q.eq("v", null))).toEqual([]);
-    },
-  );
+  it("FakeDb.eq(col, null) must not match NULL rows, as PostgREST's eq.null does", async () => {
+    expect(await ids((q) => q.eq("v", null))).toEqual([]);
+  });
   // DIVERGENCE (low): Postgres compares uuid columns case-insensitively; FakeDb compares strings.
   // A guard on `current_version_id` written from an upper-case id passes in Postgres, fails here.
-  it.fails("FakeDb.eq on a uuid column ignores letter case, as Postgres does", async () => {
+  it("FakeDb.eq on a uuid column ignores letter case, as Postgres does", async () => {
     expect(await ids((q) => q.eq("u", "abcdef00-0000-4000-8000-000000000000"))).toEqual(["1"]);
   });
   // DIVERGENCE (low): Postgres prints jsonb objects with a space after the colon ({"a": 1}); FakeDb
   // prints compact JSON. Nothing in phases 1-2 compares object text; it matters if a guard ever does.
-  it.fails('FakeDb `->>` of a nested object prints it as Postgres does ({"a": 1})', async () => {
+  it('FakeDb `->>` of a nested object prints it as Postgres does ({"a": 1})', async () => {
     expect(await ids((q) => q.eq("d->>nested", '{"a": 1}'))).toEqual(["3"]);
   });
 });
