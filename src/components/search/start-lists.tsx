@@ -6,48 +6,28 @@ import { Tag } from "@/components/erad/tag";
 import { previewQuery } from "@/hooks/use-document-search";
 import { STATUS_LABEL, STATUS_TONE, typeLabel } from "@/lib/document-labels";
 import type { SearchFilters } from "@/services/search-rules";
-import { inDays } from "@/components/search/search-url";
-
-interface Section {
-  title: string;
-  empty: string;
-  filters: SearchFilters;
-}
+import { startSections, type Section } from "@/components/search/start-sections";
 
 /** The start page: a few short lists instead of everything. Each "See all" opens the full results. */
 export function StartLists({
   isAdmin,
+  canReview,
   onOpen,
   onSeeAll,
 }: {
   isAdmin: boolean;
+  canReview: boolean;
   onOpen: (id: string, entityId: string | null) => void;
   onSeeAll: (f: SearchFilters) => void;
 }) {
-  const sections: Section[] = [
-    {
-      title: "Waiting for you",
-      empty: "Nothing needs checking right now. Nice work.",
-      filters: { review: true },
-    },
-    {
-      title: "Recently changed",
-      empty: "Documents you can see will appear here as they change.",
-      filters: {},
-    },
-    {
-      title: "Expiring in the next 90 days",
-      empty: "Nothing expires in the next 90 days.",
-      filters: { expiringBefore: inDays(90), sort: "expiry" },
-    },
-    ...(isAdmin
-      ? [{ title: "On legal hold", empty: "No documents are on hold.", filters: { hold: true } }]
-      : []),
-  ];
+  const sections = startSections({ isAdmin, canReview });
   return (
-    <div className="grid gap-6 xl:grid-cols-2">
+    // Columns flow like a newspaper, so a short list does not leave a hole beside a long one.
+    <div className="gap-6 xl:columns-2">
       {sections.map((s) => (
-        <StartSection key={s.title} section={s} onOpen={onOpen} onSeeAll={onSeeAll} />
+        <div key={s.title} className="mb-6 break-inside-avoid">
+          <StartSection section={s} onOpen={onOpen} onSeeAll={onSeeAll} />
+        </div>
       ))}
     </div>
   );

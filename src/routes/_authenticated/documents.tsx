@@ -23,7 +23,7 @@ import {
 import { StartLists } from "@/components/search/start-lists";
 import { useDocumentCount, useRecordMatches, useSearchPages } from "@/hooks/use-document-search";
 import { meQuery, useMe } from "@/hooks/use-me";
-import type { AppRole } from "@/services/document-rules";
+import { can, type AppRole } from "@/services/document-rules";
 import {
   countLabel,
   hasAnyFilter,
@@ -161,7 +161,12 @@ function DocumentsPage() {
             onClearAll={() => void navigate({ search: {} })}
           />
         ) : (
-          <StartLists isAdmin={isAdmin} onOpen={open} onSeeAll={(f) => setFilters(f, true)} />
+          <StartLists
+            isAdmin={isAdmin}
+            canReview={can(role, "review")}
+            onOpen={open}
+            onSeeAll={(f) => setFilters(f, true)}
+          />
         )}
       </div>
       {search.doc ? (
