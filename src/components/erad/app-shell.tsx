@@ -252,22 +252,33 @@ function AdminNavItem({ role, pathname, icon }: { role: string; pathname: string
           <Icon className="size-4 shrink-0" aria-hidden="true" />
           <span className="hidden xl:inline">Admin</span>
         </Link>
-        <button
-          type="button"
-          aria-expanded={shown}
-          aria-controls="admin-areas"
-          aria-label={shown ? "Hide Admin areas" : "Show Admin areas"}
-          disabled={inside}
-          onClick={() => setOpen((o) => !o)}
-          className="focus-ring hidden h-10 w-10 shrink-0 items-center justify-center hover:bg-item-hover disabled:cursor-default disabled:hover:bg-transparent xl:flex"
-        >
-          <ChevronDown
+        {inside ? (
+          // Inside Admin the areas stay open, so there is nothing to toggle: a plain mark, not a
+          // button that cannot be pressed.
+          <span
             aria-hidden="true"
-            className={
-              shown ? "size-4 rotate-180 transition-transform" : "size-4 transition-transform"
-            }
-          />
-        </button>
+            className="hidden h-10 w-10 shrink-0 items-center justify-center xl:flex"
+          >
+            <ChevronDown className="size-4 rotate-180" />
+          </span>
+        ) : (
+          // Below 1280px the navigation shows icons only; Admin then opens its first area.
+          <button
+            type="button"
+            aria-expanded={shown}
+            {...(shown ? { "aria-controls": "admin-areas" } : {})}
+            aria-label={shown ? "Hide Admin areas" : "Show Admin areas"}
+            onClick={() => setOpen((o) => !o)}
+            className="focus-ring hidden h-10 w-10 shrink-0 items-center justify-center hover:bg-item-hover xl:flex"
+          >
+            <ChevronDown
+              aria-hidden="true"
+              className={
+                shown ? "size-4 rotate-180 transition-transform" : "size-4 transition-transform"
+              }
+            />
+          </button>
+        )}
       </div>
       {shown ? (
         <ul id="admin-areas" aria-label="Admin areas" className="flex flex-col">

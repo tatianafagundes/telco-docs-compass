@@ -16,4 +16,7 @@ describe("app shell", () => {
     const admin = source.slice(source.indexOf('to="/admin"'), source.indexOf('to="/admin"') + 300);
     expect(admin).toContain("activeOptions={{ exact: true }}");
   });
+  it("never renders the Admin chevron as a disabled button", () => {
+    expect(source).not.toMatch(/disabled=\{inside\}/);
+  });
 });
