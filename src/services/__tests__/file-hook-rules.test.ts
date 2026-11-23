@@ -1,31 +1,34 @@
-// File hooks, pure rules: event whitelist (R1.5, R1.6), step transitions (R2.4, R3.5, R4.4, R4.7, D5),
-// download rule (R2.1, R3.1, D5) and timeouts (D8).
+// File hooks, pure rules: event whitelist (R1.5, R1.6) and step transitions (R2.3–R2.9, R3.5,
+// R4.2–R4.7, D5).
 import { describe, expect, it } from "vitest";
-import { downloadDecision } from "@/services/file-hook-download";
+import type { PipelineState } from "@/schemas/document";
+import { MAX_QUARANTINED_VERSIONS } from "@/services/file-hook-detail";
 import {
-  EXTERNAL_RESULT_TIMEOUT_MINUTES,
   fileEventPayload,
-  quarantineAlertDue,
-  QUARANTINE_ALERT_PER_HOUR,
-  readDetail,
+  MAX_PURGED_VERSION_IDS,
   stepTransition,
-  timedOut,
-  UPLOAD_CONFIRM_TIMEOUT_HOURS,
   type StepContext,
   type StepInput,
 } from "@/services/file-hook-rules";
-import type { PipelineState } from "@/schemas/document";
+import { EXTERNAL_RESULT_TIMEOUT_MINUTES } from "@/services/file-hook-timeouts";
 
 const V = "11111111-1111-4111-8111-111111111111";
 const V2 = "22222222-2222-4222-8222-222222222222";
 const NOW = "2026-11-24T10:00:00.000Z";
-const ext = { mode: "external" as const, by: "Acme AV", byClient: "c-scan" };
+const LONG_AGO = "2026-11-20T10:00:00.000Z";
+const scanOwner = { mode: "external" as const, by: "Acme AV", byClient: "c-scan" };
+const readOwner = { mode: "external" as const, by: "Acme OCR", byClient: "c-read" };
 const sim = { mode: "simulated" as const };
-const ctx = (owner: StepContext["owner"] = { scan: ext, read: sim }): StepContext => ({
+const ctx = (owner: StepContext["owner"] = { scan: scanOwner, read: sim }): StepContext => ({
   now: NOW,
   versionId: V,
   owner,
+  times: { uploadStartedAt: LONG_AGO, updatedAt: LONG_AGO },
 });
+const extScan = { mode: "external", byClient: "c-scan", step: "scan", attempt: 1 };
+const extRead = { mode: "external", byClient: "c-read", step: "read", attempt: 2 };
+const fromScan = { clientId: "c-scan", attempt: 1 };
+const fromRead = { clientId: "c-read", attempt: 2 };
 
 describe("file event payloads keep only whitelisted keys", () => {
   it("keeps the Stored keys with the right types", () => {
@@ -64,45 +67,47 @@ describe("file event payloads keep only whitelisted keys", () => {
     });
     expect(out).toEqual({ versionId: V });
   });
-  it("Purged keeps a list of version ids only when every entry is one", () => {
-    expect(fileEventPayload("DocumentFilePurgedEvent", { versionIds: [] })).toEqual({
-      versionIds: [],
-    });
-    expect(fileEventPayload("DocumentFilePurgedEvent", { versionIds: [V, V2] })).toEqual({
-      versionIds: [V, V2],
-    });
-    expect(fileEventPayload("DocumentFilePurgedEvent", { versionIds: [V, "x"] })).toEqual({});
+  it("Purged keeps a list of version ids only when every entry is one, up to the limit", () => {
+    const purged = (ids: unknown) =>
+      fileEventPayload("DocumentFilePurgedEvent", { versionIds: ids });
+    expect(purged([])).toEqual({ versionIds: [] });
+    expect(purged([V, V2])).toEqual({ versionIds: [V, V2] });
+    expect(purged([V, "x"])).toEqual({});
+    expect(purged(Array(MAX_PURGED_VERSION_IDS).fill(V))["versionIds"]).toHaveLength(
+      MAX_PURGED_VERSION_IDS,
+    );
+    expect(purged(Array(MAX_PURGED_VERSION_IDS + 1).fill(V))).toEqual({});
   });
 });
 
-describe("readDetail never throws and drops what it does not know", () => {
-  it.each([null, undefined, "x", 3, [], { attempt: "9" }, { attempt: 1.5 }, { attempt: 1e12 }])(
-    "%j reads as attempt 0 with no quarantined versions",
-    (raw) => {
-      expect(readDetail(raw)).toMatchObject({ attempt: 0, quarantinedVersions: [] });
-    },
-  );
-  it("reads the old unreadableAgain reason as a reading failure", () => {
-    expect(readDetail({ reason: "unreadableAgain" })).toMatchObject({
-      reason: "unreadable",
-      step: "read",
-    });
-  });
-  it("keeps only uuids in quarantinedVersions, once each", () => {
-    expect(
-      readDetail({ quarantinedVersions: [V, V.toUpperCase(), "x", 3] }).quarantinedVersions,
-    ).toEqual([V]);
-  });
-});
-
-type Row = [PipelineState, unknown, StepInput, PipelineState | string, Record<string, unknown>?];
+type Row = [string, PipelineState, unknown, StepInput, string, Record<string, unknown>?];
 const q = { quarantinedVersions: [V2] };
-// [state, detail, input, next state or refusal code, detail it must contain]
+const qCur = { quarantinedVersions: [V] };
+// [case, state, detail, input, next state or refusal code, detail it must contain]
 const TABLE: Row[] = [
-  ["uploading", null, { kind: "confirmed" }, "scanning", { step: "scan", attempt: 1, ...ext }],
-  ["uploading", { attempt: 4, ...q }, { kind: "confirmed" }, "scanning", { attempt: 5, ...q }],
-  ["scanning", null, { kind: "confirmed" }, "wrongState"],
+  // Upload confirmed
   [
+    "upload confirmed",
+    "uploading",
+    null,
+    { kind: "confirmed" },
+    "scanning",
+    { step: "scan", attempt: 1, by: "Acme AV", byClient: "c-scan", since: NOW },
+  ],
+  [
+    "upload confirmed keeps the quarantine list",
+    "uploading",
+    { attempt: 4, ...q },
+    { kind: "confirmed" },
+    "scanning",
+    { attempt: 5, ...q },
+  ],
+  ["confirmed twice", "scanning", null, { kind: "confirmed" }, "wrongState"],
+  ["confirmed on a failed document", "failed", null, { kind: "confirmed" }, "wrongState"],
+  ["confirmed for a quarantined version", "uploading", qCur, { kind: "confirmed" }, "quarantined"],
+  // Simulated scan and reading (R4.1, R4.2)
+  [
+    "simulated clean",
     "scanning",
     { attempt: 1, ...q },
     { kind: "scanResult", result: "clean" },
@@ -110,6 +115,7 @@ const TABLE: Row[] = [
     { step: "read", attempt: 2, mode: "simulated", ...q },
   ],
   [
+    "simulated infected",
     "scanning",
     { attempt: 1, ...q },
     { kind: "scanResult", result: "infected" },
@@ -117,69 +123,296 @@ const TABLE: Row[] = [
     { reason: "threat", step: "scan", attempt: 1, quarantinedVersions: [V2, V] },
   ],
   [
+    "simulated advance of an external scan",
     "scanning",
-    { attempt: 1, ...ext },
-    { kind: "scanResult", result: "error" },
-    "failed",
-    { reason: "scanError", step: "scan", by: "Acme AV" },
+    extScan,
+    { kind: "scanResult", result: "clean" },
+    "externalPending",
   ],
-  ["reading", null, { kind: "scanResult", result: "clean" }, "wrongState"],
-  ["reading", { attempt: 2, ...q }, { kind: "readResult", result: "read" }, "ready", q],
   [
+    "simulated advance of an external read",
+    "reading",
+    extRead,
+    { kind: "readResult", result: "read" },
+    "externalPending",
+  ],
+  [
+    "simulated read",
+    "reading",
+    { attempt: 2, ...q },
+    { kind: "readResult", result: "read" },
+    "ready",
+    q,
+  ],
+  [
+    "simulated unreadable",
     "reading",
     { attempt: 2 },
     { kind: "readResult", result: "unreadable" },
     "failed",
     { reason: "unreadable", step: "read" },
   ],
-  ["scanning", null, { kind: "readResult", result: "read" }, "wrongState"],
-  ["uploading", null, { kind: "timeout" }, "failed", { reason: "noFile" }],
+  // External results (R2.3, R2.4, R3.5)
   [
+    "scanner clean",
     "scanning",
-    { mode: "external", attempt: 1 },
+    extScan,
+    { kind: "scanResult", result: "clean", from: fromScan },
+    "reading",
+    {
+      step: "read",
+      attempt: 2,
+      lastResult: { step: "scan", attempt: 1, result: "clean", byClient: "c-scan" },
+    },
+  ],
+  [
+    "scanner infected",
+    "scanning",
+    extScan,
+    { kind: "scanResult", result: "infected", from: fromScan },
+    "quarantined",
+    { reason: "threat", quarantinedVersions: [V] },
+  ],
+  [
+    "scanner error",
+    "scanning",
+    { ...extScan, by: "Acme AV" },
+    { kind: "scanResult", result: "error", from: fromScan },
+    "failed",
+    { reason: "scanError", step: "scan", by: "Acme AV" },
+  ],
+  [
+    "result from another key",
+    "scanning",
+    extScan,
+    { kind: "scanResult", result: "clean", from: { clientId: "c-other", attempt: 1 } },
+    "notYourStep",
+  ],
+  [
+    "result for an older attempt",
+    "scanning",
+    { ...extScan, attempt: 3 },
+    { kind: "scanResult", result: "clean", from: fromScan },
+    "staleAttempt",
+  ],
+  [
+    "result for a simulated step",
+    "scanning",
+    { mode: "simulated", attempt: 1 },
+    { kind: "scanResult", result: "clean", from: fromScan },
+    "notExternal",
+  ],
+  [
+    "scan result while reading",
+    "reading",
+    extRead,
+    { kind: "scanResult", result: "clean", from: fromScan },
+    "wrongState",
+  ],
+  [
+    "reader read",
+    "reading",
+    extRead,
+    { kind: "readResult", result: "read", from: fromRead },
+    "ready",
+    { attempt: 2, lastResult: { step: "read", result: "read" } },
+  ],
+  [
+    "reader unreadable",
+    "reading",
+    extRead,
+    { kind: "readResult", result: "unreadable", from: fromRead },
+    "failed",
+    { reason: "unreadable", step: "read" },
+  ],
+  [
+    "read result while scanning",
+    "scanning",
+    extScan,
+    { kind: "readResult", result: "read", from: fromRead },
+    "wrongState",
+  ],
+  [
+    "read result after the version was quarantined",
+    "reading",
+    { ...extRead, ...qCur },
+    { kind: "readResult", result: "read", from: fromRead },
+    "quarantined",
+  ],
+  [
+    "result on an uploading document",
+    "uploading",
+    null,
+    { kind: "scanResult", result: "clean" },
+    "wrongState",
+  ],
+  [
+    "read on an uploading document",
+    "uploading",
+    null,
+    { kind: "readResult", result: "read" },
+    "wrongState",
+  ],
+  // Replays (R2.8): the same result again answers the stored outcome
+  [
+    "clean sent again",
+    "reading",
+    { ...extRead, lastResult: { step: "scan", attempt: 1, result: "clean", byClient: "c-scan" } },
+    { kind: "scanResult", result: "clean", from: fromScan },
+    "replay",
+  ],
+  [
+    "infected sent again",
+    "quarantined",
+    { ...qCur, lastResult: { step: "scan", attempt: 1, result: "infected", byClient: "c-scan" } },
+    { kind: "scanResult", result: "infected", from: fromScan },
+    "replay",
+  ],
+  [
+    "a different result after one applied",
+    "reading",
+    { ...extRead, lastResult: { step: "scan", attempt: 1, result: "clean", byClient: "c-scan" } },
+    { kind: "scanResult", result: "infected", from: fromScan },
+    "wrongState",
+  ],
+  [
+    "the same result from another key",
+    "quarantined",
+    { ...qCur, lastResult: { step: "scan", attempt: 1, result: "infected", byClient: "c-scan" } },
+    { kind: "scanResult", result: "infected", from: { clientId: "c-x", attempt: 1 } },
+    "quarantined",
+  ],
+  // Timeouts (R4.7)
+  [
+    "upload never confirmed",
+    "uploading",
+    null,
+    { kind: "timeout" },
+    "failed",
+    { reason: "noFile" },
+  ],
+  [
+    "external scan with no answer",
+    "scanning",
+    { ...extScan, since: LONG_AGO },
     { kind: "timeout" },
     "failed",
     { reason: "noResult", step: "scan" },
   ],
   [
+    "external read with no answer",
     "reading",
-    { mode: "external", attempt: 2 },
+    { ...extRead, since: LONG_AGO },
     { kind: "timeout" },
     "failed",
     { reason: "noResult", step: "read" },
   ],
-  ["scanning", { mode: "simulated" }, { kind: "timeout" }, "notExternal"],
-  ["ready", null, { kind: "timeout" }, "wrongState"],
   [
+    "external scan just started",
+    "scanning",
+    { ...extScan, since: NOW },
+    { kind: "timeout" },
+    "notYet",
+  ],
+  ["simulated scan", "scanning", { mode: "simulated" }, { kind: "timeout" }, "notExternal"],
+  ["ready", "ready", null, { kind: "timeout" }, "wrongState"],
+  ["failed", "failed", null, { kind: "timeout" }, "wrongState"],
+  [
+    "timeout for a quarantined version",
+    "scanning",
+    { ...extScan, ...qCur, since: LONG_AGO },
+    { kind: "timeout" },
+    "quarantined",
+  ],
+  // Try again (R4.4)
+  [
+    "retry a scan error",
     "failed",
     { step: "scan", reason: "scanError", attempt: 1 },
     { kind: "retry" },
     "scanning",
-    { step: "scan", attempt: 2, ...ext },
+    { step: "scan", attempt: 2, byClient: "c-scan" },
   ],
   [
+    "retry a scan with no answer",
     "failed",
     { step: "scan", reason: "noResult", attempt: 3 },
     { kind: "retry" },
     "scanning",
     { attempt: 4 },
   ],
-  ["failed", { reason: "unreadableAgain" }, { kind: "retry" }, "reading", { step: "read" }],
-  ["failed", { reason: "noFile" }, { kind: "retry" }, "notRetryable"],
-  ["ready", null, { kind: "retry" }, "wrongState"],
-  ["quarantined", { reason: "threat" }, { kind: "retry" }, "quarantined"],
-  ["quarantined", null, { kind: "scanResult", result: "clean" }, "quarantined"],
-  ["uploading", { quarantinedVersions: [V] }, { kind: "confirmed" }, "quarantined"],
+  [
+    "retry an old scan error with no step",
+    "failed",
+    { reason: "scanError" },
+    { kind: "retry" },
+    "scanning",
+    { step: "scan" },
+  ],
+  [
+    "retry an old reading failure",
+    "failed",
+    { reason: "unreadableAgain" },
+    { kind: "retry" },
+    "reading",
+    { step: "read" },
+  ],
+  ["retry a never-arrived file", "failed", { reason: "noFile" }, { kind: "retry" }, "notRetryable"],
+  ["retry something not failed", "ready", null, { kind: "retry" }, "wrongState"],
+  ["retry on an uploading document", "uploading", null, { kind: "retry" }, "wrongState"],
+  [
+    "retry a quarantined document",
+    "quarantined",
+    { reason: "threat" },
+    { kind: "retry" },
+    "quarantined",
+  ],
+  [
+    "retry a failed document whose version is quarantined",
+    "failed",
+    { ...qCur, reason: "scanError", step: "scan" },
+    { kind: "retry" },
+    "quarantined",
+  ],
+  [
+    "clean on a quarantined document",
+    "quarantined",
+    null,
+    { kind: "scanResult", result: "clean" },
+    "quarantined",
+  ],
+  // Guard values
+  [
+    "an attempt the database cannot compare",
+    "uploading",
+    { attempt: { n: 1 } },
+    { kind: "confirmed" },
+    "badDetail",
+  ],
 ];
 
 describe("stepTransition", () => {
-  it.each(TABLE)("%s + %j + %j → %s", (state, detail, input, want, has) => {
+  it.each(TABLE)("%s", (_n, state, detail, input, want, has) => {
     const r = stepTransition(state, detail, input, ctx());
     if (r.ok) {
       expect(r.state).toBe(want);
       if (has) expect(r.detail).toMatchObject(has);
-      expect(r.expect).toEqual({ state, attempt: readDetail(detail).attempt, versionId: V });
+      expect(r.expect.state).toBe(state);
+      expect(r.expect.versionId).toBe(V);
     } else expect(r.code).toBe(want);
+  });
+  it.each([
+    ["missing", null, null],
+    ["JSON null", { attempt: null }, null],
+    ["an integer", { attempt: 3 }, "3"],
+    ["malformed text", { attempt: "x" }, "x"],
+  ])("guards on the stored attempt when it is %s", (_n, detail, text) => {
+    const r = stepTransition("uploading", detail, { kind: "confirmed" }, ctx());
+    expect(r.ok && r.expect.attemptText).toBe(text);
+  });
+  it("a malformed stored attempt counts as 0 for the next one", () => {
+    const r = stepTransition("uploading", { attempt: "x" }, { kind: "confirmed" }, ctx());
+    expect(r.ok && r.detail.attempt).toBe(1);
   });
   it("records when the step started and drops the old failure reason on retry", () => {
     const r = stepTransition(
@@ -196,107 +429,96 @@ describe("stepTransition", () => {
       quarantinedVersions: [],
     });
   });
+  it("a retry follows the switch as it is now: external read, or simulated after it was turned off", () => {
+    const failedRead = { step: "read", reason: "noResult", mode: "external", byClient: "c-read" };
+    const ext = stepTransition(
+      "failed",
+      failedRead,
+      { kind: "retry" },
+      ctx({ scan: sim, read: readOwner }),
+    );
+    expect(ext.ok && ext.detail).toMatchObject({
+      mode: "external",
+      byClient: "c-read",
+      by: "Acme OCR",
+    });
+    const off = stepTransition(
+      "failed",
+      failedRead,
+      { kind: "retry" },
+      ctx({ scan: sim, read: sim }),
+    );
+    expect(off.ok && off.detail).toEqual({
+      mode: "simulated",
+      since: NOW,
+      step: "read",
+      attempt: 1,
+      quarantinedVersions: [],
+    });
+  });
+  it("cleans the system name: unsafe characters replaced, cut by code points", () => {
+    const by = `\u202E${"😀".repeat(200)}`;
+    const r = stepTransition(
+      "uploading",
+      null,
+      { kind: "confirmed" },
+      ctx({ scan: { ...scanOwner, by }, read: sim }),
+    );
+    const name = r.ok ? (r.detail.by ?? "") : "";
+    expect(name.startsWith("\uFFFD")).toBe(true);
+    expect([...name]).toHaveLength(120);
+    expect(name).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
+  });
+  it("never forgets a quarantined version: a full list refuses instead of dropping one", () => {
+    const ids = Array.from(
+      { length: MAX_QUARANTINED_VERSIONS },
+      (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`,
+    );
+    const full = { ...extScan, quarantinedVersions: ids };
+    expect(
+      stepTransition(
+        "scanning",
+        full,
+        { kind: "scanResult", result: "infected", from: fromScan },
+        ctx(),
+      ),
+    ).toEqual({ ok: false, code: "quarantineFull" });
+    const room = { ...extScan, quarantinedVersions: ids.slice(1) };
+    const r = stepTransition(
+      "scanning",
+      room,
+      { kind: "scanResult", result: "infected", from: fromScan },
+      ctx(),
+    );
+    expect(r.ok && r.detail.quarantinedVersions).toHaveLength(MAX_QUARANTINED_VERSIONS);
+  });
+  it("a timeout without the wait times is not applied", () => {
+    const { times: _t, ...noTimes } = ctx();
+    expect(stepTransition("uploading", null, { kind: "timeout" }, noTimes)).toEqual({
+      ok: false,
+      code: "notYet",
+    });
+  });
+  it("an external step with no start time waits from the last change", () => {
+    const at = (m: number) => new Date(Date.parse(NOW) - m * 60_000).toISOString();
+    const c = (updatedAt: string) => ({ ...ctx(), times: { uploadStartedAt: NOW, updatedAt } });
+    const noSince = { mode: "external", byClient: "c-scan", step: "scan" };
+    expect(
+      stepTransition(
+        "scanning",
+        noSince,
+        { kind: "timeout" },
+        c(at(EXTERNAL_RESULT_TIMEOUT_MINUTES + 1)),
+      ).ok,
+    ).toBe(true);
+    expect(stepTransition("scanning", noSince, { kind: "timeout" }, c(at(1)))).toEqual({
+      ok: false,
+      code: "notYet",
+    });
+  });
   it("refuses without a current version", () => {
     expect(
       stepTransition("uploading", null, { kind: "confirmed" }, { ...ctx(), versionId: "" }),
-    ).toEqual({
-      ok: false,
-      code: "noVersion",
-    });
-  });
-});
-
-describe("timeouts", () => {
-  const at = (minutesAgo: number) => new Date(Date.parse(NOW) - minutesAgo * 60_000).toISOString();
-  const N = EXTERNAL_RESULT_TIMEOUT_MINUTES;
-  it.each([
-    ["scanning", { mode: "external", since: at(N + 1) }, true],
-    ["scanning", { mode: "external", since: at(N) }, false],
-    ["reading", { mode: "external", since: at(N + 1) }, true],
-    ["scanning", { mode: "simulated", since: at(N * 10) }, false],
-    ["scanning", { mode: "external" }, false],
-    ["scanning", { mode: "external", since: "not a date" }, false],
-    ["ready", { mode: "external", since: at(N * 10) }, false],
-  ] as const)("%s %j → %s", (state, detail, want) => {
-    expect(timedOut(state, detail, NOW, NOW)).toBe(want);
-  });
-  it("an upload fails after the confirm window, not before", () => {
-    const H = UPLOAD_CONFIRM_TIMEOUT_HOURS * 60;
-    expect(timedOut("uploading", null, at(H + 1), NOW)).toBe(true);
-    expect(timedOut("uploading", null, at(H), NOW)).toBe(false);
-  });
-});
-
-describe("download rule", () => {
-  const doc = (pipelineState: PipelineState, pipelineDetail: unknown = null) => ({
-    pipelineState,
-    pipelineDetail,
-    currentVersionId: V,
-  });
-  const scanning = doc("scanning", { mode: "external", byClient: "c-scan" });
-  const reading = doc("reading", { mode: "external", byClient: "c-read" });
-  const scanner = { kind: "scanner" as const, clientId: "c-scan" };
-  const reader = { kind: "reader" as const, clientId: "c-read" };
-  it.each([
-    ["person, ready", { kind: "person" }, doc("ready"), V, { ok: true, receipt: false }],
-    ["read key, ready", { kind: "readKey" }, doc("ready"), V, { ok: true, receipt: false }],
-    ["person, scanning", { kind: "person" }, scanning, V, { ok: false, code: "contentLocked" }],
-    ["read key, scanning", { kind: "readKey" }, scanning, V, { ok: false, code: "contentLocked" }],
-    ["scanner in its step", scanner, scanning, V, { ok: true, receipt: true }],
-    ["scanner, older version", scanner, scanning, V2, { ok: false, code: "notYourStep" }],
-    [
-      "another scanner",
-      { kind: "scanner", clientId: "c-other" },
-      scanning,
-      V,
-      { ok: false, code: "notYourStep" },
-    ],
-    [
-      "scanner, simulated step",
-      scanner,
-      doc("scanning", { mode: "simulated", byClient: "c-scan" }),
-      V,
-      { ok: false, code: "notYourStep" },
-    ],
-    ["scanner, reading", scanner, reading, V, { ok: false, code: "notYourStep" }],
-    ["scanner, ready", scanner, doc("ready"), V, { ok: false, code: "notYourStep" }],
-    ["reader in its step", reader, reading, V, { ok: true, receipt: false }],
-    ["reader, scanning", reader, scanning, V, { ok: false, code: "notYourStep" }],
-    [
-      "person, quarantined current",
-      { kind: "person" },
-      doc("quarantined"),
-      V,
-      { ok: false, code: "quarantined" },
-    ],
-    [
-      "person, quarantined older version",
-      { kind: "person" },
-      doc("ready", { quarantinedVersions: [V2] }),
-      V2,
-      { ok: false, code: "quarantined" },
-    ],
-    [
-      "scanner, quarantined version even in its step",
-      scanner,
-      doc("scanning", { mode: "external", byClient: "c-scan", quarantinedVersions: [V] }),
-      V,
-      { ok: false, code: "quarantined" },
-    ],
-  ] as const)("%s", (_n, who, d, version, want) => {
-    expect(downloadDecision(who, d, version)).toEqual(want);
-  });
-  it("a scanner key with no client recorded on the step is refused", () => {
-    expect(downloadDecision(scanner, doc("scanning", { mode: "external" }), V)).toEqual({
-      ok: false,
-      code: "notYourStep",
-    });
-  });
-});
-
-describe("quarantine alert", () => {
-  it("fires above the limit, not at it", () => {
-    expect(quarantineAlertDue(QUARANTINE_ALERT_PER_HOUR)).toBe(false);
-    expect(quarantineAlertDue(QUARANTINE_ALERT_PER_HOUR + 1)).toBe(true);
+    ).toEqual({ ok: false, code: "noVersion" });
   });
 });

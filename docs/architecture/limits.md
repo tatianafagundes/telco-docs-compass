@@ -46,12 +46,15 @@ with it (and the reason must still hold).
 | `MAX_RETRY_AFTER_SECONDS` | 3600 | `event-delivery-rules.ts` | A receiver's Retry-After is honoured up to an hour. |
 | `DNS_LOOKUP_TIMEOUT_MS` | 3000 | `event-delivery-rules.ts` | The address check must not hold a request. |
 | `SIGNATURE_TOLERANCE_SECONDS` | 300 | `tmf667-security.ts` | A receiver refuses a signed event older than 5 minutes (replay). |
-| `EXTERNAL_RESULT_TIMEOUT_MINUTES` | 30 | `file-hook-rules.ts` | A file waiting for the organisation's own antivirus or reader fails after this, never becomes clean; it can be tried again. |
-| `UPLOAD_CONFIRM_TIMEOUT_HOURS` | 24 | `file-hook-rules.ts` | An upload address lasts 2 hours; a day later the file is not coming. |
-| `QUARANTINE_ALERT_PER_HOUR` | 20 | `file-hook-rules.ts` | Past this, one scanner blocking files is more likely wrong or compromised than right; an alert is logged. |
-| `MAX_QUARANTINED_VERSIONS` | 1000 | `file-hook-rules.ts` | Keeps the quarantine list on a document bounded. |
+| `EXTERNAL_RESULT_TIMEOUT_MINUTES` | 30 | `file-hook-timeouts.ts` | A file waiting for the organisation's own antivirus or reader fails after this, never becomes clean; it can be tried again. |
+| `UPLOAD_CONFIRM_TIMEOUT_HOURS` | 24 | `file-hook-timeouts.ts` | An upload address lasts 2 hours; a day later the file is not coming. |
+| `QUARANTINE_ALERT_PER_HOUR` | 20 | `file-hook-timeouts.ts` | Past this, one scanner blocking files is more likely wrong or compromised than right; an alert is logged. |
+| `MAX_QUARANTINED_VERSIONS` | 1000 | `file-hook-detail.ts` | Keeps the quarantine list on a document bounded. It is never shortened: past it, adding a version is refused. |
+| `MAX_SYSTEM_NAME_CHARS` | 120 | `file-hook-detail.ts` | A system name shown on a waiting or blocked file, in code points. |
+| `MAX_PURGED_VERSION_IDS` | 10000 | `file-hook-rules.ts` | Version ids one purge event lists; no document has this many versions. |
 | `MAX_EXTRACTED_FIELDS` | 100 | `file-hook-fields.ts` | More details than any document type has. |
 | `MAX_EXTRACTED_VALUE_CHARS` | 2000 | `file-hook-fields.ts` | A detail is a value, not a page; a person checks each one. Counted in code points. |
 | `MAX_LABEL_CHARS` | 64 | `file-hook-fields.ts` | Antivirus engine, threat name and field source are short labels. |
+| `MAX_FIELD_NAME_CHARS` | 200 | `file-hook-fields.ts` | Field names from a reader, in code points; they must match the type's details anyway. |
 | `HIGH_CONFIDENCE_PERCENT` | 90 | `file-hook-fields.ts` | Cut-off for "High confidence" on details from a reader; a detail's own threshold can only raise it. |
 | `MEDIUM_CONFIDENCE_PERCENT` | 70 | `file-hook-fields.ts` | Below this a detail from a reader is "Low confidence". |

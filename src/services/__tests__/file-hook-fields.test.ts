@@ -8,6 +8,7 @@ import {
   HIGH_CONFIDENCE_PERCENT,
   MAX_EXTRACTED_FIELDS,
   MAX_EXTRACTED_VALUE_CHARS,
+  MAX_FIELD_NAME_CHARS,
   MAX_LABEL_CHARS,
   MEDIUM_CONFIDENCE_PERCENT,
   scanResultSchema,
@@ -205,5 +206,26 @@ describe("confidence bands", () => {
     [H, 2, "high"],
   ] as const)("%s with field threshold %s → %s", (c, t, want) => {
     expect(bandFor(c, t)).toBe(want);
+  });
+});
+describe("details of the result body", () => {
+  it("a field sent without a value is refused by name", () => {
+    expect(
+      checkExtractedFields([{ name: "amount", confidence: 0.9 } as ExtractedField], SPEC),
+    ).toEqual({ ok: false, code: "badValues", names: ["amount"] });
+  });
+  it("an unknown name is listed with unsafe characters replaced", () => {
+    const r = checkExtractedFields([field("x\u202Eevil", "v")], SPEC);
+    expect(r).toEqual({ ok: false, code: "unknownFields", names: ["x\uFFFDevil"] });
+  });
+  it("counts a field name in code points", () => {
+    const body = (name: string) =>
+      extractionResultSchema.safeParse({
+        result: "read",
+        attempt: 1,
+        fields: [{ name, value: "x", confidence: 1 }],
+      }).success;
+    expect(body("😀".repeat(MAX_FIELD_NAME_CHARS))).toBe(true);
+    expect(body("😀".repeat(MAX_FIELD_NAME_CHARS + 1))).toBe(false);
   });
 });

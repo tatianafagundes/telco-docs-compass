@@ -2,12 +2,15 @@
 // before anything is written. Pure: no I/O.
 import { z } from "zod";
 import type { Band } from "@/services/review-rules";
+import { cleanLabel, codePoints, UNSAFE_TEXT } from "@/services/file-hook-text";
 
 export const MAX_EXTRACTED_FIELDS = 100;
 /** Longest text value from a reader, in code points (a person still checks every one). */
 export const MAX_EXTRACTED_VALUE_CHARS = 2000;
 /** Longest `engine`, `threatName` or field `source` label. */
 export const MAX_LABEL_CHARS = 64;
+/** Longest field name a reader may send, in code points (names must match the type's details anyway). */
+export const MAX_FIELD_NAME_CHARS = 200;
 /** Confidence at or above this (as a percentage) is High, unless the detail asks for more. */
 export const HIGH_CONFIDENCE_PERCENT = 90;
 /** Confidence at or above this (as a percentage) is Medium; below it, Low. */
@@ -36,7 +39,10 @@ export type ScanResultBody = z.infer<typeof scanResultSchema>;
 
 const fieldShape = z
   .object({
-    name: z.string().min(1).max(200),
+    name: z
+      .string()
+      .min(1)
+      .refine((n) => codePoints(n) <= MAX_FIELD_NAME_CHARS),
     value: z.unknown(),
     confidence: z.number().finite().min(0).max(1),
     source: z.string().regex(SOURCE).optional(),
@@ -76,12 +82,10 @@ export type FieldsCheck =
   | {
       ok: false;
       code: "unknownFields" | "duplicateFields" | "badValues";
-      /** Offending names, shortened; the caller escapes them before showing them anywhere. */
+      /** Offending names, unsafe characters replaced and shortened; the caller still escapes them. */
       names: string[];
     };
 
-// C0/C1 controls, and the bidi and invisible direction marks that can make a value read differently.
-const UNSAFE = /[\p{Cc}\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/u;
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const NAMES_SHOWN = 20;
 
@@ -92,7 +96,7 @@ function realDate(s: string): boolean {
   return d.toISOString().slice(0, 10) === s;
 }
 function safeText(s: string): boolean {
-  return [...s].length <= MAX_EXTRACTED_VALUE_CHARS && !UNSAFE.test(s);
+  return codePoints(s) <= MAX_EXTRACTED_VALUE_CHARS && !UNSAFE_TEXT.test(s);
 }
 /** The value as stored, or undefined when it does not fit the detail's type. */
 function typed(spec: FieldSpec, v: unknown): string | number | boolean | undefined {
@@ -112,6 +116,10 @@ function typed(spec: FieldSpec, v: unknown): string | number | boolean | undefin
   }
 }
 
+/**
+ * The confidence band of a detail from a reader. `reviewThreshold` (0–1) can only make High stricter;
+ * a value above 1 (for example a percentage) is ignored and the default applies.
+ */
 export function bandFor(confidence: number, reviewThreshold?: number): Band {
   const high = Math.max(
     HIGH_CONFIDENCE_PERCENT / 100,
@@ -121,8 +129,6 @@ export function bandFor(confidence: number, reviewThreshold?: number): Band {
   return confidence >= MEDIUM_CONFIDENCE_PERCENT / 100 ? "medium" : "low";
 }
 
-const short = (n: string) => ([...n].length > 64 ? `${[...n].slice(0, 63).join("")}…` : n);
-
 /**
  * Checks a reader's fields against the document type as a whole: every name must be a detail of the
  * type (exact match), once, with a value of that detail's type. Nothing is accepted if anything is
@@ -130,14 +136,20 @@ const short = (n: string) => ([...n].length > 64 ? `${[...n].slice(0, 63).join("
  */
 export function checkExtractedFields(fields: ExtractedField[], spec: FieldSpec[]): FieldsCheck {
   const byName = new Map(spec.map((s) => [s.name, s]));
-  const unknown = fields.filter((f) => !byName.has(f.name)).map((f) => short(f.name));
+  const unknown = fields
+    .filter((f) => !byName.has(f.name))
+    .map((f) => cleanLabel(f.name, MAX_LABEL_CHARS));
   if (unknown.length)
     return { ok: false, code: "unknownFields", names: [...new Set(unknown)].slice(0, NAMES_SHOWN) };
   const seen = new Set<string>();
   const dup = new Set<string>();
   for (const f of fields) (seen.has(f.name) ? dup : seen).add(f.name);
   if (dup.size)
-    return { ok: false, code: "duplicateFields", names: [...dup].slice(0, NAMES_SHOWN) };
+    return {
+      ok: false,
+      code: "duplicateFields",
+      names: [...dup].map((n) => cleanLabel(n, MAX_LABEL_CHARS)).slice(0, NAMES_SHOWN),
+    };
   const accepted: AcceptedField[] = [];
   const bad: string[] = [];
   for (const f of fields) {
@@ -153,6 +165,11 @@ export function checkExtractedFields(fields: ExtractedField[], spec: FieldSpec[]
         source: f.source ? f.source : null,
       });
   }
-  if (bad.length) return { ok: false, code: "badValues", names: bad.slice(0, NAMES_SHOWN) };
+  if (bad.length)
+    return {
+      ok: false,
+      code: "badValues",
+      names: bad.map((n) => cleanLabel(n, MAX_LABEL_CHARS)).slice(0, NAMES_SHOWN),
+    };
   return { ok: true, fields: accepted };
 }

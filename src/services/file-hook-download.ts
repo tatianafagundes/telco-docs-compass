@@ -1,7 +1,7 @@
 // File hooks: who may download a version (R2.1, R3.1, D5). Pure: no I/O.
 import type { PipelineState } from "@/schemas/document";
 import { contentLocked } from "@/services/document-rules";
-import { isQuarantined, readDetail } from "@/services/file-hook-rules";
+import { isQuarantined, readDetail } from "@/services/file-hook-detail";
 
 export type Downloader =
   | { kind: "person" }
