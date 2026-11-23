@@ -84,7 +84,7 @@ async def admin_page(browser):
     await page.wait_for_timeout(3000)
     await page.get_by_label("Email").fill("se.admin@example.test")
     await page.get_by_label("Password").fill(PASSWORD)
-    await page.get_by_role("button", name="Sign in").click()
+    await page.get_by_role("button", name="Log in").click()
     await page.wait_for_function("!location.pathname.startsWith('/auth')", timeout=20000)
     await page.goto(BASE + "/admin/systems")
     await page.wait_for_timeout(3500)

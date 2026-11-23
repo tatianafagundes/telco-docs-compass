@@ -14,10 +14,10 @@ flowchart LR
     APP[Telco Docs Compass<br/>TanStack Start app: pages, server functions, API routes]
   end
   APP -- "SQL + RLS, Auth, Storage" --> SB[(Supabase<br/>Postgres, Auth, Storage)]
-  U -- "sign in, signed file URLs" --> SB
+  U -- "log in, signed file URLs" --> SB
 ```
 
-- **People** use the web app. They sign in with Supabase Auth (email and password). Their session token goes with every server call.
+- **People** use the web app. They log in with Supabase Auth (email and password). Their session token goes with every server call.
 - **Other systems** use the public TMF667 API with a system key, exchanged for a short-lived OAuth token. They can subscribe to change events, which the app signs (`X-Signature`) and posts to them.
 - **The scheduler** calls two protected routes every minute: background work and event delivery.
 - **Supabase** holds everything: the Postgres database (with row-level security, SQL functions and triggers), the accounts, and the files (one Storage bucket, `documents`). The app is stateless apart from a few per-instance limits kept in memory.

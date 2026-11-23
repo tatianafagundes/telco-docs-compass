@@ -4,7 +4,7 @@ Screenshots were taken from the current app in light theme at 1280 px and 792 px
 
 | Screen | URL |
 |---|---|
-| [Sign in](sign-in.md) | `/auth` |
+| [Log in](sign-in.md) | `/auth` |
 | [Documents (search)](documents.md) | `/documents` |
 | [Record](record.md) | `/records/{entityId}` |
 | [Check details](review.md) | `/records/{entityId}/review/{docId}` |

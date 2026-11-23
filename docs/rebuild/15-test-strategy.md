@@ -10,7 +10,7 @@
 | Repository / integration | Testcontainers: Cassandra 5, OpenSearch, Keycloak, MinIO | Batches, LWT status races, idempotency replay and conflict, outbox → index, rate counters, delivery claims | ~60 |
 | API contract | RestAssured + OpenAPI validator (`contracts/seams/*.yaml`); the official TMF667 v4 swagger for standard operations | Every operation, every documented error code | 1 per operation × status |
 | Parity scenarios | Language-neutral Given/When/Then (Cucumber, or the existing Python scripts pointed at the new base URL) | Ports of `e2e/tmf-api.py` (97 checks), `tmf-events.py` (43), `tmf-rate-isolation.py` (16), `share-isolation.py` (13 + reply scans) | 169+ |
-| UI journeys | Playwright + axe-core | Sign in, search, open, add files, check details, approve (with four-eyes), make effective, share and remove share, hold and release, delete and undo, admin types with lock, connected systems | ~25 journeys × 2 widths × 2 themes |
+| UI journeys | Playwright + axe-core | Log in, search, open, add files, check details, approve (with four-eyes), make effective, share and remove share, hold and release, delete and undo, admin types with lock, connected systems | ~25 journeys × 2 widths × 2 themes |
 | Load | k6 or Gatling, seed of 1–5M documents | Search, facets, capped count, bulk 10,000, API at configured limits, event fan-out | Targets in 08 and 14 |
 | Architecture | ArchUnit | No controller → repository; the master module has no document DTOs; rule classes have no I/O | 5 rules |
 

@@ -62,11 +62,11 @@ export function AppShell({ tenantName, userName, role, children }: AppShellProps
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  async function signOut() {
+  async function logOut() {
     await queryClient.cancelQueries();
     queryClient.clear();
     await supabase.auth.signOut();
-    navigate({ to: "/auth", search: { redirect: undefined }, replace: true });
+    navigate({ to: "/auth", search: { redirect: undefined, loggedOut: 1 }, replace: true });
   }
 
   return (
@@ -152,10 +152,10 @@ export function AppShell({ tenantName, userName, role, children }: AppShellProps
                 ) : null}
                 <DropdownMenu.Separator className="h-px bg-border-subtle" />
                 <DropdownMenu.Item
-                  onSelect={signOut}
+                  onSelect={logOut}
                   className="type-label-14 flex h-8 cursor-pointer items-center gap-2 px-2 outline-none data-[highlighted]:bg-item-hover"
                 >
-                  <LogOut className="size-4" aria-hidden="true" /> Sign out
+                  <LogOut className="size-4" aria-hidden="true" /> Log out
                 </DropdownMenu.Item>
               </DropdownMenu.Content>
             </DropdownMenu.Portal>

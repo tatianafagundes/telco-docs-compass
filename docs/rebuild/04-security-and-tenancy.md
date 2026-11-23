@@ -60,7 +60,7 @@ visible(doc, caller) :=
 
 ## Security tests the rebuild must have
 1. Visibility truth table. Every combination of role × record access × share (none, active, expired) × grant (none, active, revoked, expired) × deleted/purged must give the same result as `can_see_document`.
-2. Response-body leak scan. Sign in as `no.manager`, call every endpoint with Sweden ids, and assert that no Sweden identifier appears in any body.
+2. Response-body leak scan. Log in as `no.manager`, call every endpoint with Sweden ids, and assert that no Sweden identifier appears in any body.
 3. Master counts-only. Every master endpoint is checked for the absence of document names and ids.
 4. Share removal takes effect immediately, including on cached search results.
 5. Four-eyes is enforced in the UI and the internal API, and in the TMF API (BR-140).

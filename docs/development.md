@@ -7,7 +7,7 @@ How to set up, check and change the code. The map of the code is in `docs/archit
 1. Install [bun](https://bun.sh). Python 3 with Playwright is only needed for the `e2e/` scripts.
 2. `bun install`.
 3. `.env` comes from Lovable and holds only public project settings. If it is missing, copy `.env.example` and fill in the public values of the connected Supabase project (ask the owner).
-4. `bun run dev` and open the URL it prints. Sign in with a demo account (ask the owner, see `.github/CODEOWNERS`).
+4. `bun run dev` and open the URL it prints. Log in with a demo account (ask the owner, see `.github/CODEOWNERS`).
 
 What works locally: every screen and every read. What does not: privileged writes (registering documents, connected systems, the API end to end), because the server-side key exists only in the hosted environment. You will see `Missing Supabase environment variable(s): SUPABASE_SERVICE_ROLE_KEY` in the server log. Check those paths on the preview after publishing (`docs/operations/regression-after-publish.md`). Never put the key in `.env`.
 

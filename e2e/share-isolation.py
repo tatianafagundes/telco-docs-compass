@@ -47,7 +47,7 @@ async def sign_in(browser, email):
     await page.wait_for_timeout(3000)
     await page.get_by_label("Email").fill(email)
     await page.get_by_label("Password").fill(PASSWORD)
-    await page.get_by_role("button", name="Sign in").click()
+    await page.get_by_role("button", name="Log in").click()
     await page.wait_for_function("!location.pathname.startsWith('/auth')", timeout=20000)
     return page, replies
 
