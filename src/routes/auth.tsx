@@ -98,6 +98,16 @@ function AuthPage() {
           <Button type="submit" variant="primary" unavailable={busy} className="self-stretch">
             {busy ? "Logging in…" : "Log in"}
           </Button>
+          {/* EDS sign in pattern: a help link for people who cannot log in. */}
+          <details className="type-paragraph-14">
+            <summary className="focus-ring cursor-pointer self-start text-text-link underline">
+              Having trouble logging in?
+            </summary>
+            <p className="mt-2 text-text-secondary">
+              Ask your organisation's administrator to check your account or reset your password.
+              This prototype has no self-service reset.
+            </p>
+          </details>
         </form>
       </main>
       <footer className="type-label-12 mx-auto max-w-[720px] px-4 pb-6 text-center text-text-secondary">

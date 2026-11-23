@@ -23,3 +23,9 @@ describe("loginErrorText", () => {
     expect(loginErrorText(undefined)).toContain("couldn't reach");
   });
 });
+describe("log in page", () => {
+  it("offers help for people who cannot log in (EDS sign in pattern)", async () => {
+    const { readFileSync } = await import("node:fs");
+    expect(readFileSync("src/routes/auth.tsx", "utf8")).toContain("Having trouble logging in?");
+  });
+});
