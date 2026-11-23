@@ -13,6 +13,7 @@ import { Select } from "@/components/erad/select";
 import { Tag } from "@/components/erad/tag";
 import { TextField } from "@/components/erad/text-field";
 import { SystemLimitsDialog } from "@/components/admin/system-limits-dialog";
+import { canLine, FILTER_FROM, splitSystems } from "@/components/admin/connected-systems-view";
 import { failureText } from "@/hooks/use-config";
 import { api } from "@/services/api";
 import type { ConnectedSystem } from "@/services/integration-clients.functions";
@@ -115,88 +116,14 @@ export function ConnectedSystems() {
           />
         </Card>
       ) : (
-        <ul className="flex flex-col gap-3" aria-label="Connected systems">
-          {list.data.map((s) => (
-            <li key={s.id}>
-              <Card
-                title={s.name}
-                actions={
-                  s.revokedAt ? null : (
-                    <div className="flex gap-2">
-                      <Button onClick={() => rotate.mutate(s)} unavailable={rotate.isPending}>
-                        <RotateCw aria-hidden="true" />
-                        New key
-                      </Button>
-                      <Button onClick={() => setLimiting(s)}>
-                        <Gauge aria-hidden="true" />
-                        Request limits
-                      </Button>
-                      <Button variant="ghost" onClick={() => setRevoking(s)}>
-                        <Unplug aria-hidden="true" />
-                        Disconnect
-                      </Button>
-                    </div>
-                  )
-                }
-              >
-                <div className="flex flex-col gap-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="type-label-14 text-text-secondary">
-                      {KIND_LABEL[s.systemKind as SystemKind] ?? s.systemKind}
-                    </span>
-                    {s.revokedAt ? (
-                      <Tag tone="critical" small>
-                        Disconnected
-                      </Tag>
-                    ) : (
-                      <Tag tone="cleared" small>
-                        Connected
-                      </Tag>
-                    )}
-                  </div>
-                  <p className="type-paragraph-14">
-                    Key starting <code className="type-code-14">{s.keyPrefix}…</code> ·{" "}
-                    {s.lastUsedAt
-                      ? `last used ${format(new Date(s.lastUsedAt), "d MMM yyyy, HH:mm")}`
-                      : "not used yet"}
-                  </p>
-                  {!s.revokedAt && s.expiresAt ? (
-                    <p
-                      className={cn(
-                        "type-paragraph-14",
-                        expiresSoon(s.expiresAt) ? "text-status-major" : "text-text-secondary",
-                      )}
-                    >
-                      {new Date(s.expiresAt) <= new Date()
-                        ? "This key has expired. You can issue a new key to reconnect."
-                        : expiresSoon(s.expiresAt)
-                          ? `Key expires ${format(new Date(s.expiresAt), "d MMM yyyy")}. How about issuing a new key now?`
-                          : `Key valid until ${format(new Date(s.expiresAt), "d MMM yyyy")}`}
-                    </p>
-                  ) : null}
-                  <p className="type-paragraph-14 text-text-secondary">
-                    Allowance: {s.readLimitPerMinute} reads and {s.writeLimitPerMinute} changes per
-                    minute
-                  </p>
-                  {s.lastRateLimitedAt ? (
-                    <p className="type-paragraph-14 text-text-secondary">
-                      Last slowed down for sending too many requests:{" "}
-                      {format(new Date(s.lastRateLimitedAt), "d MMM yyyy, HH:mm")}
-                    </p>
-                  ) : null}
-                  <p className="type-paragraph-14 text-text-secondary">
-                    Can:{" "}
-                    {s.scopes
-                      .map((x) => (SCOPE_LABEL[x as Scope]?.split(" (")[0] ?? x).toLowerCase())
-                      .join(" · ")}
-                  </p>
-                </div>
-              </Card>
-            </li>
-          ))}
-        </ul>
+        <SystemList
+          systems={list.data}
+          rotating={rotate.isPending}
+          onRotate={(s) => rotate.mutate(s)}
+          onLimits={setLimiting}
+          onRevoke={setRevoking}
+        />
       )}
-
       <Card title="For your integration team">
         <div className="flex flex-col gap-1">
           <p className="type-paragraph-14">
@@ -369,5 +296,129 @@ function AddSystemDialog({
         </fieldset>
       </div>
     </Dialog>
+  );
+}
+
+const kindLabel = (k: string) => KIND_LABEL[k as SystemKind] ?? k;
+function SystemList(p: {
+  systems: ConnectedSystem[];
+  rotating: boolean;
+  onRotate: (s: ConnectedSystem) => void;
+  onLimits: (s: ConnectedSystem) => void;
+  onRevoke: (s: ConnectedSystem) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const { connected, disconnected } = splitSystems(p.systems, query, kindLabel);
+  const active = p.systems.filter((s) => !s.revokedAt).length;
+  return (
+    <section className="flex flex-col gap-3" aria-labelledby="systems-heading">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h3 id="systems-heading" className="type-title-16-medium">
+          {query ? `Connected (${connected.length} of ${active})` : `Connected (${active})`}
+        </h3>
+        {p.systems.length >= FILTER_FROM ? (
+          <div className="w-full max-w-[320px]">
+            <TextField
+              label="Filter by name or system"
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+        ) : null}
+      </div>
+      {connected.length === 0 ? (
+        <p className="type-paragraph-14 text-text-secondary">
+          {query ? "No connected system matches this filter." : "No system is connected now."}
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-3" aria-label="Connected systems">
+          {connected.map((s) => (
+            <li key={s.id}>
+              <Card
+                title={s.name}
+                actions={
+                  <div className="flex gap-2">
+                    <Button onClick={() => p.onRotate(s)} unavailable={p.rotating}>
+                      <RotateCw aria-hidden="true" />
+                      New key
+                    </Button>
+                    <Button onClick={() => p.onLimits(s)}>
+                      <Gauge aria-hidden="true" />
+                      Request limits
+                    </Button>
+                    <Button variant="ghost" onClick={() => p.onRevoke(s)}>
+                      <Unplug aria-hidden="true" />
+                      Disconnect
+                    </Button>
+                  </div>
+                }
+              >
+                <div className="flex flex-col gap-2">
+                  <span className="type-label-14 text-text-secondary">
+                    {kindLabel(s.systemKind)}
+                  </span>
+                  <p className="type-paragraph-14">
+                    Key starting <code className="type-code-14">{s.keyPrefix}…</code> ·{" "}
+                    {s.lastUsedAt
+                      ? `last used ${format(new Date(s.lastUsedAt), "d MMM yyyy, HH:mm")}`
+                      : "not used yet"}
+                  </p>
+                  {s.expiresAt ? (
+                    <p
+                      className={cn(
+                        "type-paragraph-14",
+                        expiresSoon(s.expiresAt) ? "text-status-major" : "text-text-secondary",
+                      )}
+                    >
+                      {new Date(s.expiresAt) <= new Date()
+                        ? "This key has expired. You can issue a new key to reconnect."
+                        : expiresSoon(s.expiresAt)
+                          ? `Key expires ${format(new Date(s.expiresAt), "d MMM yyyy")}. How about issuing a new key now?`
+                          : `Key valid until ${format(new Date(s.expiresAt), "d MMM yyyy")}`}
+                    </p>
+                  ) : null}
+                  <p className="type-paragraph-14 text-text-secondary">
+                    Allowance: {s.readLimitPerMinute} reads and {s.writeLimitPerMinute} changes per
+                    minute
+                  </p>
+                  {s.lastRateLimitedAt ? (
+                    <p className="type-paragraph-14 text-text-secondary">
+                      Last slowed down for sending too many requests:{" "}
+                      {format(new Date(s.lastRateLimitedAt), "d MMM yyyy, HH:mm")}
+                    </p>
+                  ) : null}
+                  <p className="type-paragraph-14 text-text-secondary">Can: {canLine(s.scopes)}</p>
+                </div>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
+      {disconnected.length > 0 ? (
+        <details className="flex flex-col gap-2">
+          <summary className="focus-ring type-label-14 cursor-pointer self-start">
+            Disconnected ({disconnected.length})
+          </summary>
+          <ul className="mt-2 flex flex-col" aria-label="Disconnected systems">
+            {disconnected.map((s) => (
+              <li
+                key={s.id}
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border-subtle py-2"
+              >
+                <span className="type-label-14">{s.name}</span>
+                <span className="type-label-14 text-text-secondary">{kindLabel(s.systemKind)}</span>
+                <Tag small>Disconnected</Tag>
+                {s.revokedAt ? (
+                  <span className="type-label-12 text-text-secondary">
+                    {format(new Date(s.revokedAt), "d MMM yyyy")}
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </section>
   );
 }
