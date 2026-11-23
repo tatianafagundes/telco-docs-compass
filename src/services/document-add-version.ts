@@ -22,10 +22,6 @@ export interface AddedVersion {
   upload: UploadTicket | null;
 }
 const bareHash = (h: string) => h.replace(/^sha256:/i, "").toLowerCase();
-/** Same stored object, or same bytes. An empty hash says nothing, so it never matches. */
-const sameFile = (a: { content_hash: string; storage_path: string | null }, b: typeof a) =>
-  (a.storage_path !== null && a.storage_path === b.storage_path) ||
-  (bareHash(a.content_hash) !== "" && bareHash(a.content_hash) === bareHash(b.content_hash));
 
 export async function addVersionStep(
   env: WriteEnv,
@@ -62,15 +58,30 @@ export async function addVersionStep(
       .eq("tenant_id", env.tenantId)
       .maybeSingle();
     if (!src) return fail("doc.version.notFound", "notFound");
-    // The same file under another version id is the same threat (D5).
-    const ids = start.detail.quarantinedVersions;
-    if (ids.length) {
-      const { data: blockedVersions } = await env.admin
-        .from("document_versions")
-        .select("content_hash, storage_path")
-        .eq("document_id", data.id)
-        .in("id", ids);
-      if ((blockedVersions ?? []).some((b) => sameFile(b, src)))
+    // The same file under another version id is the same threat (D5). Versions with the same stored
+    // object or bytes are looked up (a short query, whatever the list length) and checked against the
+    // list; if the lookup fails, the restore is refused.
+    const ids = new Set(start.detail.quarantinedVersions);
+    if (ids.size) {
+      const bare = bareHash(src.content_hash);
+      const byPath = src.storage_path
+        ? await env.admin
+            .from("document_versions")
+            .select("id")
+            .eq("document_id", data.id)
+            .eq("storage_path", src.storage_path)
+        : { data: [], error: null };
+      const byHash = bare
+        ? await env.admin
+            .from("document_versions")
+            .select("id")
+            .eq("document_id", data.id)
+            .in("content_hash", [bare, `sha256:${bare}`])
+        : { data: [], error: null };
+      if (byPath.error || byHash.error)
+        return fail("doc.version.checkFailed", "unavailable", "retry");
+      const same = [...(byPath.data ?? []), ...(byHash.data ?? [])];
+      if (same.some((v) => ids.has(v.id.toLowerCase())))
         return fail("doc.version.quarantined", "rejected");
     }
     restoredLabel = src.label;

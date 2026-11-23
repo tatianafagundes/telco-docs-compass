@@ -400,110 +400,106 @@ describe("QA addVersionStep", () => {
   // is null, `(null ?? []).some(...)` is false and the restore of an infected file goes through. The
   // check fails OPEN. The rule it protects (D5, BR-155) is a security control; it must refuse (or retry)
   // when it cannot tell.
-  it.fails(
-    "refuses the restore when the same-file lookup itself fails (BUG: error ignored, fails open)",
-    async () => {
-      const w = aw({ pipeline_detail: { attempt: 1, quarantinedVersions: [V] } }, [
-        ver(V, HASH, "t1/v1", "1"),
-        ver(V3, HASH, "t1/copy", "3"), // same bytes as the quarantined one
-      ]);
-      const db = w.admin as unknown as { from: (t: string) => Record<string, unknown> };
-      const realFrom = db.from.bind(db);
-      db.from = (t: string) => {
-        const qb = realFrom(t) as { in?: (...a: unknown[]) => unknown; then?: unknown };
-        if (t === "document_versions" && qb.in) {
-          const realIn = qb.in.bind(qb);
-          qb.in = (...a: unknown[]) => {
-            realIn(...a);
-            qb.then = (ok: (v: unknown) => unknown, bad: (e: unknown) => unknown) =>
-              Promise.resolve({ data: null, error: { message: "414 URI Too Long" } }).then(ok, bad);
-            return qb;
-          };
-        }
-        return qb;
-      };
-      const r = await addVersionStep(w.env, {
-        id: D,
-        mimeType: "application/pdf",
-        restoreFromVersionId: V3,
-      });
-      expect(r.ok).toBe(false);
-    },
-  );
+  it("refuses the restore when the same-file lookup itself fails (fixed: fails closed)", async () => {
+    const w = aw({ pipeline_detail: { attempt: 1, quarantinedVersions: [V] } }, [
+      ver(V, HASH, "t1/v1", "1"),
+      ver(V3, HASH, "t1/copy", "3"), // same bytes as the quarantined one
+    ]);
+    const db = w.admin as unknown as { from: (t: string) => Record<string, unknown> };
+    const realFrom = db.from.bind(db);
+    db.from = (t: string) => {
+      const qb = realFrom(t) as { in?: (...a: unknown[]) => unknown; then?: unknown };
+      if (t === "document_versions" && qb.in) {
+        const realIn = qb.in.bind(qb);
+        qb.in = (...a: unknown[]) => {
+          realIn(...a);
+          qb.then = (ok: (v: unknown) => unknown, bad: (e: unknown) => unknown) =>
+            Promise.resolve({ data: null, error: { message: "414 URI Too Long" } }).then(ok, bad);
+          return qb;
+        };
+      }
+      return qb;
+    };
+    const r = await addVersionStep(w.env, {
+      id: D,
+      mimeType: "application/pdf",
+      restoreFromVersionId: V3,
+    });
+    expect(r.ok).toBe(false);
+  });
   // DEFECT (medium, same lookup): the quarantine list goes into the URL as `id=in.(…)`. At the list's
   // own limit (1000 ids) that is ~38 KB of query string; Supabase's gateway and common proxies refuse
   // requests lines of 8-16 KB. So the lookup starts failing long before the list is "full", and (above)
   // a failing lookup lets the restore through. Measured with the real client.
-  it.fails(
-    "the same-file lookup stays under a 16 KB request line at the list's limit (BUG: ~38 KB)",
-    async () => {
-      const urls: string[] = [];
-      const client = createClient("https://db.example.test", "k", {
-        auth: { persistSession: false, autoRefreshToken: false },
-        global: {
-          fetch: async (i: RequestInfo | URL) => {
-            const url = String(i instanceof Request ? i.url : i);
-            urls.push(url);
-            // The version to restore exists; every other lookup answers empty.
-            const body = url.includes("id=eq.")
-              ? [
-                  {
-                    mime_type: "application/pdf",
-                    size_bytes: 1,
-                    content_hash: `sha256:${"c".repeat(64)}`,
-                    storage_path: "t1/x",
-                    sample_pages: null,
-                    label: "3",
-                  },
-                ]
-              : [];
-            return new Response(JSON.stringify(body), {
-              status: 200,
-              headers: { "content-type": "application/json" },
-            });
-          },
+  it("the same-file lookup stays under a 16 KB request line at the list's limit (fixed: query by file)", async () => {
+    const urls: string[] = [];
+    const client = createClient("https://db.example.test", "k", {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: {
+        fetch: async (i: RequestInfo | URL) => {
+          const url = String(i instanceof Request ? i.url : i);
+          urls.push(url);
+          // The version to restore exists; every other lookup answers empty.
+          const body = url.includes("id=eq.")
+            ? [
+                {
+                  mime_type: "application/pdf",
+                  size_bytes: 1,
+                  content_hash: `sha256:${"c".repeat(64)}`,
+                  storage_path: "t1/x",
+                  sample_pages: null,
+                  label: "3",
+                },
+              ]
+            : [];
+          return new Response(JSON.stringify(body), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
-      }) as unknown as Db;
-      const list = ids(1000);
-      const admin = new FakeDb({
-        documents: [
-          {
-            id: D,
-            tenant_id: "t1",
-            status: "draft",
-            pipeline_state: "ready",
-            pipeline_detail: { attempt: 1, quarantinedVersions: list.slice(0, 999) },
-            current_version_id: V2,
-          },
-        ],
-      });
-      const fakeDocs = admin.asDb();
-      // documents and counts from the fake; the version lookup through the real client, to see its URL
-      const env = {
-        admin: new Proxy(fakeDocs, {
-          get: (t, p) =>
-            p === "from"
-              ? (n: string) =>
-                  n === "document_versions"
-                    ? client.from("document_versions")
-                    : t.from(n as "documents")
-              : Reflect.get(t, p),
-        }),
-        caller: fakeDocs,
-        userId: "u1",
-        tenantId: "t1",
-        role: "contributor",
-      } as unknown as WriteEnv;
-      await addVersionStep(env, {
-        id: D,
-        mimeType: "application/pdf",
-        restoreFromVersionId: V3,
-      }).catch(() => undefined);
-      const lookup = urls.find((u) => u.includes("id=in."));
-      expect(lookup, "the lookup was never sent").toBeDefined();
-      expect(lookup!.length).toBeLessThan(16_384);
-    },
-  );
+      },
+    }) as unknown as Db;
+    const list = ids(1000);
+    const admin = new FakeDb({
+      documents: [
+        {
+          id: D,
+          tenant_id: "t1",
+          status: "draft",
+          pipeline_state: "ready",
+          pipeline_detail: { attempt: 1, quarantinedVersions: list.slice(0, 999) },
+          current_version_id: V2,
+        },
+      ],
+    });
+    const fakeDocs = admin.asDb();
+    // documents and counts from the fake; the version lookup through the real client, to see its URL
+    const env = {
+      admin: new Proxy(fakeDocs, {
+        get: (t, p) =>
+          p === "from"
+            ? (n: string) =>
+                n === "document_versions"
+                  ? client.from("document_versions")
+                  : t.from(n as "documents")
+            : Reflect.get(t, p),
+      }),
+      caller: fakeDocs,
+      userId: "u1",
+      tenantId: "t1",
+      role: "contributor",
+    } as unknown as WriteEnv;
+    await addVersionStep(env, {
+      id: D,
+      mimeType: "application/pdf",
+      restoreFromVersionId: V3,
+    }).catch(() => undefined);
+    // The same-file lookup is sent (by stored object or by bytes), and no request line is long.
+    expect(
+      urls.some((u) => /storage_path=eq\.|content_hash=in\./.test(decodeURIComponent(u))),
+    ).toBe(true);
+    for (const u of urls) expect(u.length).toBeLessThan(16_384);
+  });
 });
 
 // ---------------------------------------------------------------------------------------------
