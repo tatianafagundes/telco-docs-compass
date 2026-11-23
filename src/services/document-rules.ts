@@ -59,6 +59,32 @@ export function can(role: AppRole, capability: Capability): boolean {
   return ROLE_RANK[role] >= ROLE_RANK[CAPABILITY_MIN[capability]];
 }
 
+export type ShareLevel = "view" | "edit" | "manage";
+const LEVEL_RANK: Record<ShareLevel, number> = { view: 0, edit: 1, manage: 2 };
+/** The strongest share that is still live, or null when none is. */
+export function strongestShare(
+  shares: readonly { level: string; expires_at: string | null }[],
+  now: Date,
+): ShareLevel | null {
+  let best: ShareLevel | null = null;
+  for (const s of shares) {
+    if (s.expires_at && new Date(s.expires_at) <= now) continue;
+    const l = s.level as ShareLevel;
+    if (!(l in LEVEL_RANK)) continue;
+    if (best === null || LEVEL_RANK[l] > LEVEL_RANK[best]) best = l;
+  }
+  return best;
+}
+/**
+ * What someone may do with a document they reach only through a share: the share level caps
+ * their role. "Can view" allows nothing that changes it; "Can edit" allows a contributor's work
+ * at most. Record-scoped work (review, approve, manage access) needs access to the record.
+ * The screens and the server use this same rule.
+ */
+export function shareCappedRole(role: AppRole, level: ShareLevel): AppRole {
+  if (level === "view") return "viewer";
+  return can(role, "edit") ? "contributor" : "viewer";
+}
 /**
  * Adding a document or a new version. The group administrator works with the settings and
  * counts of the countries, never with their documents, so the server refuses it too (the

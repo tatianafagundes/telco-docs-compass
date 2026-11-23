@@ -42,7 +42,7 @@ Read in this order when you are new:
 | `docs/operations/deployment.md` | How the app is built, hosted, configured and published today, and what changes for an internal environment |
 | `docs/operations/runbook.md` | Running and checking the app: the scheduled job, failed bulk jobs, given-up event deliveries, connected systems |
 | `docs/operations/regression-after-publish.md` | What to check on the preview after a change reaches `main` |
-| `docs/architecture/sharing.md` | Who can see a document besides its record's people: sharing with a person or another organisation, step-by-step examples, and the known gap in the share level |
+| `docs/architecture/sharing.md` | Who can see a document besides its record's people: sharing with a person or another organisation, step-by-step examples, and how the share level caps what people may change |
 | `docs/design/ui-review-2026-11.md` | A holistic review of the screens: personas, journeys, adherence to EDS, and a prioritised backlog |
 | `docs/architecture/security-baseline.md`, `docs/architecture/accessibility.md`, `docs/architecture/limits.md` | Security controls, accessibility rules, every limit and why |
 | `.kiro/steering/invariants.md` | The rules no change may break |

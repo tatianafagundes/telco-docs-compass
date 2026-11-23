@@ -63,16 +63,13 @@ There is no screen for this yet (open in `roadmap.md`).
 
 A viewer, contributor or reviewer does not see **Manage access**, and the server refuses `grantAccess` and `revokeAccess` below manager. A document reached only through a share does not offer Manage access to the person who received it, whatever their role.
 
-## Known gap: the share level
-
-A share is "Can view" or "Can edit", but the server does not read the level when someone changes a document. What a person may change comes from their role in their own organisation, once the document is visible and in their organisation.
-
-- A Sweden viewer given "Can edit" still cannot change anything: the server refuses it.
-- A Sweden contributor given "Can view" on a document outside their records sees no edit buttons (`sharedOnlyRole` in `document-actions.ts`), but the server would accept an edit from them.
-- The `/shared/$docId` page takes the level from its address (`?level=`), so the address decides which buttons show. It does not change what the server allows.
-
-Closing this is a product decision: either the server applies the share level when the access comes from a share, or the level is reduced to "Can view" only.
-
+## The share level
+A share is "Can view" or "Can edit". When someone reaches a document only through a share (not through one of their records, and not as the organisation's administrator), the server caps their role by the share's strongest live level (`shareCappedRole` in `src/services/document-rules.ts`, applied in `runWrite` and in bulk changes through `src/services/share-access.ts`):
+- "Can view": nothing that changes the document, whatever their role. A Sweden contributor given "Can view" on a document outside their records is refused.
+- "Can edit": a contributor's work at most (details, versions, sending for approval). Reviewing, approving and managing access need access to the record.
+- An expired share counts for nothing.
+- A share from another organisation never allows a change: every write requires the document to be in the caller's own organisation.
+The `/shared/$docId` page takes the level from its address (`?level=`) to choose which buttons show. The server reads the share itself, so changing the address changes nothing it allows. Checked by `src/services/__tests__/share-level.test.ts` and `bulk-four-eyes.test.ts`.
 ## Where it lives
 
 | Part | File |

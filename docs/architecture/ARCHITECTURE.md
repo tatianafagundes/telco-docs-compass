@@ -185,7 +185,7 @@ stateDiagram-v2
 - **Tenants form a tree**: a group (the master tenant) with country tenants below it. Every row has a `tenant_id`. A person has one role in one tenant (`user_roles`).
 - **The group** manages shared document types, locks and minimums for its countries, and reads their settings and document counts. It never reads their documents (`docs/decisions/2026-11-10-tenant-model.md`). Countries inherit or override settings within those locks (`tenant-rules.ts`).
 - **Seeing a document** (`can_see_document`): it is not deleted, and either it is in your tenant and you are the tenant admin, have access to a record it belongs to (`entity_access`) or have a personal exception that has not expired; or it was shared with your tenant (`cross_tenant_grants`) and the share is not revoked or expired.
-- **Changing a document** needs the role and the same tenant. A share lets another tenant see, never change. Sharing scenarios with examples, and the open gap about the share level: `docs/architecture/sharing.md`.
+- **Changing a document** needs the role and the same tenant. A share lets another tenant see, never change. Inside the tenant, someone who reaches a document only through a share is capped by its level. Sharing scenarios with examples: `docs/architecture/sharing.md`.
 
 | Role | Can (each role includes the ones above it) |
 | --- | --- |

@@ -3,6 +3,8 @@ import type { DocStatus } from "@/schemas/document";
 import {
   addDocumentsBlocker,
   can,
+  shareCappedRole,
+  type ShareLevel,
   contentProtected,
   retentionHolds,
   isFrozen,
@@ -139,9 +141,8 @@ export function deleteState(
  * A "view" share caps them at viewer; an "edit" share caps them at contributor.
  * Record-scoped work (reviewing, approving, managing access) needs record access.
  */
-export function sharedOnlyRole(role: AppRole, level: "view" | "edit" | "manage"): AppRole {
-  if (level === "view") return "viewer";
-  return can(role, "edit") ? "contributor" : "viewer";
+export function sharedOnlyRole(role: AppRole, level: ShareLevel): AppRole {
+  return shareCappedRole(role, level);
 }
 
 /** Record page summary: which documents count as the current approved version. List order is kept (newest first). */

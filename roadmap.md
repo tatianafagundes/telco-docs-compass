@@ -21,7 +21,7 @@
 - [x] Check details (prompt 07): banner, n to check, review screen, approve gate with reason
 - [x] "Shared with me" list for documents shared directly
 - [ ] Share with another organisation, full Activity page (rest of prompt 08)
-- [ ] Share level: "Can edit" is not applied by the server; decide whether to apply it or offer view only (see `docs/architecture/sharing.md`)
+- [x] Share level applied by the server: a share caps the role of someone who reaches a document only through it (`docs/architecture/sharing.md`)
 - [ ] Phases 3–9 remainder – entity documents, preview, upload, versions, review, access/activity, search
 - [x] Documents page for large volumes: search-first start page, filters with counts, keyset paging with drawn-in-view rows, saved views, bulk changes as background jobs
 - [ ] Timing test with about 1 million synthetic documents (needs a separate test database so real data stays clean)

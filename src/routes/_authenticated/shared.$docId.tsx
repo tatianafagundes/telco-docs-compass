@@ -7,7 +7,8 @@ import { sharedOnlyRole } from "@/services/document-actions";
 import type { AppRole } from "@/services/document-rules";
 
 export const Route = createFileRoute("/_authenticated/shared/$docId")({
-  // The level only narrows what the screen offers; the server checks every action itself.
+  // The level only narrows what the screen offers. The server reads the share itself and caps the
+  // role the same way (`roleForDocument`), so changing the address changes nothing it allows.
   validateSearch: z.object({ level: z.enum(["view", "edit"]).catch("view") }),
   head: () => ({
     meta: [

@@ -5,6 +5,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { createWindowLimiter } from "@/services/rate-limit-rules";
 import { claimKey, completeKey, releaseKey } from "@/services/idempotency-claim";
 import { DatabaseError, must } from "@/services/shared/must";
+import { roleForDocument } from "@/services/share-access";
 import {
   hashBody,
   seamError,
@@ -160,6 +161,8 @@ export async function runWrite<T>(
         logOp(opts.op, env.tenantId, documentId, "notFound", started);
         return denied;
       }
+      // Reached only through a share: the share level caps the role for this document.
+      env.role = await roleForDocument(env, opts.scope.id);
     }
 
     const requestHash = await hashBody(opts.body);

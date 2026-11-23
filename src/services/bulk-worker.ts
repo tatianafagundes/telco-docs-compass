@@ -7,6 +7,7 @@ import {
 } from "@/services/document-rules";
 import { isOwnDocument } from "@/services/review-flow-rules";
 import type { Db } from "@/services/seam-runtime";
+import { rolesForDocuments } from "@/services/share-access";
 import { holdColumns } from "@/services/document-update";
 import { must } from "@/services/shared/must";
 import {
@@ -54,6 +55,8 @@ async function applyBatch(admin: Db, job: JobRow, ids: string[], role: AppRole) 
     "reading the documents of a bulk batch",
   );
   const byId = new Map((docs ?? []).map((d) => [d.id, d]));
+  // A document the creator reaches only through a share follows that share's level.
+  const roleFor = await rolesForDocuments(admin, job.created_by, role, [...byId.keys()]);
 
   let specs: { code: string; definition: unknown }[] = [];
   let pendingByDoc = new Map<
@@ -103,7 +106,7 @@ async function applyBatch(admin: Db, job: JobRow, ids: string[], role: AppRole) 
       ).length;
     }
     const reason: SkipReason | null = bulkSkipReason(
-      role,
+      roleFor.get(id) ?? role,
       job.action,
       params,
       d

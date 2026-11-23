@@ -66,3 +66,18 @@ describe("bulk approval keeps four-eyes", () => {
     expect((job?.["skipped"] as Record<string, number>)["ownDocument"]).toBe(1);
   });
 });
+describe("bulk changes follow the share level", () => {
+  it("skips a document the person reaches only through a Can view share", async () => {
+    const db = world();
+    db.rows("document_access_exceptions").push({
+      document_id: "doc-theirs",
+      user_id: AUTHOR,
+      level: "view",
+      expires_at: null,
+    });
+    await processBulkJobs(db.asDb());
+    expect(statusOf(db, "doc-theirs")).toBe("in_review");
+    const job = db.rows("bulk_jobs")[0];
+    expect(job?.["changed"]).toBe(0);
+  });
+});

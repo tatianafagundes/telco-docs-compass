@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   addDocumentsBlocker,
+  shareCappedRole,
+  strongestShare,
   can,
   contentLocked,
   deleteBlocker,
@@ -200,5 +202,27 @@ describe("addDocumentsBlocker", () => {
     expect(addDocumentsBlocker("viewer")?.code).toBe("access.roleTooLow");
     for (const r of ["contributor", "reviewer", "manager", "tenant_admin"] as const)
       expect(addDocumentsBlocker(r)).toBeNull();
+  });
+});
+
+describe("strongestShare and shareCappedRole", () => {
+  const now = new Date("2026-11-24T00:00:00Z");
+  it("should take the strongest live share and skip expired ones", () => {
+    expect(
+      strongestShare(
+        [
+          { level: "view", expires_at: null },
+          { level: "edit", expires_at: "2026-12-01T00:00:00Z" },
+          { level: "manage", expires_at: "2026-01-01T00:00:00Z" },
+        ],
+        now,
+      ),
+    ).toBe("edit");
+    expect(strongestShare([], now)).toBeNull();
+  });
+  it("should cap the role by the share level", () => {
+    expect(shareCappedRole("manager", "view")).toBe("viewer");
+    expect(shareCappedRole("manager", "edit")).toBe("contributor");
+    expect(shareCappedRole("viewer", "edit")).toBe("viewer");
   });
 });

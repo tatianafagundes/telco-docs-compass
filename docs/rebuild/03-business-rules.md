@@ -10,7 +10,7 @@ Error shape for internal operations: `{code, category, retryable, customerFacing
 | BR-001 | Role rank: viewer 0, contributor 1, reviewer 2, manager 3, tenant_admin 4, master_admin 4. |
 | BR-002 | `edit` needs contributor or higher, `review` needs reviewer or higher, `manage` needs manager or higher. |
 | BR-003 | A user has exactly one tenant and one role; master_admin is only valid in a master tenant (trigger `user_roles_guard`). |
-| BR-004 | Shared-only access: a `view` share caps the person at viewer; `edit`/`manage` shares cap them at contributor, or viewer if the base role can't edit (`sharedOnlyRole`). Reviewing, approving and managing access need record access. |
+| BR-004 | Shared-only access: a `view` share caps the person at viewer; `edit`/`manage` shares cap them at contributor, or viewer if the base role can't edit (`shareCappedRole`). The server applies it to every write and bulk change, not only the screens. Reviewing, approving and managing access need record access. |
 
 ## B. Status path (`document-rules.ts`, `document-actions.ts`)
 | ID | Rule |
