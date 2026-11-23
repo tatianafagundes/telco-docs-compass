@@ -9,7 +9,9 @@
 - [x] Prompt 11 – legal hold dialogs with reference, Holds and retention page, delete permanently, expiry on listing
 - [x] Prompt 12 – hardening pass: layouts 1440/1920 light+dark, keyboard order, icon names, isolation proofs, quick security scan, banned-phrase check, reset test data, held-delete block
 - [x] Hardening pass (2026-11-17): tenant isolation, checked writes, idempotency that runs once, API and token limits, one rule per business decision, split services, docs
-- [ ] UI review backlog R7 to R26 (`docs/design/ui-review-2026-11.md`); P1 (R1 to R6) is done
+- [ ] UI review backlog R16 and R19 to R26 (`docs/design/ui-review-2026-11.md`); P1 and P2 are done except R16 (Sign in or Log in: needs the design owners' term)
+- [ ] Decide whether the server refuses adding documents for the group administrator (the screens already do)
+- [ ] "More actions" menu: axe reports `aria-hidden-focus` while it is open (Radix modal menu); try a non-modal menu
 - [ ] Ask Lovable for a unique index on `extraction_fields (version_id, name)`; entering a missing detail is safe without it (guarded update), other writers are not
 - [ ] Human security review
 - [ ] 200% zoom and screen-reader walkthrough by a person

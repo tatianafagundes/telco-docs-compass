@@ -27,6 +27,12 @@ Sign in as a manager of the Sweden tenant and as its admin, then check:
   Add documents and the hint offers "Choose a different record". As a viewer the button is
   unavailable with its reason. The side panel and each result row link to the document's record.
 
+- UI review P2: Admin shows its areas under Admin in the left navigation (no tabs), and the page title is
+  the area. Document types say "Inherited", "Changed here" or "Locked" with the group named once above.
+  A record lists documents in a table that sorts by Name, Type and Changed. A document in review with
+  details to check shows "Check details" as its one primary action and "Send back to draft" in More actions.
+  Searching shows "n documents for "word"" with Clear filters and Sort by on one row. Connected systems
+  lists disconnected ones collapsed under "Disconnected (n)".
 ## 2. API end to end (automated)
 
 From a checkout, with Python 3 and `pip install requests playwright` then `python -m playwright install chromium`:
