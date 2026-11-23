@@ -1185,6 +1185,10 @@ export type Database = {
           updated_at: string
         }[]
       }
+      set_external_processing: {
+        Args: { p_actor: string; p_patch: Json; p_tenant: string }
+        Returns: Json
+      }
       user_tenant: { Args: never; Returns: string }
     }
     Enums: {

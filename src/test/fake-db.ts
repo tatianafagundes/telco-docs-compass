@@ -363,6 +363,15 @@ class QueryBuilder implements PromiseLike<DbAnswer> {
     return this;
   }
   /** Only the "cs" (contains) operator, on a column holding a JSON array of objects. */
+  /** Array column contains every given value (`cs` on a Postgres array, as supabase-js `contains`). */
+  contains(column: string, values: unknown[]) {
+    if (!Array.isArray(values)) throw new Error("FakeDb: contains supports arrays only");
+    this.filters.push((r) => {
+      const have = pathValue(r, column);
+      return Array.isArray(have) && values.every((v) => have.includes(v));
+    });
+    return this;
+  }
   filter(column: string, op: string, value: string) {
     if (op !== "cs") throw new Error(`FakeDb: filter operator ${op} is not supported`);
     this.filters.push((r) => {

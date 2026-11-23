@@ -4,6 +4,7 @@
 // (file-hooks spec R6.2).
 import { seamError, type SeamResult } from "@/services/document-rules";
 import { processingScope, scopesAllowed } from "@/services/processing-keys";
+import { cleanLabel } from "@/services/file-hook-text";
 import { audit, forbidden, type WriteEnv } from "@/services/seam-runtime";
 
 export interface NewSystem {
@@ -16,6 +17,8 @@ export interface IssuedKey {
   hash: string;
   expiresAt: string;
 }
+/** A system name as the activity log shows it: unsafe characters replaced, shortened. */
+export const auditName = (name: string) => cleanLabel(name, 80);
 /** Postgres unique violation: the database index caught a second processing key (D3). */
 const UNIQUE_VIOLATION = "23505";
 
@@ -65,7 +68,17 @@ export async function createSystemStep<Row extends { id: string }>(
   if (error || !row)
     return { ok: false, error: seamError("seam.unavailable", "unavailable", "retry") };
   const created = row as unknown as Row;
-  // Names and scopes only; never the key or its prefix.
-  await audit(env, "systemConnected", null, `${input.name}: ${scopes.join(", ")}`);
+  // Names and scopes only; never the key or its prefix. A key that cannot be recorded is taken back,
+  // so no unrecorded key exists (and it does not hold the organisation's one processing slot).
+  try {
+    await audit(env, "systemConnected", null, `${auditName(input.name)}: ${scopes.join(", ")}`);
+  } catch (e) {
+    await env.admin
+      .from("integration_clients")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("id", created.id)
+      .eq("tenant_id", env.tenantId);
+    throw e;
+  }
   return { ok: true, data: created };
 }

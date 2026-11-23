@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   activeProcessingKeys,
   loadSwitch,
-  readSwitch,
+  parseSwitch,
   resolveOwners,
   setSwitchStep,
 } from "@/services/external-processing";
@@ -57,14 +57,20 @@ describe("the organisation switch (D1)", () => {
       { scan: true, read: true },
       { scan: true, read: true },
     ],
-    [
-      { scan: "true", read: 1 },
-      { scan: false, read: false },
-    ],
-    [null, { scan: false, read: false }],
-    [[true], { scan: false, read: false }],
+    [{}, { scan: false, read: false }],
+    [{ scan: false }, { scan: false, read: false }],
     [JSON.parse('{"__proto__":{"scan":true}}'), { scan: false, read: false }],
-  ])("%j reads as %j", (raw, want) => expect(readSwitch(raw)).toEqual(want));
+    // Not a switch: refused, never read as "off" (built-in simulated check).
+    [{ scan: "true" }, null],
+    [{ read: 1 }, null],
+    [{ scan: null }, null],
+    [null, null],
+    [[true], null],
+  ])("%j reads as %j", (raw, want) => expect(parseSwitch(raw)).toEqual(want));
+  it("a stored value that is not a switch stops the step", async () => {
+    const db = new FakeDb({ tenants: [{ id: "t1", external_processing: { scan: "yes" } }] });
+    await expect(loadSwitch(db.asDb(), "t1")).rejects.toThrow(DatabaseError);
+  });
   it("is off where the column does not exist yet, and stops the step on any other failure", async () => {
     const missing = new FakeDb({ tenants: [] });
     const db = missing.asDb() as unknown as { from: (t: string) => unknown };
@@ -185,31 +191,37 @@ describe("who handles a step", () => {
 });
 
 describe("turning the switch on or off", () => {
-  const db = () =>
-    new FakeDb({ tenants: [{ id: "t1", external_processing: {} }], document_events: [] });
+  const db = (answer: unknown = { scan: true, read: false }) => {
+    const calls: unknown[] = [];
+    const admin = new FakeDb({ tenants: [{ id: "t1", external_processing: {} }] }).onRpc(
+      "set_external_processing",
+      (args: Record<string, unknown>) => {
+        calls.push(args);
+        return answer;
+      },
+    );
+    return { admin, calls };
+  };
   it("organisation administrators only", async () => {
     for (const role of ["manager", "master_admin", "contributor"]) {
-      const admin = db();
+      const { admin, calls } = db();
       const r = await setSwitchStep(envOf(admin, role), { scan: true });
       expect(r.ok, role).toBe(false);
-      expect(admin.writesTo("tenants")).toEqual([]);
+      expect(calls).toEqual([]);
     }
   });
-  it("saves the change and records each step that changed", async () => {
-    const admin = db();
+  it("sends only the named steps, as one database call that changes and records them", async () => {
+    const { admin, calls } = db();
     expect(await setSwitchStep(envOf(admin), { scan: true })).toEqual({
       ok: true,
       data: { scan: true, read: false },
     });
-    expect(admin.rows("tenants")[0]!["external_processing"]).toEqual({ scan: true, read: false });
-    expect(admin.rows("document_events")).toMatchObject([
-      { action: "configChange", detail: "externalProcessing.scan: off to on", document_id: null },
-    ]);
-  });
-  it("a change to nothing writes nothing", async () => {
-    const admin = db();
-    await setSwitchStep(envOf(admin), { scan: false });
+    expect(calls).toEqual([{ p_tenant: "t1", p_actor: "u1", p_patch: { scan: true } }]);
     expect(admin.writes).toEqual([]);
+  });
+  it("a database answer that is not a switch is an error, not a success", async () => {
+    const { admin } = db({ scan: "on" });
+    await expect(setSwitchStep(envOf(admin), { scan: true })).rejects.toThrow(DatabaseError);
   });
 });
 
@@ -274,6 +286,22 @@ describe("connecting a system (D3, D4, R6.2)", () => {
     };
     const r = await create(admin, ["scan"]);
     expect(!r.ok && r.error.code).toBe("system.processingKeyExists");
+  });
+  it("a key that cannot be recorded is taken back, so it holds no slot and is never shown", async () => {
+    const admin = world().fail("document_events", "insert");
+    await expect(create(admin, ["scan"])).rejects.toThrow();
+    expect(admin.rows("integration_clients")).toHaveLength(1);
+    expect(admin.rows("integration_clients")[0]!["revoked_at"]).toBeTruthy();
+  });
+  it("records the system name with unsafe characters replaced", async () => {
+    const admin = world();
+    await createSystemStep(
+      envOf(admin),
+      { name: "Acme\u202E AV", systemKind: "other", scopes: ["read"] },
+      issued,
+      "id",
+    );
+    expect(admin.rows("document_events")[0]!["detail"]).toBe("Acme\uFFFD AV: read");
   });
   it("only the organisation administrator connects systems", async () => {
     for (const role of ["master_admin", "manager"]) {

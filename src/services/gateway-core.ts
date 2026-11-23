@@ -103,8 +103,26 @@ export async function authenticate(request: Request, needed: Scope): Promise<Sys
       requestId,
     );
   }
+  // Each system has its own counter and allowance, so one busy system never uses up another's.
+  const kind = rateKind(request.method);
+  const limit = kind === "read" ? client.read_limit_per_minute : client.write_limit_per_minute;
+  const { data: hits } = await admin.rpc("api_hit", { p_client: client.id, p_kind: kind });
+  const decision = decideRate(typeof hits === "number" ? hits : 0, limit, new Date());
+  if (!decision.allowed) {
+    await admin
+      .from("integration_clients")
+      .update({ last_rate_limited_at: new Date().toISOString() })
+      .eq("id", client.id);
+    const r = errorReply(
+      tmfError(429, "tooManyRequests", "Too Many Requests", retryGuidance(kind, decision)),
+      requestId,
+    );
+    for (const [k, v] of Object.entries(rateHeaders(decision))) r.headers.set(k, v);
+    return r;
+  }
   // The organisation's own antivirus or reader: that one scope only (D4), and the only such key (D3),
-  // checked again on every call in case the keys changed after this one was made.
+  // checked again on every call in case the keys changed after this one was made. After the rate
+  // limit, so a key that is refused here still uses up its allowance.
   const processing = processingScope(client.scopes);
   if (processing) {
     const designated = scopesAllowed(client.scopes)
@@ -128,23 +146,6 @@ export async function authenticate(request: Request, needed: Scope): Promise<Sys
         ),
         requestId,
       );
-  }
-  // Each system has its own counter and allowance, so one busy system never uses up another's.
-  const kind = rateKind(request.method);
-  const limit = kind === "read" ? client.read_limit_per_minute : client.write_limit_per_minute;
-  const { data: hits } = await admin.rpc("api_hit", { p_client: client.id, p_kind: kind });
-  const decision = decideRate(typeof hits === "number" ? hits : 0, limit, new Date());
-  if (!decision.allowed) {
-    await admin
-      .from("integration_clients")
-      .update({ last_rate_limited_at: new Date().toISOString() })
-      .eq("id", client.id);
-    const r = errorReply(
-      tmfError(429, "tooManyRequests", "Too Many Requests", retryGuidance(kind, decision)),
-      requestId,
-    );
-    for (const [k, v] of Object.entries(rateHeaders(decision))) r.headers.set(k, v);
-    return r;
   }
   await admin
     .from("integration_clients")

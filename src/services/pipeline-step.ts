@@ -134,10 +134,15 @@ export async function advanceStep(
     }
   }
   const now = deps.now();
+  // The switch and keys are read only when a step starts: the owner is used for nothing else.
+  const starts =
+    step.kind === "confirmed" ||
+    step.kind === "retry" ||
+    (step.kind === "scanResult" && step.result === "clean");
   const next = stepTransition(state, doc.pipeline_detail, step, {
     now,
     versionId: version.id,
-    owner: await deps.owners(),
+    owner: starts ? await deps.owners() : await SIMULATED_OWNERS(),
   });
   if (!next.ok) {
     if (next.code === "externalPending")

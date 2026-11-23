@@ -10,7 +10,7 @@ import {
   type ProcessingScope,
 } from "@/services/processing-keys";
 import type { SeamResult } from "@/services/document-rules";
-import { audit, forbidden, type Db, type WriteEnv } from "@/services/seam-runtime";
+import { forbidden, type Db, type WriteEnv } from "@/services/seam-runtime";
 import { DatabaseError, must } from "@/services/shared/must";
 
 export interface ProcessingSwitch {
@@ -21,11 +21,20 @@ export interface ProcessingSwitch {
 }
 export const SWITCH_OFF: ProcessingSwitch = { scan: false, read: false };
 
-/** `tenants.external_processing` as stored: only an own `true` turns a step on. */
-export function readSwitch(raw: unknown): ProcessingSwitch {
-  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return SWITCH_OFF;
-  const own = (k: string) => Object.hasOwn(raw, k) && (raw as Record<string, unknown>)[k] === true;
-  return { scan: own("scan"), read: own("read") };
+/**
+ * `tenants.external_processing` as stored: an object whose `scan` and `read`, when present, are
+ * true or false. Anything else is not a switch (null): it is refused, never read as "off".
+ */
+export function parseSwitch(raw: unknown): ProcessingSwitch | null {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+  const out: ProcessingSwitch = { scan: false, read: false };
+  for (const k of ["scan", "read"] as const) {
+    if (!Object.hasOwn(raw, k)) continue;
+    const v = (raw as Record<string, unknown>)[k];
+    if (typeof v !== "boolean") return null;
+    out[k] = v;
+  }
+  return out;
 }
 
 /** Postgres "undefined column": the switch's migration has not reached this database. */
@@ -33,7 +42,8 @@ const UNDEFINED_COLUMN = "42703";
 
 /**
  * The organisation's switch. Where the column does not exist yet nobody can have turned it on, so it
- * is off; any other failure stops the step (a scan must never fall back to simulation by accident).
+ * is off; any other failure, and a value that is not a switch, stops the step (a scan must never fall
+ * back to simulation by accident).
  */
 export async function loadSwitch(admin: Db, tenantId: string): Promise<ProcessingSwitch> {
   const { data, error } = await admin
@@ -45,14 +55,19 @@ export async function loadSwitch(admin: Db, tenantId: string): Promise<Processin
     if (error.code === UNDEFINED_COLUMN) return SWITCH_OFF;
     throw new DatabaseError("reading the organisation's processing switch");
   }
-  if (!data) throw new DatabaseError("reading the organisation's processing switch");
-  return readSwitch((data as { external_processing?: unknown }).external_processing);
+  const sw = data
+    ? parseSwitch((data as { external_processing?: unknown }).external_processing)
+    : null;
+  if (!sw) throw new DatabaseError("reading the organisation's processing switch");
+  return sw;
 }
 
 export interface ProcessingKey {
   id: string;
   name: string;
 }
+/** More than one active key means nobody is chosen, so a few rows are enough to tell. */
+const MAX_PROCESSING_KEYS_READ = 5;
 /** The organisation's active keys with this processing scope (normally none or one, D3). */
 export async function activeProcessingKeys(
   admin: Db,
@@ -60,12 +75,15 @@ export async function activeProcessingKeys(
   scope: ProcessingScope,
   now: Date,
 ): Promise<ProcessingKey[]> {
+  // Only keys that list this scope, so the read stays small whatever the organisation has connected.
   const { data, error } = await admin
     .from("integration_clients")
     .select("id, name, scopes, revoked_at, expires_at, created_at")
     .eq("tenant_id", tenantId)
     .is("revoked_at", null)
-    .order("created_at", { ascending: true });
+    .contains("scopes", [scope])
+    .order("created_at", { ascending: true })
+    .limit(MAX_PROCESSING_KEYS_READ);
   if (error) throw new DatabaseError("reading the organisation's connected systems");
   return (
     (data ?? [])
@@ -103,34 +121,28 @@ export async function resolveOwners(
 }
 
 /**
- * Turns the organisation's own antivirus or reader on or off (D1). Organisation administrators only;
- * every change is recorded. Documents already in a step keep the mode they started with.
+ * Turns the organisation's own antivirus or reader on or off (D1). Organisation administrators only.
+ * One database call (`set_external_processing`) locks the row, changes only the named steps and
+ * records each change in the same transaction, so two changes at once never undo each other and a
+ * change is never left unrecorded. Documents already in a step keep the mode they started with.
  */
 export async function setSwitchStep(
   env: WriteEnv,
   patch: Partial<ProcessingSwitch>,
 ): Promise<SeamResult<ProcessingSwitch>> {
   if (env.role !== "tenant_admin") return forbidden();
-  const before = await loadSwitch(env.admin, env.tenantId);
-  const after: ProcessingSwitch = {
-    scan: patch.scan ?? before.scan,
-    read: patch.read ?? before.read,
-  };
-  const changed = (["scan", "read"] as const).filter((k) => before[k] !== after[k]);
-  if (!changed.length) return { ok: true, data: after };
-  must(
-    await env.admin
-      .from("tenants")
-      .update({ external_processing: { ...after } })
-      .eq("id", env.tenantId),
+  const named = Object.fromEntries(
+    (["scan", "read"] as const).filter((k) => patch[k] !== undefined).map((k) => [k, patch[k]]),
+  );
+  const after = must(
+    await env.admin.rpc("set_external_processing", {
+      p_tenant: env.tenantId,
+      p_actor: env.userId,
+      p_patch: named,
+    }),
     "saving the organisation's processing switch",
   );
-  for (const k of changed)
-    await audit(
-      env,
-      "configChange",
-      null,
-      `externalProcessing.${k}: ${before[k] ? "on" : "off"} to ${after[k] ? "on" : "off"}`,
-    );
-  return { ok: true, data: after };
+  const sw = parseSwitch(after);
+  if (!sw) throw new DatabaseError("saving the organisation's processing switch");
+  return { ok: true, data: sw };
 }

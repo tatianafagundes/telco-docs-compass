@@ -5,7 +5,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { seamError, type SeamResult } from "@/services/document-rules";
 import { audit, forbidden, runRead } from "@/services/seam-runtime";
-import { createSystemStep } from "@/services/integration-client-create";
+import { auditName, createSystemStep } from "@/services/integration-client-create";
 import { LIMIT_BOUNDS } from "@/services/rate-limit-rules";
 import { SCOPES, sha256Hex, SYSTEM_KINDS } from "@/services/tmf667-mapper";
 import { adminClient } from "@/services/shared/server-context";
@@ -130,11 +130,13 @@ export const rotateSystemKey = createServerFn({ method: "POST" })
         .eq("id", data.id)
         .eq("tenant_id", env.tenantId)
         .is("revoked_at", null)
-        .select("id");
+        .select("id, name");
       if (!rows || rows.length === 0)
         return { ok: false, error: seamError("system.notFound", "notFound", "none") };
       // Tokens made with the old key must not outlive it.
       await removeTokensOf(admin, data.id);
+      // A new key for a system is recorded, never the key itself.
+      await audit({ ...env, admin }, "systemKeyRotated", null, auditName(rows[0]!.name));
       return { ok: true, data: { key } };
     }),
   );
@@ -146,17 +148,27 @@ export const revokeSystem = createServerFn({ method: "POST" })
     runRead(context, "systems.revoke", null, async (env) => {
       if (!isTenantAdmin(env.role)) return forbidden();
       const admin = await adminClient();
-      const { data: rows } = await admin
+      const { data: sys } = await admin
         .from("integration_clients")
-        .update({ revoked_at: new Date().toISOString() })
+        .select("id, name, revoked_at")
         .eq("id", data.id)
         .eq("tenant_id", env.tenantId)
-        .is("revoked_at", null)
-        .select("id, name");
-      if (!rows || rows.length === 0)
-        return { ok: false, error: seamError("system.notFound", "notFound", "none") };
-      // Disconnecting is recorded: a file waiting for this system now fails after the timeout.
-      await audit({ ...env, admin }, "systemDisconnected", null, rows[0]!.name);
+        .maybeSingle();
+      if (!sys) return { ok: false, error: seamError("system.notFound", "notFound", "none") };
+      if (!sys.revoked_at) {
+        // Recorded first: a file waiting for this system now fails after the timeout.
+        await audit({ ...env, admin }, "systemDisconnected", null, auditName(sys.name));
+        must(
+          await admin
+            .from("integration_clients")
+            .update({ revoked_at: new Date().toISOString() })
+            .eq("id", data.id)
+            .eq("tenant_id", env.tenantId)
+            .is("revoked_at", null),
+          "disconnecting a system",
+        );
+      }
+      // Done again on a retry, so a disconnect that stopped half-way still finishes.
       must(
         await admin.from("event_subscriptions").delete().eq("client_id", data.id),
         "writing event subscriptions",
@@ -165,7 +177,6 @@ export const revokeSystem = createServerFn({ method: "POST" })
       return { ok: true, data: { id: data.id } };
     }),
   );
-
 const limitsSchema = z.object({
   id: z.string().uuid(),
   readLimitPerMinute: z.number().int().min(LIMIT_BOUNDS.read.min).max(LIMIT_BOUNDS.read.max),

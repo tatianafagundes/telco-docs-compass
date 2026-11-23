@@ -1,8 +1,17 @@
 // The organisation's own antivirus and reader keys are checked again on every call (file-hooks spec
 // D3, D4, R6.2): one scope only, and the only such key of the organisation.
 import { describe, expect, it, vi } from "vitest";
-import { authenticate, getDocument } from "@/test/gateway-api";
-import { buildWorld, call, CLIENT_ID, DOC_ID, json, TENANT } from "@/test/gateway-world";
+import { authenticate, getDocument, issueToken } from "@/test/gateway-api";
+import {
+  buildWorld,
+  call,
+  CLIENT_ID,
+  DOC_ID,
+  json,
+  KEY,
+  READ_LIMIT,
+  TENANT,
+} from "@/test/gateway-world";
 vi.mock(
   "@/integrations/supabase/client.server",
   async () => (await import("@/test/gateway-world")).clientServerMock,
@@ -66,5 +75,25 @@ describe("processing keys", () => {
     }) as typeof db.from;
     const res = await scanCall();
     expect(res instanceof Response && res.status).toBe(503);
+  });
+  it("a refused processing key still uses up its allowance", async () => {
+    const db = await buildWorld({ scopes: ["scan", "read"], hits: READ_LIMIT + 1 });
+    const res = await getDocument(call("GET", `/document/${DOC_ID}`), DOC_ID);
+    expect(res.status).toBe(429);
+    expect(db.rows("integration_clients")[0]!["last_rate_limited_at"]).toBeTruthy();
+  });
+  it("a processing key that is not the organisation's connected system gets no token", async () => {
+    const db = await buildWorld({ scopes: ["scan"] });
+    db.rows("integration_clients").push(other());
+    const form = new URLSearchParams({ grant_type: "client_credentials", client_secret: KEY });
+    const res = await issueToken(
+      new Request("https://app.example.test/api/public/tmf-api/oauth/token", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: form.toString(),
+      }),
+    );
+    expect(res.status).toBe(401);
+    expect(db.rows("integration_tokens")).toEqual([]);
   });
 });
