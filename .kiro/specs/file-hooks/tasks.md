@@ -38,8 +38,8 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
   - Publishing to `main` behind the preview is accepted on these conditions: preview access restricted, no real customer or personal files, no wording that files are scanned or safe, 3.x, 5.3 and 5.5 open as release blockers.
 
 ## 3. Organisation switch and keys
-- [ ] 3.1 `external-processing.ts`: switch read from `tenants.external_processing`, active scanner and reader, `startStep`.
-- [ ] 3.2 Scopes `scan`, `extract`: D3 and D4 at creation (admin only, recorded) and in `authenticate`; `ALL_SCOPES` in the test world updated on purpose.
+- [x] 3.1 `external-processing.ts`: switch read from `tenants.external_processing`, active scanner and reader, `startStep`.
+- [x] 3.2 Scopes `scan`, `extract`: D3 and D4 at creation (admin only, recorded) and in `authenticate`; `ALL_SCOPES` in the test world updated on purpose. Done: `processing-keys.ts` (pure), `integration-client-create.ts` (D3, D4, recorded), `authenticate` re-check (403 `notDesignated`, 503 when the keys cannot be read), migration 0020 (CHECK and partial unique index), `setProcessingSwitch` / `getProcessingSwitch` (organisation administrator, recorded), `resolveOwners` wired into `advancePipeline`, `ALL_SCOPES` kept without the exclusive scopes, `e2e/tmf-api.py` skips them for "all scopes". A switch on with no active key gives an external step with no system (waits, then times out).
 - [ ] 3.3 Review: `seg-review` on phase 3.
 
 ## 4. Events out

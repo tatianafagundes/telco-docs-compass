@@ -19,6 +19,10 @@ The API follows TM Forum TMF667 Document Management v4 and the TMF630 REST guide
 | `hold` | place and release legal holds |
 | `delete` | delete (soft; an admin can restore) |
 | `subscribe` | subscribe to change events |
+| `scan` | the organisation's own antivirus: check files and report the result (endpoints not available yet) |
+| `extract` | the organisation's own reader: read details from files and report them (endpoints not available yet) |
+
+`scan` and `extract` are exclusive: a key with one has no other scope, and an organisation has one such key of each kind until it is disconnected. Such a key is checked again on every call; a key that is not the organisation's connected system for it answers 403 `notDesignated`.
 
 A call without the scope it needs answers 403 `scopeMissing`.
 
