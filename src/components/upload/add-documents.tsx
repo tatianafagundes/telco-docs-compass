@@ -37,7 +37,11 @@ export interface AddDocumentsProps {
   entityId: string;
   entityKind: string;
   role: AppRole;
-  existing: { id: string; name: string }[];
+  existing: {
+    id: string;
+    name: string; /** Show the button as a default one, because another primary action is on screen. */
+    secondary?: boolean;
+  }[];
   upload: ReturnType<typeof useUpload>;
   onShowAttention: () => void;
   /** The Documents tab content; becomes the drop zone. */
@@ -46,6 +50,8 @@ export interface AddDocumentsProps {
   arrivingFor?: string | null;
   /** The record's name, so the type step says where the files go. */
   recordName?: string;
+  /** Show the button as a default one, because another primary action is on screen. */
+  secondary?: boolean;
 }
 
 /** "Add documents": button, drag-and-drop on the tab and paste, all opening the same dialog. */
@@ -59,6 +65,7 @@ export function AddDocuments({
   children,
   arrivingFor = null,
   recordName,
+  secondary = false,
 }: AddDocumentsProps) {
   const state = addDocumentsState(role);
   const allowed = state.available;
@@ -131,7 +138,8 @@ export function AddDocuments({
       <div className="flex flex-col items-start gap-1">
         <Button
           ref={button}
-          variant="primary"
+          // One primary action per view: while a document's panel is open, its action leads.
+          variant={secondary ? "default" : "primary"}
           unavailable={!allowed}
           aria-describedby={!allowed ? "add-docs-reason" : hint ? "add-docs-hint" : undefined}
           onClick={() => {

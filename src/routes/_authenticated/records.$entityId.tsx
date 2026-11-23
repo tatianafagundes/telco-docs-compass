@@ -173,6 +173,7 @@ function RecordPage() {
           onShowAttention={() => setAttentionOnly(true)}
           arrivingFor={arriving ? data.entity.display_name : null}
           recordName={data.entity.display_name}
+          secondary={Boolean(doc)}
         >
           {attentionOnly ? (
             <p className="type-label-14 flex items-center gap-2">

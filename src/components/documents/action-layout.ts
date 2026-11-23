@@ -37,3 +37,9 @@ export function actionLayout(
     sendBack: back ? (back.available ? {} : { reason: back.reason }) : null,
   };
 }
+
+/** The line under "Check details": what it unlocks, in one plain sentence. */
+export function gateHint(nextLabel: string, pending: number): string {
+  const what = pending === 1 ? "1 required detail" : `${pending} required details`;
+  return `${nextLabel} is available after you check ${what}.`;
+}

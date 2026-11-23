@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { actionLayout } from "@/components/documents/action-layout";
+import { actionLayout, gateHint } from "@/components/documents/action-layout";
 import { AUTHOR_APPROVE_REASON } from "@/services/review-flow-rules";
 const GATE = "Check 2 required details before approving.";
 describe("actionLayout (one primary action)", () => {
@@ -28,5 +28,9 @@ describe("actionLayout (one primary action)", () => {
       actionLayout("contributor", "in_review", undefined, false).sendBack?.reason,
     ).toBeTruthy();
     expect(actionLayout("reviewer", "draft", undefined, false).sendBack).toBeNull();
+  });
+  it("should say in one sentence what checking unlocks", () => {
+    expect(gateHint("Approve", 1)).toBe("Approve is available after you check 1 required detail.");
+    expect(gateHint("Approve", 3)).toBe("Approve is available after you check 3 required details.");
   });
 });

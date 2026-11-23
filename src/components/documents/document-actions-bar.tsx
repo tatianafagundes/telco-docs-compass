@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Dialog } from "@/components/erad/dialog";
 import { useDocumentActions } from "@/hooks/use-document-actions";
 import { deleteState, manageState, purgeState } from "@/services/document-actions";
-import { actionLayout } from "@/components/documents/action-layout";
+import { actionLayout, gateHint } from "@/components/documents/action-layout";
 import { TextField } from "@/components/erad/text-field";
 import type { AppRole } from "@/services/document-rules";
 import type { ApproveGate } from "@/services/review-rules";
@@ -124,13 +124,17 @@ export function DocumentActionsBar({
             <Link
               to="/records/$entityId/review/$docId"
               params={{ entityId, docId: doc.id }}
+              aria-describedby={`gate-${doc.id}`}
               className={cn(buttonVariants({ variant: "primary" }), "self-start")}
             >
               Check details
             </Link>
-            <span className="type-label-12 inline-flex items-center gap-1 text-text-secondary">
-              <Lock aria-hidden="true" className="size-3.5 shrink-0" />
-              {`${next.label} after that. ${next.reason ?? ""}`.trim()}
+            <span
+              id={`gate-${doc.id}`}
+              className="type-paragraph-14 inline-flex items-center gap-1 text-text-secondary"
+            >
+              <Lock aria-hidden="true" className="size-4 shrink-0" />
+              {gateHint(next.label, approveGate?.pending ?? 1)}
             </span>
           </div>
         ) : next ? (
