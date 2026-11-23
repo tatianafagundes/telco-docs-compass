@@ -16,19 +16,22 @@ export interface SelectProps {
   onValueChange?: (v: string) => void;
   /** Label beside the field instead of above it, for one-row toolbars. */
   inline?: boolean;
+  /** Unavailable but focusable: it does not open, and the reason must be shown nearby. */
+  unavailable?: boolean;
 }
 
-export function Select({ label, groups, placeholder, inline, ...props }: SelectProps) {
+export function Select({ label, groups, placeholder, inline, unavailable, ...props }: SelectProps) {
   const id = React.useId();
   return (
     <div className={inline ? "flex items-center gap-2" : "flex flex-col gap-1"}>
       <label id={id} className="type-label-14">
         {label}
       </label>
-      <SelectPrimitive.Root {...props}>
+      <SelectPrimitive.Root {...props} {...(unavailable ? { open: false } : {})}>
         <SelectPrimitive.Trigger
           aria-labelledby={id}
-          className="focus-ring type-label-14 flex h-9 min-w-40 items-center justify-between gap-2 rounded-control border border-border-btn pr-2 pl-3 text-text-main hover:bg-btn-default-hover hover:text-text-contrast data-[state=open]:bg-btn-default-press data-[state=open]:text-text-contrast"
+          aria-disabled={unavailable ? true : undefined}
+          className="focus-ring type-label-14 flex h-9 min-w-40 items-center justify-between gap-2 rounded-control border border-border-btn pr-2 pl-3 text-text-main hover:bg-btn-default-hover hover:text-text-contrast data-[state=open]:bg-btn-default-press data-[state=open]:text-text-contrast aria-disabled:cursor-not-allowed aria-disabled:border-border-subtle aria-disabled:bg-input-disabled aria-disabled:text-text-secondary aria-disabled:hover:bg-input-disabled aria-disabled:hover:text-text-secondary"
         >
           <SelectPrimitive.Value placeholder={placeholder} />
           <SelectPrimitive.Icon>

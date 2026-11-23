@@ -22,6 +22,8 @@ export const Checkbox = React.forwardRef<HTMLButtonElement, CheckboxProps>(
           "data-[state=checked]:border-input-selected data-[state=checked]:bg-input-selected data-[state=checked]:hover:bg-input-selected-hover",
           "data-[state=indeterminate]:border-input-selected data-[state=indeterminate]:bg-input-selected",
           "disabled:border-border-subtle disabled:bg-input-disabled",
+          // Unavailable but focusable (the reason is shown nearby): looks unavailable too.
+          "aria-disabled:cursor-not-allowed aria-disabled:border-border-subtle aria-disabled:bg-input-disabled aria-disabled:text-text-secondary aria-disabled:hover:border-border-subtle aria-disabled:data-[state=checked]:border-border-subtle aria-disabled:data-[state=checked]:bg-input-disabled",
           className,
         )}
         {...props}

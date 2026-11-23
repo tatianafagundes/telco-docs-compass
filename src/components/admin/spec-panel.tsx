@@ -88,6 +88,7 @@ export function SpecPanel(p: SpecPanelProps) {
       ) : f === "retentionPolicyRef" ? (
         <Select
           label={LABEL[f]}
+          unavailable={!!reason}
           value={typeof v === "string" ? v : ""}
           placeholder="Not set"
           groups={[
@@ -106,6 +107,7 @@ export function SpecPanel(p: SpecPanelProps) {
       ) : (
         <Select
           label={LABEL[f]}
+          unavailable={!!reason}
           value={typeof v === "string" ? v : "none"}
           groups={[
             {
@@ -149,7 +151,12 @@ export function SpecPanel(p: SpecPanelProps) {
         <div className="flex flex-col items-start gap-1">
           {notes.source ? <SourceTag source={notes.source} /> : null}
           {notes.reason ? (
-            <p className="type-paragraph-14 text-text-secondary">{notes.reason}</p>
+            <p className="type-paragraph-14 text-text-secondary">
+              {/* The tag already says Locked; the sentence says who set it. */}
+              {notes.source === "locked"
+                ? `Set by ${view.tenant.groupName}. Countries cannot change it.`
+                : notes.reason}
+            </p>
           ) : null}
         </div>
       ) : null}

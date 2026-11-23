@@ -64,7 +64,7 @@ export function RetentionTab() {
               header: "Where defined",
               cell: (r) =>
                 tenant.isGroup ? (
-                  <Tag tone="purple">Set here</Tag>
+                  <Tag>Set here</Tag>
                 ) : (
                   <SourceTag
                     source={
