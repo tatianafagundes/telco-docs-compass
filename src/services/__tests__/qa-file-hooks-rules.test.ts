@@ -741,41 +741,35 @@ describe("QA opt-in event filter parsing", () => {
   // outside [A-Za-z,]. A comma written as %2C (what URLSearchParams and most HTTP clients produce for
   // `eventType=A,B`) therefore keeps only the FIRST type: the subscription silently loses every
   // later type, standard or opt-in. Fails closed for file events, but the subscriber just never gets them.
-  it.fails("a url-encoded comma keeps the later event types (BUG: only the first survives)", () => {
+  it("a url-encoded comma keeps the later event types (fixed, was: only the first survives)", () => {
     expect(sends(`eventType=DocumentChangeEvent%2C${T}`)).toBe(true);
   });
-  it.fails("the same list built with URLSearchParams works (BUG: %2C)", () => {
+  it("the same list built with URLSearchParams works (fixed, was: %2C)", () => {
     const q = new URLSearchParams({ eventType: `DocumentChangeEvent,${T}` }).toString();
     expect(sends(q)).toBe(true);
   });
   // DEFECT (low-medium, same function): the regex is not anchored to a parameter name, and the value
   // stops at the first non-letter. R1.5 says "exact, case-sensitive". Both are false greens: a name that
   // is NOT the one asked for reaches the subscriber.
-  it.fails(
-    "eventType=<name>2 is not the opt-in name (BUG: digit ends the value, prefix matches)",
-    () => {
-      expect(sends(`eventType=${T}2`)).toBe(false);
-    },
-  );
-  it.fails("eventType=<name>-v2 / .x / _x is not the opt-in name (BUG: prefix matches)", () => {
+  it("eventType=<name>2 is not the opt-in name (fixed, was: digit ends the value, prefix matches)", () => {
+    expect(sends(`eventType=${T}2`)).toBe(false);
+  });
+  it("eventType=<name>-v2 / .x / _x is not the opt-in name (fixed, was: prefix matches)", () => {
     for (const suffix of ["-v2", ".x", "_x", "*", "%20"])
       expect(sends(`eventType=${T}${suffix}`), suffix).toBe(false);
   });
-  it.fails("a parameter merely ending in eventType does not opt in (BUG: unanchored regex)", () => {
+  it("a parameter merely ending in eventType does not opt in (fixed, was: unanchored regex)", () => {
     expect(sends(`xeventType=${T}`)).toBe(false);
     expect(sends(`note=eventType=${T}`)).toBe(false);
   });
   // DEFECT (low, PRE-EXISTING, surfaced by the new opt-in path): queryValue() calls decodeURIComponent
   // on the raw value, which throws URIError on a stray %. eventMatches then throws instead of answering
   // false; whether one bad subscription poisons delivery depends on the caller, which has no try/catch here.
-  it.fails(
-    "a malformed percent sequence in a filter answers false instead of throwing (BUG: URIError)",
-    () => {
-      expect(() =>
-        eventMatches(`eventType=${T}&documentType=%E0%A4%A`, T, { documentType: "x" }),
-      ).not.toThrow();
-    },
-  );
+  it("a malformed percent sequence in a filter answers false instead of throwing (fixed, was: URIError)", () => {
+    expect(() =>
+      eventMatches(`eventType=${T}&documentType=%E0%A4%A`, T, { documentType: "x" }),
+    ).not.toThrow();
+  });
 });
 
 // ---------------------------------------------------------------------------------------------

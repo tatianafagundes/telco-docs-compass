@@ -39,17 +39,19 @@ export function eventNameFor(query: string | null, internal: string): string {
   return v4EventType(internal);
 }
 
+/**
+ * The subscription query as parameters (`&` or `;` between them, percent-encoding decoded, never
+ * throws). Only the first value of a parameter counts; an empty value counts as not given.
+ */
+function queryParam(query: string, key: string): string[] | null {
+  const v = new URLSearchParams(query.replace(/;/g, "&")).get(key);
+  return v ? v.split(",") : null;
+}
+/** The event types a subscription names, compared exactly (case and every character count). */
 function parseEventTypes(query: string | null): string[] | null {
-  if (!query) return null;
-  const m = /eventType=([A-Za-z,]+)/.exec(query);
-  return m ? (m[1] ?? "").split(",") : null;
+  return query ? queryParam(query, "eventType") : null;
 }
-
-function queryValue(query: string, key: string): string[] | null {
-  const m = new RegExp(`(?:^|[&;])${key.replace(".", "\\.")}=([^&;]+)`).exec(query);
-  return m ? decodeURIComponent(m[1] ?? "").split(",") : null;
-}
-
+const queryValue = queryParam;
 /**
  * TMF667 v4 event envelope. Carries a reference (id, href, status), never document content
  * or characteristic values: receivers fetch the resource with their own key.
