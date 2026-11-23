@@ -38,6 +38,19 @@ const ROLE_REASON: Record<"edit" | "review" | "manage", string> = {
   manage: "Only managers and administrators can do this.",
 };
 
+/**
+ * True when an action is unavailable only because of the person's role. Nothing they can do on
+ * this document changes that, so the screens hide the action instead of showing it disabled (R21).
+ * Reasons tied to the document (a hold, a keep-until date, details to check, four-eyes) stay shown.
+ */
+export function blockedByRole(state: { available: boolean; reason?: string | undefined }): boolean {
+  return (
+    !state.available &&
+    (Object.values(ROLE_REASON).includes(state.reason ?? "") ||
+      state.reason === "Only administrators can delete permanently.")
+  );
+}
+
 export function nextStep(role: AppRole, status: DocStatus): NextStep | null {
   const n = NEXT[status];
   if (!n) return null;

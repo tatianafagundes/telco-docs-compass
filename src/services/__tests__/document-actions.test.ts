@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { deleteBlocker, retentionHolds } from "@/services/document-rules";
 import {
+  blockedByRole,
   deleteState,
   editState,
+  manageState,
   nextStep,
   purgeRefusalCode,
   purgeState,
@@ -165,5 +167,13 @@ describe("addDocumentsState", () => {
       available: false,
       reason: "Viewers can open documents here but can't add them.",
     });
+  });
+});
+describe("blockedByRole", () => {
+  it("is true only for reasons the person's role causes", () => {
+    expect(blockedByRole(manageState("viewer"))).toBe(true);
+    expect(blockedByRole(deleteState("manager", true, null, "2026-11-24"))).toBe(false);
+    expect(blockedByRole(purgeState("manager", false, null, "2026-11-24"))).toBe(true);
+    expect(blockedByRole({ available: true })).toBe(false);
   });
 });

@@ -18,15 +18,18 @@ describe("actionLayout (one primary action)", () => {
     expect(l.primary).toBe("next");
     expect(l.next).toMatchObject({ available: false, reason: AUTHOR_APPROVE_REASON });
   });
-  it("should not send someone who cannot approve to check details", () => {
-    expect(actionLayout("contributor", "in_review", GATE, false).primary).toBe("next");
-    expect(actionLayout("viewer", "in_review", GATE, false).next?.available).toBe(false);
+  it("should hide a step the role can never take, instead of showing it disabled (R21)", () => {
+    expect(actionLayout("contributor", "in_review", GATE, false)).toMatchObject({
+      primary: null,
+      next: null,
+    });
+    expect(actionLayout("viewer", "draft", undefined, false).next).toBeNull();
+    // A reason tied to the document stays visible: the author's own document.
+    expect(actionLayout("reviewer", "in_review", undefined, true).next?.reason).toBeTruthy();
   });
   it("should put Send back in More actions only while in review", () => {
     expect(actionLayout("reviewer", "in_review", undefined, false).sendBack).toEqual({});
-    expect(
-      actionLayout("contributor", "in_review", undefined, false).sendBack?.reason,
-    ).toBeTruthy();
+    expect(actionLayout("contributor", "in_review", undefined, false).sendBack).toBeNull();
     expect(actionLayout("reviewer", "draft", undefined, false).sendBack).toBeNull();
   });
   it("should say in one sentence what checking unlocks", () => {

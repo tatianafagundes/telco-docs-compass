@@ -88,17 +88,21 @@ export function DocumentActionsBar({
       : []),
     ...extraMenu,
     { label: "Report a problem", onSelect: () => setOpen("report") },
-    {
-      label: doc.legal_hold ? "Release legal hold" : "Place legal hold",
-      onSelect: () => setOpen(doc.legal_hold ? "release" : "hold"),
-      reason: manage.reason,
-      separatorBefore: true,
-    },
-    {
-      label: "Delete document",
-      onSelect: () => setOpen("delete"),
-      reason: del.available ? undefined : manage.available ? del.reason : manage.reason,
-    },
+    // Holds and deletion are for managers and above; other roles do not see them (R21).
+    ...(manage.available
+      ? [
+          {
+            label: doc.legal_hold ? "Release legal hold" : "Place legal hold",
+            onSelect: () => setOpen(doc.legal_hold ? "release" : "hold"),
+            separatorBefore: true,
+          },
+          {
+            label: "Delete",
+            onSelect: () => setOpen("delete"),
+            reason: del.available ? undefined : del.reason,
+          },
+        ]
+      : []),
     ...(isAdmin
       ? [
           {

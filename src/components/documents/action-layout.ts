@@ -1,4 +1,4 @@
-import { nextStep, sendBackState, type NextStep } from "@/services/document-actions";
+import { blockedByRole, nextStep, sendBackState, type NextStep } from "@/services/document-actions";
 import type { AppRole } from "@/services/document-rules";
 import type { DocStatus } from "@/schemas/document";
 import { AUTHOR_APPROVE_REASON } from "@/services/review-flow-rules";
@@ -19,7 +19,9 @@ export function actionLayout(
   gateReason: string | null | undefined,
   own: boolean,
 ): ActionLayout {
-  const step = nextStep(role, status);
+  const raw = nextStep(role, status);
+  // A step this role can never take is not shown at all (R21).
+  const step = raw && blockedByRole(raw) ? null : raw;
   const approving = step?.to === "approved" && step.available;
   const gated = !!(approving && gateReason);
   const authorBlocked = !!(approving && !gated && own);
@@ -34,7 +36,7 @@ export function actionLayout(
   return {
     primary: gated ? "check" : next ? "next" : null,
     next,
-    sendBack: back ? (back.available ? {} : { reason: back.reason }) : null,
+    sendBack: back && !blockedByRole(back) ? (back.available ? {} : { reason: back.reason }) : null,
   };
 }
 
