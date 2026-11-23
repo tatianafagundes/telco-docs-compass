@@ -309,3 +309,11 @@ describe("the rebuild handbook copies match their sources", () => {
     ).toBe(0);
   });
 });
+describe("the UI review keeps its backlog", () => {
+  // A docs edit once cut everything after the P1 note; the backlog must stay whole.
+  it("still has every backlog section", () => {
+    const doc = read("docs/design/ui-review-2026-11.md");
+    for (const h of ["### P1", "### P2", "### P3", "## Usability test plan", "## Not verified"])
+      expect(doc).toContain(h);
+  });
+});

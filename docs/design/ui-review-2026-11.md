@@ -109,3 +109,81 @@ A holistic review of the screens of Telco Docs Compass: who uses it, how each jo
 **P1 is done (2026-11-23).** R1: a reviewer can enter a required detail that nobody read (it counts as confirmed), the stepper stays on Check details while a required detail is open, the footer says how many are left, and a required detail marked "not in the document" now says why approval waits. R2: row actions are always visible. R3: every dialog dims the page to 60%. R4: skip link. R5: the Tenants area tells other roles at once that it is for the group administrator. R6: field errors are announced. Checked in the browser in light and dark (axe: no violations); the save itself can only be checked on the preview (`docs/operations/regression-after-publish.md`). Open from it: a unique index on extraction details (version, name), which is a schema change to request in Lovable.
 
 **P2 is done except R16 (2026-11-24).** R7: tags follow EDS (labels within 20 characters, "Inherited", "Changed here", "Locked", with the group named once per screen; no icons on coloured tags; held and locked items use a gray tag with a lock; severity icons only on error banners; Read-only uses a gray tag with an eye instead of the AI sparkle; the type editor shows a shared setting note once per section). R8: type labels and full policy sentences on the group's view of a country. R9: Connected systems shows a count, a filter from six systems, disconnected systems collapsed and gray, and a short "Can:" line. R10: the admin areas are children of Admin in the main navigation (EDS navigation tree) and each page is titled by its area; "Holds and retention" is one entry per role (managers in the main navigation, administrators under Admin). R11: the main navigation stays marked on pages inside a section. R12: a record lists its documents as a sortable table (Name, Type, Status, Changed). R13: "No file yet" instead of a stuck "Uploading". R14: the start page names its lists and shows reviewers what waits for approval. R15: the group administrator starts in Admin. R17: one primary action in the document panel, "Check details" while a detail blocks Approve, Send back in More actions. R18: one results toolbar row (count with the words searched for, Clear filters, Sort by). Checked in the browser in light and dark with axe: no violations, except `aria-hidden-focus` while a "More actions" menu is open (the Radix menu hides the page behind it; focus stays in the menu, so it is reported but not a trap). Follow-up (2026-11-24): R16 is done with the EDS terms "Log in" and "Log out" (EDS UX writing), and the log in page follows the EDS sign in pattern (always dark, legal warning, a confirmation after logging out). Other EDS terms: "Clear" for filters and selection, "Create document type"; `src/test/eds-terminology.test.ts` guards them. The server refuses adding documents for the group administrator, applies the share level, menus are no longer modal (the `aria-hidden-focus` finding is gone), and field errors read at 4.5:1 in dark. Not done: the Ericsson logo on the log in page (no approved asset in the repository) and the date of the previous log in (needs server storage).
+
+Effort: S under a day, M a few days, L more. Source: me, design reviewer (D), UX researcher (U).
+
+### P1: fix soon
+
+| ID | Finding | Fix | Effort | Source |
+| --- | --- | --- | --- | --- |
+| R1 | The check-details page contradicts itself and cannot take the missing detail (J3) | when a required detail is missing, show it as a field on this page, say "1 required detail needs checking", do not tick step 1; show "Nothing to check" only when nothing is required | M | me, D, U |
+| R2 | Release and Restore are invisible until hover (J5) | always show row actions (or one visible menu button) | S | U, code-checked |
+| R3 | Dialogs without the EDS overlay | one overlay in the shared `Dialog` for all dialogs, 60 percent; no per-dialog flag | S | me, D |
+| R4 | No skip link | add the EDS skip link and an id on `<main>` | S | me, D |
+| R5 | Tenant admin on `/admin/tenants` gets a long spinner and a server-error message | role-aware guard with the same message style as the Admin layout | S | me, D |
+| R6 | Failed sign-in may not be announced | add a live region to field errors in `TextField`; test with a screen reader | S | me, D |
+
+### P2: next
+
+| ID | Finding | Fix | Effort | Source |
+| --- | --- | --- | --- | --- |
+| R7 | Tags break the EDS rules | no icons on coloured tags, labels within 20 characters ("Locked", "Inherited", "Changed here" with the owner named once in the intro); one neutral set for workflow states; check the sparkle on "Read-only"; one note per section in the type editor instead of per field | M | me, D |
+| R8 | Raw type codes and cut sentences on the group tenant detail | use the type labels; finish the policy sentences | S | me, D, U |
+| R9 | Connected systems cannot cope with a long list | count, filter, collapse "Disconnected (n)"; shorter "Can:" line | M | me, D, U |
+| R10 | Tabs used for areas; "Holds and retention" appears twice | admin areas as local navigation, or rename and scope the duplicate | M | me, D |
+| R11 | No highlighted item in the left nav on child pages | highlight the parent on record and review pages | S | me, D |
+| R12 | Five list and table shapes; the record page has no columns, sort or filter | one table pattern for records with columns, one divider list for short lists; retire the card list | L | me, D, U |
+| R13 | "Uploading" next to "In review" looks stuck for API documents (known gap: no upload confirmation) | show "Uploading" only while an upload runs, otherwise "No file yet"; fix the API gap (roadmap) | S | me, D, U |
+| R14 | Start page: "Waiting for you" is empty beside 25 in review; half the page is empty | say what the list counts; stack the lists | S | me, D, U |
+| R15 | Group administrator lands on Documents | land on Admin; decide whether the server should also refuse adding documents for this role | S | U |
+| R16 | "Sign in" and "Sign out" differ from the EDS terminology | confirm the product term with the design owners, then change in one place | S | me, D |
+| R17 | The panel stacks tags, link, stepper, version, three actions and hints above "Details" | one primary action, the rest in "More actions"; make "Check details" primary when a detail blocks approval | M | D |
+| R18 | The results header spreads search, count and sort over three places | one toolbar row; "Clear filters" when any filter is set | M | D |
+
+### P3: later or to test first
+
+| ID | Finding | Fix | Effort | Source |
+| --- | --- | --- | --- | --- |
+| R19 | Flat type scale | four named text roles in `tokens.css`; check the EDS scale | M | D |
+| R20 | The record link repeated on every row may compete with the title | test with users before removing; keep it in the panel either way | S | D, me |
+| R21 | A viewer sees three disabled actions with reasons | keep the reason for actions a role can unlock; hide the ones it never can | S | me, D, U |
+| R22 | The filter panel cannot collapse (EDS filter pattern) | collapse toggle | M | me |
+| R23 | The left navigation cannot be hidden; local navigation is a flat list | toggle; navigation tree if sections grow | M | me |
+| R24 | Nothing tests that the tokens still equal EDS | a test comparing `tokens.css` to the EDS token values | S | D |
+| R25 | Differences from the EDS file upload pattern are not written down | note the reasons in `docs/architecture/accessibility.md` or a component note | S | D |
+| R26 | "Send back" and "Report a problem" may read as one action | test; rename if needed | S | U |
+
+### Design system actions (do once, fix many)
+
+1. `Dialog`: one overlay, one focus rule, two actions at most (R3).
+2. `Tag`: the 20 character and no icon rules, one colour map, a neutral default (R7).
+3. One `DataTable` and one list row (columns, sort, selection, empty and loading states) used by every screen (R12, R9, R2).
+4. One page header and toolbar (R18).
+5. Named text roles (R19).
+6. A shared live region for form errors and a role-aware route guard (R5, R6).
+7. Skip link and nav highlighting in the app shell (R4, R11).
+8. A token test against EDS (R24).
+
+## Usability test plan
+
+Decision rules are written before the sessions. Think-aloud, 5 people per role, report counts, fix, then re-test. Create two demo accounts first: **contributor (Sweden)** and **reviewer (Sweden)**, plus a second contributor so a reviewer can approve someone else's document.
+
+| Journey | Tasks | Success | Rule |
+| --- | --- | --- | --- |
+| J3 Approve | a reviewer approves a quote sent for approval; a contributor finds out whether theirs was approved | approved without help, or says why it is blocked and where to fix it | 2 of 5 cannot finish without help: redesign the page (R1) before anything else |
+| J5 Holds and delete | place a hold; release it starting from Holds; get back a deleted file | finds Release and Restore within 60 seconds | 2 of 5 do not: R2 first; if anyone says only an administrator can restore, check the copy |
+| J2 Add documents | add three files to an order from the Documents page; add one more from the record page; add a file for a quote whose number they do not remember | right record, right type | 2 of 5 pick the wrong record or give up at the search: add middle-of-name search |
+
+## What to protect
+
+- One primary action per page; unavailable actions stay focusable with a visible reason.
+- Plain, calm copy; empty states with a next step.
+- Country isolation: the other-country user sees one generic message; the group sees counts only.
+- Soft delete with undo, a deletion history, and a reason on hold and release.
+- Search-first Documents page with facet counts; "Why can I see this?"; the sharing dialog that starts from "restricted".
+- Least-privilege defaults when connecting a system; inheritance visible ("Locked by the group").
+- Reflow at 400 px, and both themes with no axe findings.
+
+## Not verified
+
+Hover, focus order and focus visibility with the fixed header; screen reader behaviour (sign-in error, stepper, grid checkboxes, result counts, step changes in the add-documents dialog); motion and reduced motion; dialogs at 400 percent zoom; the bulk dialog, key reveal, make-effective, supersede, archive and permanent delete screens; contributor and reviewer screens (no accounts); the type and spacing scales against EDS.
