@@ -60,7 +60,7 @@ export function relationSentence(mode: InheritMode | undefined): string {
     case "override":
       return "Replaces the group's setting";
     case "locked":
-      return "Locked by the group";
+      return "Locked: uses the group's setting";
     default:
       return "Uses the group's setting";
   }

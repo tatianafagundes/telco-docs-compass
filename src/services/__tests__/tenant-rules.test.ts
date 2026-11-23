@@ -91,7 +91,7 @@ describe("tenant-rules", () => {
 
   it("should describe inheritance modes in one sentence", () => {
     expect(relationSentence("inherit")).toBe("Uses the group's setting");
-    expect(relationSentence("locked")).toBe("Locked by the group");
+    expect(relationSentence("locked")).toBe("Locked: uses the group's setting");
   });
   it("says in full what a country does with the group's setting", () => {
     expect(relationSentence("extend")).toBe("Adds its own to the group's setting");
