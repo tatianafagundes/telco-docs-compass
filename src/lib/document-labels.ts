@@ -31,6 +31,15 @@ export const PIPELINE_LABEL: Record<PipelineState, string> = {
   quarantined: "Blocked for safety",
 };
 
+/**
+ * The processing state as stored, for lists and the document panel. "uploading" there means the file
+ * never arrived (a system registered the document and has not sent it yet), unless this page is
+ * sending it right now.
+ */
+export function storedPipelineLabel(state: PipelineState, uploadingHere: boolean): string {
+  return state === "uploading" && !uploadingHere ? "No file yet" : PIPELINE_LABEL[state];
+}
+
 export const PIPELINE_TONE: Record<PipelineState, TagTone> = {
   uploading: "indeterminate",
   scanning: "indeterminate",

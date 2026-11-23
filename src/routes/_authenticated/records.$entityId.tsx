@@ -15,7 +15,7 @@ import { DocumentPanel } from "@/components/documents/document-panel";
 import { ApprovedSummary } from "@/components/documents/approved-summary";
 import { meQuery } from "@/hooks/use-me";
 import {
-  PIPELINE_LABEL,
+  storedPipelineLabel,
   PIPELINE_TONE,
   recordKindLabel,
   STATUS_LABEL,
@@ -213,7 +213,10 @@ function RecordPage() {
                       ) : null}
                       {d.pipeline_state !== "ready" ? (
                         <Tag tone={PIPELINE_TONE[d.pipeline_state]} small>
-                          {PIPELINE_LABEL[d.pipeline_state]}
+                          {storedPipelineLabel(
+                            d.pipeline_state,
+                            addedHere.get(d.id) === "uploading",
+                          )}
                         </Tag>
                       ) : null}
                       {d.pipeline_state === "ready" && addedHere.has(d.id) ? (

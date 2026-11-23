@@ -9,7 +9,7 @@ import { DocumentDetails } from "@/components/documents/document-details";
 import {
   activityDetail,
   activityLabel,
-  PIPELINE_LABEL,
+  storedPipelineLabel,
   PIPELINE_TONE,
   STATUS_LABEL,
   STATUS_TONE,
@@ -97,7 +97,7 @@ export function DocumentPanel({
           {STATUS_LABEL[doc.status]}
         </Tag>
         <Tag tone={PIPELINE_TONE[doc.pipeline_state]} small>
-          {PIPELINE_LABEL[doc.pipeline_state]}
+          {storedPipelineLabel(doc.pipeline_state, false)}
         </Tag>
         {doc.legal_hold ? (
           <Tag tone="major" icon={<Lock aria-hidden="true" className="size-4" />}>

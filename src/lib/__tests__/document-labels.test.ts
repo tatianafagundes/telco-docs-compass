@@ -36,3 +36,17 @@ describe("recordKindLabel", () => {
     );
   });
 });
+import { storedPipelineLabel } from "@/lib/document-labels";
+describe("storedPipelineLabel", () => {
+  it("says a file is missing, not that it is uploading, when nothing is uploading it", () => {
+    // Documents registered through the API with only a content hash stay in this state until a file arrives.
+    expect(storedPipelineLabel("uploading", false)).toBe("No file yet");
+  });
+  it("keeps Uploading while this page is sending the file", () => {
+    expect(storedPipelineLabel("uploading", true)).toBe("Uploading");
+  });
+  it("leaves the other states as they are", () => {
+    expect(storedPipelineLabel("scanning", false)).toBe("Checking for threats");
+    expect(storedPipelineLabel("failed", false)).toBe("Couldn't read");
+  });
+});
