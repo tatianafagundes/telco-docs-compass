@@ -59,9 +59,12 @@ beforeAll(async () => {
     by: s.name,
     reason: s.holdReason,
   });
-  await db.exec(`CREATE TRIGGER documents_outbox AFTER INSERT OR UPDATE ON documents
-    FOR EACH ROW EXECUTE FUNCTION documents_to_outbox();
-    INSERT INTO tenants VALUES ('t1');
+  // The outbox trigger exactly as migration 0007 creates it.
+  const outboxTrigger = /CREATE TRIGGER documents_outbox[\s\S]*?;/.exec(
+    readFileSync("drizzle/migrations/0007_migration.sql", "utf8"),
+  )![0];
+  await db.exec(outboxTrigger);
+  await db.exec(`INSERT INTO tenants VALUES ('t1');
     INSERT INTO documents (id, tenant_id, name, description, status, created_by)
       VALUES ('${D}', 't1', '${s.name}', '${s.description}', 'draft', '${PERSON}');
     INSERT INTO document_versions VALUES
