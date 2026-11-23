@@ -2,6 +2,7 @@ import {
   infiniteQueryOptions,
   queryOptions,
   useInfiniteQuery,
+  useQueries,
   useQuery,
 } from "@tanstack/react-query";
 import { api } from "@/services/api";
@@ -73,4 +74,26 @@ export function useSavedViews() {
     queryFn: () => api.listSavedViews(),
     staleTime: 60_000,
   });
+}
+
+/**
+ * One count per record kind under the other filters, so every facet shows a count. Seven small
+ * cached count queries; the facet query has no record-kind count.
+ */
+export function useEntityKindCounts(
+  filters: SearchFilters,
+  kinds: readonly string[],
+): Record<string, number | undefined> {
+  const { entityTypes: _picked, ...rest } = filters;
+  const results = useQueries({
+    queries: kinds.map((t) => {
+      const f = key({ ...rest, entityTypes: [t] } as SearchFilters);
+      return {
+        queryKey: ["documents", "count", f],
+        queryFn: () => api.countDocuments(f),
+        staleTime: 60_000,
+      };
+    }),
+  });
+  return Object.fromEntries(kinds.map((t, i) => [t, results[i]?.data]));
 }

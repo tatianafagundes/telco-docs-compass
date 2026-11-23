@@ -1,6 +1,6 @@
 import { Checkbox } from "@/components/erad/checkbox";
 import { Skeleton } from "@/components/erad/misc";
-import { useFacets } from "@/hooks/use-document-search";
+import { useDocumentCount, useEntityKindCounts, useFacets } from "@/hooks/use-document-search";
 import { STATUS_LABEL, typeLabel } from "@/lib/document-labels";
 import type { DocStatus } from "@/schemas/document";
 import { ENTITY_TYPES, SENSITIVITIES, STATUSES, type SearchFilters } from "@/services/search-rules";
@@ -40,12 +40,16 @@ export function FacetPanel({
 }) {
   const facets = useFacets(filters);
   const counts = facets.data;
+  // The facet query has no count for these two; ask the count query, under the other filters.
+  const toCheck = useDocumentCount({ ...filters, review: true });
+  const perKind = useEntityKindCounts(filters, ENTITY_TYPES);
 
   const group = (
     title: string,
     key: ListKey,
     options: { value: string; label: string }[],
     countKey?: "types" | "statuses" | "sensitivity",
+    countOf?: (value: string) => number | undefined,
   ) => {
     const selected = (filters[key] as string[] | undefined) ?? [];
     const visible =
@@ -65,15 +69,16 @@ export function FacetPanel({
               checked={selected.includes(o.value)}
               onCheckedChange={() => onChange({ ...filters, [key]: toggle(selected, o.value) })}
             />
-            {countKey ? (
-              <span
-                className="type-label-12 text-text-secondary"
-                aria-label={`${counts?.[countKey][o.value] ?? 0} documents`}
-              >
-                {facets.isPending
-                  ? "…"
-                  : (counts?.[countKey][o.value] ?? 0).toLocaleString("en-GB")}
-              </span>
+            {countKey || countOf ? (
+              <FacetCount
+                n={
+                  countKey
+                    ? facets.isPending
+                      ? undefined
+                      : (counts?.[countKey][o.value] ?? 0)
+                    : countOf?.(o.value)
+                }
+              />
             ) : null}
           </div>
         ))}
@@ -96,20 +101,21 @@ export function FacetPanel({
       ) : null}
       <fieldset className="flex flex-col gap-2">
         <legend className="type-label-12 mb-1 text-text-secondary">Needs attention</legend>
-        <Checkbox
-          label="Details to check"
-          checked={Boolean(filters.review)}
-          onCheckedChange={(c) => onChange({ ...filters, review: c === true || undefined })}
-        />
+        <div className="flex items-center justify-between gap-2">
+          <Checkbox
+            label="Details to check"
+            checked={Boolean(filters.review)}
+            onCheckedChange={(c) => onChange({ ...filters, review: c === true || undefined })}
+          />
+          <FacetCount n={toCheck.data} />
+        </div>
         <div className="flex items-center justify-between gap-2">
           <Checkbox
             label="On legal hold"
             checked={Boolean(filters.hold)}
             onCheckedChange={(c) => onChange({ ...filters, hold: c === true || undefined })}
           />
-          <span className="type-label-12 text-text-secondary">
-            {facets.isPending ? "…" : (counts?.hold["true"] ?? 0).toLocaleString("en-GB")}
-          </span>
+          <FacetCount n={facets.isPending ? undefined : (counts?.hold["true"] ?? 0)} />
         </div>
       </fieldset>
       {facets.isPending && typeOptions.length === 0 ? (
@@ -133,7 +139,21 @@ export function FacetPanel({
         "Record",
         "entityTypes",
         ENTITY_TYPES.map((t) => ({ value: t, label: ENTITY_LABEL[t] ?? t })),
+        undefined,
+        (t) => perKind[t],
       )}
     </div>
+  );
+}
+
+/** A facet's count: "…" while loading; 0 is muted, so the counts that matter stand out. */
+function FacetCount({ n }: { n: number | undefined }) {
+  return (
+    <span
+      className={n === 0 ? "type-label-12 text-text-disabled" : "type-label-12 text-text-secondary"}
+      aria-label={n === undefined ? "Counting" : `${n} documents`}
+    >
+      {n === undefined ? "…" : n.toLocaleString("en-GB")}
+    </span>
   );
 }
