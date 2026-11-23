@@ -4,7 +4,9 @@
 // this guard keeps the payload keys from growing unnoticed.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-const sql = readFileSync("drizzle/migrations/0016_file_hooks.sql", "utf8");
+const sql = ["0016_file_hooks.sql", "0017_file_hooks_safe_attempt.sql"]
+  .map((f) => readFileSync(`drizzle/migrations/${f}`, "utf8"))
+  .join("\n");
 const ALLOWED = new Set([
   "versionId",
   "contentHash",
@@ -24,7 +26,7 @@ describe("file hooks migration", () => {
     expect(keys.length).toBeGreaterThan(0);
     expect(keys.filter((k) => !ALLOWED.has(k))).toEqual([]);
   });
-  it("never reads hold reasons, descriptions, names or detail values", () => {
+  it("never builds an event from the whole row (to_jsonb), or reads hold reasons, descriptions, names or detail values", () => {
     for (const col of [
       "hold_reason",
       "hold_reference",

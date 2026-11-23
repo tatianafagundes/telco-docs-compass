@@ -120,6 +120,13 @@
       "when": 1794322176722,
       "tag": "0016_file_hooks",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794322776722,
+      "tag": "0017_file_hooks_safe_attempt",
+      "breakpoints": true
     }
   ]
 }
