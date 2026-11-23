@@ -33,6 +33,11 @@ Log in as a manager of the Sweden tenant and as its admin, then check:
   details to check shows "Check details" as its one primary action and "Send back to draft" in More actions.
   Searching shows "n documents for "word"" with Clear and Sort by on one row. Connected systems
   lists disconnected ones collapsed under "Disconnected (n)".
+- Log in page: dark in both themes, legal warning at the bottom, "Log in". Log out from the account menu:
+  "You have logged out. Log in again to continue."
+- Share level: share a document "Can view" with a Sweden contributor who has no access to its record. They
+  open it from Shared with me and cannot change it; the server refuses an edit too. As the group
+  administrator, adding documents is refused by the server ("works with settings and counts, not documents").
 ## 2. API end to end (automated)
 
 From a checkout, with Python 3 and `pip install requests playwright` then `python -m playwright install chromium`:
