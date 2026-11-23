@@ -244,6 +244,8 @@ function AdminNavItem({ role, pathname, icon }: { role: string; pathname: string
         <Link
           to="/admin"
           aria-label="Admin"
+          // In a tree the current area is the current item, not its parent.
+          activeOptions={{ exact: true }}
           className={`${ITEM} text-text-main hover:bg-item-hover ${inside ? "type-label-14-medium" : ""}`}
         >
           <Icon className="size-4 shrink-0" aria-hidden="true" />
