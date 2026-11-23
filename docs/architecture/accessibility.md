@@ -19,6 +19,8 @@ The target is WCAG 2.2 level AA, which is what the Ericsson Design System (EDS) 
 
 - With a dialog open over a coloured row (for example "Choose a record" over a selected document), axe reports `color-contrast` on the page behind the dimmed backdrop. Every reported node is inside the background that the dialog marks `aria-hidden` and that cannot be reached by pointer or keyboard while it is open: inactive content, which WCAG 1.4.3 exempts. Scan the dialog itself with `axe.run({ include: ['[role="dialog"]'] })`; it has no violations in either theme.
 - Adding documents from the Documents page (2026-11-18): the accessibility tree was checked step by step in the browser (dialog names, field label and helper, live status, result buttons, focus on "Choose files", focus back in the field after "Choose a different record", focus on Add documents on arrival). Still to do by a person with VoiceOver or NVDA: that the status line is announced while typing, that the step change from "Choose a record" to "Choose the files" is announced, and that the arrival hint is read with the focused button.
+- A skip link ("Skip to main content") is the first stop in the app shell and moves focus to `<main id="main-content">`. Field errors are also rendered as an `alert` element when they appear, so a failed sign-in is announced without moving focus. Both are checked in the browser (focus order, element present) and by unit tests; a person with VoiceOver or NVDA still needs to confirm how they are read.
+- Every dialog dims the page behind it (60%, the EDS value) and keeps focus inside; closing returns focus to what opened it.
 ## When you add a screen
 
 - Every control has a name; every input has a visible label.

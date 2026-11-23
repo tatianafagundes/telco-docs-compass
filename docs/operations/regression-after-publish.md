@@ -17,6 +17,11 @@ Sign in as a manager of the Sweden tenant and as its admin, then check:
 - Upload: open a record (for example order O-7731), "Add documents", send a PDF. It appears with version 1
   and leaves "uploading" once the file is in. Also try a file type the document type does not accept
   (refused with a reason).
+- Check details with a required detail nobody read (a quote made through the API shows it): the page says
+  "Required details not read" with a field for each one, the stepper stays on Check details, and the footer
+  says how many are left. Enter a value and Save: the field goes, "Approve document" becomes available once
+  nothing is left (another person than the author approves). Local runs cannot save (the server key is only
+  in the hosted app), so this is the one place the write is checked end to end.
 - Finding where to add: on Documents, "Add documents" opens "Choose a record"; type `O-77`, choose the order, then
   "Choose files" and a PDF. The order's page opens with the type step "Adding to O-7731 …". Cancel it: focus is on
   Add documents and the hint offers "Choose a different record". As a viewer the button is

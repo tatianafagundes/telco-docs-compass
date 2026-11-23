@@ -106,6 +106,8 @@ A holistic review of the screens of Telco Docs Compass: who uses it, how each jo
 
 ## Backlog
 
+**P1 is done (2026-11-23).** R1: a reviewer can enter a required detail that nobody read (it counts as confirmed), the stepper stays on Check details while a required detail is open, the footer says how many are left, and a required detail marked "not in the document" now says why approval waits. R2: row actions are always visible. R3: every dialog dims the page to 60%. R4: skip link. R5: the Tenants area tells other roles at once that it is for the group administrator. R6: field errors are announced. Checked in the browser in light and dark (axe: no violations); the save itself can only be checked on the preview (`docs/operations/regression-after-publish.md`). Open from it: a unique index on extraction details (version, name), which is a schema change to request in Lovable.
+
 Effort: S under a day, M a few days, L more. Source: me, design reviewer (D), UX researcher (U).
 
 ### P1: fix soon

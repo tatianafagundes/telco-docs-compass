@@ -9,7 +9,8 @@
 - [x] Prompt 11 – legal hold dialogs with reference, Holds and retention page, delete permanently, expiry on listing
 - [x] Prompt 12 – hardening pass: layouts 1440/1920 light+dark, keyboard order, icon names, isolation proofs, quick security scan, banned-phrase check, reset test data, held-delete block
 - [x] Hardening pass (2026-11-17): tenant isolation, checked writes, idempotency that runs once, API and token limits, one rule per business decision, split services, docs
-- [ ] UI review backlog R1 to R26 (`docs/design/ui-review-2026-11.md`): P1 first (check-details page, row actions, dialog overlay, skip link)
+- [ ] UI review backlog R7 to R26 (`docs/design/ui-review-2026-11.md`); P1 (R1 to R6) is done
+- [ ] Ask Lovable for a unique index on `extraction_fields (version_id, name)`; entering a missing detail is safe without it (guarded update), other writers are not
 - [ ] Human security review
 - [ ] 200% zoom and screen-reader walkthrough by a person
 - [ ] Add as new version from the upload dialog
