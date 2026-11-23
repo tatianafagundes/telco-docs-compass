@@ -1,4 +1,3 @@
-import { format } from "date-fns";
 import { Lock } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Checkbox } from "@/components/erad/checkbox";
@@ -6,9 +5,11 @@ import { Tag } from "@/components/erad/tag";
 import { Link } from "@tanstack/react-router";
 import { recordKindLabel, STATUS_LABEL, STATUS_TONE, typeLabel } from "@/lib/document-labels";
 import { cn } from "@/lib/utils";
+import { tableDate } from "@/lib/table-format";
 import type { SearchRow } from "@/services/search.functions";
 
-const ROW_H = 56;
+// EDS default density: 48px rows.
+const ROW_H = 48;
 const OVERSCAN = 8;
 
 export interface ResultsTableProps {
@@ -150,7 +151,9 @@ export function ResultsTable(p: ResultsTableProps) {
                 style={{ top: i * ROW_H, height: ROW_H }}
                 className={cn(
                   "focus-ring group absolute inset-x-0 flex cursor-pointer items-center gap-3 border-b border-border-subtle px-3 hover:bg-item-hover",
-                  active && "bg-item-selected text-text-on-primary hover:bg-item-selected-hover",
+                  // EDS table selected row: the light selected fill and a left stripe, as in every table here.
+                  active &&
+                    "bg-cell-selected shadow-[inset_3px_0_0_var(--color-border-selected)] hover:bg-cell-selected",
                 )}
               >
                 <span role="gridcell" onClick={(e) => e.stopPropagation()}>
@@ -162,7 +165,9 @@ export function ResultsTable(p: ResultsTableProps) {
                   />
                 </span>
                 <span role="gridcell" className="flex min-w-0 flex-1 flex-col">
-                  <span className="type-label-14 truncate">{r.name}</span>
+                  <span className="type-label-14 truncate" title={r.name}>
+                    {r.name}
+                  </span>
                   <span
                     className={cn(
                       "type-label-12 truncate",
@@ -214,7 +219,7 @@ export function ResultsTable(p: ResultsTableProps) {
                     !active && "text-text-secondary group-hover:text-text-main",
                   )}
                 >
-                  {format(new Date(r.updated_at), "d MMM yyyy")}
+                  {tableDate(r.updated_at)}
                 </span>
               </div>
             );

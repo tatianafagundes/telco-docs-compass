@@ -8,6 +8,8 @@ export interface Column<T> {
   header: string;
   cell: (row: T) => ReactNode;
   sortable?: boolean;
+  /** EDS: numbers are right-aligned (value and header), with tabular figures. */
+  numeric?: boolean;
 }
 
 export interface DataTableProps<T> {
@@ -46,13 +48,21 @@ export function DataTable<T>(p: DataTableProps<T>) {
                 aria-sort={
                   active ? (p.sort?.dir === "asc" ? "ascending" : "descending") : undefined
                 }
-                className="type-label-14-medium px-4 text-left"
+                className={cn(
+                  "type-label-14-medium px-4",
+                  c.numeric ? "text-right" : "text-left",
+                  c.sortable && p.onSort && "p-0",
+                )}
               >
                 {c.sortable && p.onSort ? (
+                  // EDS: the whole header is the click target, not just the sort icon.
                   <button
                     type="button"
                     onClick={() => p.onSort?.(c.key)}
-                    className="focus-ring inline-flex items-center gap-1"
+                    className={cn(
+                      "focus-ring inline-flex h-12 w-full items-center gap-1 px-4 hover:bg-cell-hover",
+                      c.numeric && "justify-end",
+                    )}
                   >
                     {c.header}
                     <Icon aria-hidden="true" className="size-4 text-text-secondary" />
@@ -98,7 +108,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
                 </td>
               ) : null}
               {p.columns.map((c) => (
-                <td key={c.key} className="px-4">
+                <td key={c.key} className={cn("px-4", c.numeric && "text-right tabular-nums")}>
                   {c.cell(r)}
                 </td>
               ))}

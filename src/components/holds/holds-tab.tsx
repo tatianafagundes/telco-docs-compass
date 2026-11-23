@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
 import { Lock, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/erad/button";
+import { EmptyCell } from "@/components/erad/empty-cell";
+import { Pagination } from "@/components/erad/pagination";
+import { tableDate } from "@/lib/table-format";
 import { DataTable } from "@/components/erad/data-table";
 import { Dialog } from "@/components/erad/dialog";
 import { EmptyState } from "@/components/erad/empty-state";
@@ -58,7 +60,11 @@ export function HoldsTab() {
   const { items, total, pageSize } = holds.data;
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="type-paragraph-14 text-text-secondary">
+          {items.length === 0 ? "" : `${total} ${total === 1 ? "document" : "documents"} on hold. `}
+          Verify hold lists every version a hold keeps, with its fingerprint, for a legal request.
+        </p>
         <Button onClick={() => setReport(true)}>
           <ShieldCheck aria-hidden="true" /> Verify hold
         </Button>
@@ -87,35 +93,39 @@ export function HoldsTab() {
                   </span>
                 ),
               },
-              { key: "ref", header: "Reference", cell: (r) => r.reference ?? "None" },
-              { key: "reason", header: "Reason", cell: (r) => r.reason ?? "None given" },
-              { key: "by", header: "Set by", cell: (r) => r.setBy },
+              {
+                key: "ref",
+                header: "Reference",
+                cell: (r) => r.reference ?? <EmptyCell label="No reference" />,
+              },
+              {
+                key: "reason",
+                header: "Reason",
+                cell: (r) => r.reason ?? <EmptyCell label="No reason given" />,
+              },
+              {
+                key: "by",
+                header: "Set by",
+                cell: (r) => r.setBy ?? <EmptyCell label="Not recorded" />,
+              },
               {
                 key: "since",
                 header: "Since",
-                cell: (r) =>
-                  r.since ? format(new Date(r.since), "d MMM yyyy") : "Before tracking",
+                cell: (r) => (r.since ? tableDate(r.since) : <EmptyCell label="Not recorded" />),
               },
-              { key: "v", header: "Versions covered", cell: (r) => r.versions },
+              { key: "v", header: "Versions covered", numeric: true, cell: (r) => r.versions },
             ]}
             rowActions={(r) => <Button onClick={() => setRelease(r)}>Release</Button>}
           />
         </div>
       )}
-      {total > pageSize ? (
-        <div className="flex items-center justify-end gap-2">
-          <span className="type-label-14 text-text-secondary">{`${page * pageSize + 1}–${Math.min(total, (page + 1) * pageSize)} of ${total}`}</span>
-          <Button unavailable={page === 0} onClick={() => setPage((p) => p - 1)}>
-            Previous
-          </Button>
-          <Button
-            unavailable={(page + 1) * pageSize >= total}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Next
-          </Button>
-        </div>
-      ) : null}
+      <Pagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPage={setPage}
+        label="documents on hold"
+      />
       <Dialog
         open={!!release}
         onOpenChange={(o) => {

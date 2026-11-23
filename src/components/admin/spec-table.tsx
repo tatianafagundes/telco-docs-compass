@@ -1,3 +1,4 @@
+import { EmptyCell } from "@/components/erad/empty-cell";
 import { DataTable, type Column } from "@/components/erad/data-table";
 import { Tooltip } from "@/components/erad/tooltip";
 import { SourceTag } from "@/components/admin/source-tag";
@@ -80,7 +81,7 @@ export function SpecTable({
     {
       key: "retention",
       header: "Retention",
-      cell: (s) => retention.get(String(s.definition["retentionPolicyRef"] ?? "")) ?? "Not set",
+      cell: (s) => retention.get(String(s.definition["retentionPolicyRef"] ?? "")) ?? <EmptyCell />,
     },
   ];
   return (

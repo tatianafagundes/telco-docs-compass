@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
 import { History } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/erad/button";
+import { tableDateTime } from "@/lib/table-format";
 import { DataTable } from "@/components/erad/data-table";
 import { EmptyState } from "@/components/erad/empty-state";
 import { SkeletonRow } from "@/components/erad/misc";
@@ -54,7 +54,7 @@ export function DeletionTab() {
           {
             key: "date",
             header: "Date",
-            cell: (r) => format(new Date(r.date), "d MMM yyyy, HH:mm"),
+            cell: (r) => tableDateTime(r.date),
           },
           { key: "by", header: "Requested by", cell: (r) => r.requestedBy },
           { key: "doc", header: "Document", cell: (r) => r.document },

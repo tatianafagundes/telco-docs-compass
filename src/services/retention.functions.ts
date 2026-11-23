@@ -26,7 +26,8 @@ export interface HoldRow {
   name: string;
   reference: string | null;
   reason: string | null;
-  setBy: string;
+  /** Null when nobody is recorded (holds placed before tracking began). */
+  setBy: string | null;
   since: string | null;
   versions: number;
   deleted: boolean;
@@ -67,7 +68,7 @@ export const listHolds = createServerFn({ method: "POST" })
               name: r.name,
               reference: r.hold_reference,
               reason: r.hold_reason,
-              setBy: (r.hold_set_by && who.get(r.hold_set_by)) || "Set during setup",
+              setBy: (r.hold_set_by && who.get(r.hold_set_by)) || null,
               since: r.hold_since,
               versions: (r.document_versions as unknown as { count: number }[])[0]?.count ?? 0,
               deleted: !!r.deleted_at,

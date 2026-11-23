@@ -83,7 +83,7 @@ export function RetentionTab() {
                   : yearsLabel(r.retainDays);
               },
             },
-            { key: "n", header: "Documents", cell: (r) => counts.get(r.id) ?? 0 },
+            { key: "n", header: "Documents", numeric: true, cell: (r) => counts.get(r.id) ?? 0 },
           ]}
         />
       </div>

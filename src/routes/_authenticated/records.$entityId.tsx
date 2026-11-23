@@ -22,8 +22,12 @@ import {
   typeLabel,
 } from "@/lib/document-labels";
 import { api } from "@/services/api";
-import { format } from "date-fns";
 import { DataTable } from "@/components/erad/data-table";
+import { EmptyCell } from "@/components/erad/empty-cell";
+import { Pagination } from "@/components/erad/pagination";
+import { tableDate } from "@/lib/table-format";
+/** EDS pagination: 25 documents per page on a record. */
+const RECORD_PAGE = 25;
 import {
   DEFAULT_RECORD_SORT,
   nextRecordSort,
@@ -110,6 +114,7 @@ function RecordPage() {
   const upload = useUpload(entityId);
   const [attentionOnly, setAttentionOnly] = useState(false);
   const [sort, setSort] = useState<RecordSort>(DEFAULT_RECORD_SORT);
+  const [pageWanted, setPage] = useState(0);
   const openDoc = (id: string) => void navigate({ search: { doc: id } });
   // Remember the arrival for this visit, then drop `add` so Back and Reload don't repeat it.
   const [arriving] = useState(add === 1);
@@ -125,6 +130,8 @@ function RecordPage() {
     ? data.items.filter((d) => d.pipeline_state === "failed" || d.pipeline_state === "quarantined")
     : data.items;
 
+  // A shorter list (Show needs attention) can leave the page past its end: stay on the last one.
+  const page = Math.min(pageWanted, Math.max(0, Math.ceil(items.length / RECORD_PAGE) - 1));
   if (!data.entity) {
     return (
       <EmptyState
@@ -194,15 +201,25 @@ function RecordPage() {
               cause="You can add files with the button above, or drop them here."
             />
           ) : (
-            <div className="overflow-x-auto">
+            <div className="flex flex-col gap-2 overflow-x-auto">
+              {/* EDS table anatomy: the number of items above, pagination below. */}
+              <p className="type-label-14 text-text-secondary">
+                {items.length === 1 ? "1 document" : `${items.length} documents`}
+              </p>
               <DataTable
                 caption={`Documents on ${data.entity.display_name}`}
-                rows={sortRecordDocs(items, sort, typeLabel)}
+                rows={sortRecordDocs(items, sort, typeLabel).slice(
+                  page * RECORD_PAGE,
+                  (page + 1) * RECORD_PAGE,
+                )}
                 rowId={(d) => d.id}
                 {...(doc ? { activeId: doc } : {})}
                 onActivate={openDoc}
                 sort={sort}
-                onSort={(k) => setSort((s) => nextRecordSort(s, k as RecordSortKey))}
+                onSort={(k) => {
+                  setSort((s) => nextRecordSort(s, k as RecordSortKey));
+                  setPage(0);
+                }}
                 columns={[
                   {
                     key: "name",
@@ -217,6 +234,7 @@ function RecordPage() {
                             e.stopPropagation();
                             openDoc(d.id);
                           }}
+                          title={d.name}
                           className="focus-ring type-label-14 truncate text-left underline-offset-2 hover:underline"
                         >
                           {d.name}
@@ -233,7 +251,7 @@ function RecordPage() {
                     key: "type",
                     header: "Type",
                     sortable: true,
-                    cell: (d) => typeLabel(d.document_type ?? ""),
+                    cell: (d) => (d.document_type ? typeLabel(d.document_type) : <EmptyCell />),
                   },
                   {
                     key: "status",
@@ -264,9 +282,16 @@ function RecordPage() {
                     key: "changed",
                     header: "Changed",
                     sortable: true,
-                    cell: (d) => (d.updated_at ? format(new Date(d.updated_at), "d MMM yyyy") : ""),
+                    cell: (d) => (d.updated_at ? tableDate(d.updated_at) : <EmptyCell />),
                   },
                 ]}
+              />
+              <Pagination
+                page={page}
+                pageSize={RECORD_PAGE}
+                total={items.length}
+                onPage={setPage}
+                label="documents"
               />
             </div>
           )}

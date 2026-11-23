@@ -34,9 +34,9 @@ describe("the review page keeps status colours off text", () => {
   });
 });
 
-// The row of the document open in the side panel is solid blue (fill-item-selected). Dark text on it
-// was 3.4:1 in the light theme and only showed when the pointer was away from the row: hovering
-// swaps the background, so an automated scan with the mouse resting on the row passed.
+// The row of the document open in the side panel uses the EDS table selected fill (cell-selected)
+// with a left stripe, like every table here. Its text keeps the main colour, so it must read on
+// that fill in both themes, hovered or not.
 function luminance(hex: string): number {
   const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
   const [r, g, b] = c.map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)) as [
@@ -64,21 +64,16 @@ describe("the open document's row in the results list", () => {
   it.each(["light", "dark"] as const)(
     "keeps its text readable on the selected fill (%s)",
     (theme) => {
-      for (const fill of ["fill-item-selected", "fill-item-selected-hover"])
-        expect(
-          contrast(token(theme, "text-on-primary"), token(theme, fill)),
-        ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(token(theme, "text-main"), token(theme, "fill-cell-selected")),
+      ).toBeGreaterThanOrEqual(4.5);
     },
   );
-  it("is the reason the row must not keep the main text colour in the light theme", () => {
-    expect(
-      contrast(token("light", "text-main"), token("light", "fill-item-selected")),
-    ).toBeLessThan(4.5);
-  });
-  it("switches its text to the on-primary colour and stays blue on hover", () => {
+  it("uses the table selected fill and keeps it on hover", () => {
     const source = readFileSync("src/components/search/results-table.tsx", "utf8");
     expect(source).toContain(
-      'active && "bg-item-selected text-text-on-primary hover:bg-item-selected-hover"',
+      "bg-cell-selected shadow-[inset_3px_0_0_var(--color-border-selected)] hover:bg-cell-selected",
     );
+    expect(source).not.toContain("bg-item-selected");
   });
 });
