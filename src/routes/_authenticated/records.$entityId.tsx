@@ -5,7 +5,6 @@ import { z } from "zod";
 import { PageHeader } from "@/components/erad/page-header";
 import { EmptyState } from "@/components/erad/empty-state";
 import { SidePanel } from "@/components/erad/side-panel";
-import { Lock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AddDocuments } from "@/components/upload/add-documents";
 import { useUpload } from "@/hooks/use-upload";
@@ -20,9 +19,18 @@ import {
   recordKindLabel,
   STATUS_LABEL,
   STATUS_TONE,
+  typeLabel,
 } from "@/lib/document-labels";
 import { api } from "@/services/api";
-import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { DataTable } from "@/components/erad/data-table";
+import {
+  DEFAULT_RECORD_SORT,
+  nextRecordSort,
+  sortRecordDocs,
+  type RecordSort,
+  type RecordSortKey,
+} from "@/lib/record-docs";
 import type { DocStatus, PipelineState } from "@/schemas/document";
 
 // find() builds its select string dynamically, so its row type is narrowed here.
@@ -33,6 +41,8 @@ interface DocListItem {
   pipeline_state: PipelineState;
   legal_hold: boolean;
   current_version_id: string | null;
+  document_type: string | null;
+  updated_at: string | null;
   extraction_fields?: { status: string; version_id: string }[];
 }
 
@@ -99,6 +109,8 @@ function RecordPage() {
   const entityKind = data.entity?.referred_type === "Account" ? "account" : "order";
   const upload = useUpload(entityId);
   const [attentionOnly, setAttentionOnly] = useState(false);
+  const [sort, setSort] = useState<RecordSort>(DEFAULT_RECORD_SORT);
+  const openDoc = (id: string) => void navigate({ search: { doc: id } });
   // Remember the arrival for this visit, then drop `add` so Back and Reload don't repeat it.
   const [arriving] = useState(add === 1);
   useEffect(() => {
@@ -181,54 +193,81 @@ function RecordPage() {
               cause="You can add files with the button above, or drop them here."
             />
           ) : (
-            <ul className="border-t border-border-subtle">
-              {items.map((d) => (
-                <li key={d.id}>
-                  <button
-                    type="button"
-                    aria-current={d.id === doc || undefined}
-                    onClick={() => void navigate({ search: { doc: d.id } })}
-                    className={cn(
-                      "focus-ring flex min-h-12 w-full items-center justify-between gap-4 border-b border-border-subtle px-4 py-2 text-left hover:bg-item-hover",
-                      d.id === doc &&
-                        "bg-cell-selected shadow-[inset_3px_0_0_var(--color-border-selected)] hover:bg-cell-selected",
-                    )}
-                  >
-                    <span className="flex min-w-0 flex-col">
-                      <span className="type-label-14 truncate">{d.name}</span>
-                      {toCheck(d) > 0 ? (
-                        <span className={cn("type-label-12 text-text-secondary")}>
-                          {toCheck(d)} to check
-                        </span>
-                      ) : null}
-                    </span>
-                    <span className="flex shrink-0 gap-2">
-                      <Tag tone={STATUS_TONE[d.status]} small>
-                        {STATUS_LABEL[d.status]}
-                      </Tag>
-                      {d.legal_hold ? (
-                        <Tag icon={<Lock aria-hidden="true" className="size-4 shrink-0" />}>
-                          On hold
+            <div className="overflow-x-auto">
+              <DataTable
+                caption={`Documents on ${data.entity.display_name}`}
+                rows={sortRecordDocs(items, sort, typeLabel)}
+                rowId={(d) => d.id}
+                {...(doc ? { activeId: doc } : {})}
+                onActivate={openDoc}
+                sort={sort}
+                onSort={(k) => setSort((s) => nextRecordSort(s, k as RecordSortKey))}
+                columns={[
+                  {
+                    key: "name",
+                    header: "Name",
+                    sortable: true,
+                    cell: (d) => (
+                      <span className="flex min-w-0 flex-col py-1">
+                        <button
+                          type="button"
+                          aria-current={d.id === doc || undefined}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDoc(d.id);
+                          }}
+                          className="focus-ring type-label-14 truncate text-left underline-offset-2 hover:underline"
+                        >
+                          {d.name}
+                        </button>
+                        {toCheck(d) > 0 ? (
+                          <span className="type-label-12 text-text-secondary">
+                            {toCheck(d)} to check
+                          </span>
+                        ) : null}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: "type",
+                    header: "Type",
+                    sortable: true,
+                    cell: (d) => typeLabel(d.document_type ?? ""),
+                  },
+                  {
+                    key: "status",
+                    header: "Status",
+                    cell: (d) => (
+                      <span className="flex flex-wrap gap-2">
+                        <Tag tone={STATUS_TONE[d.status]} small>
+                          {STATUS_LABEL[d.status]}
                         </Tag>
-                      ) : null}
-                      {d.pipeline_state !== "ready" ? (
-                        <Tag tone={PIPELINE_TONE[d.pipeline_state]} small>
-                          {storedPipelineLabel(
-                            d.pipeline_state,
-                            addedHere.get(d.id) === "uploading",
-                          )}
-                        </Tag>
-                      ) : null}
-                      {d.pipeline_state === "ready" && addedHere.has(d.id) ? (
-                        <Tag tone="cleared" small>
-                          Ready
-                        </Tag>
-                      ) : null}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+                        {d.legal_hold ? <Tag small>On hold</Tag> : null}
+                        {d.pipeline_state !== "ready" ? (
+                          <Tag tone={PIPELINE_TONE[d.pipeline_state]} small>
+                            {storedPipelineLabel(
+                              d.pipeline_state,
+                              addedHere.get(d.id) === "uploading",
+                            )}
+                          </Tag>
+                        ) : null}
+                        {d.pipeline_state === "ready" && addedHere.has(d.id) ? (
+                          <Tag tone="cleared" small>
+                            Ready
+                          </Tag>
+                        ) : null}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: "changed",
+                    header: "Changed",
+                    sortable: true,
+                    cell: (d) => (d.updated_at ? format(new Date(d.updated_at), "d MMM yyyy") : ""),
+                  },
+                ]}
+              />
+            </div>
           )}
         </AddDocuments>
       </div>
