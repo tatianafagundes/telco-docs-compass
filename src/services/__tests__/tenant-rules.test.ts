@@ -92,3 +92,12 @@ describe("tenant-rules", () => {
     expect(relationSentence("locked")).toBe("Locked by the group");
   });
 });
+
+import { canSeeTenants } from "@/services/tenant-rules";
+describe("canSeeTenants", () => {
+  it("is for the group administrator only", () => {
+    expect(canSeeTenants("master_admin")).toBe(true);
+    for (const r of ["tenant_admin", "manager", "reviewer", "contributor", "viewer", undefined])
+      expect(canSeeTenants(r)).toBe(false);
+  });
+});

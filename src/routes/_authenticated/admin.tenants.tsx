@@ -1,11 +1,13 @@
 import { createFileRoute, Link, Outlet, useMatch } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Building2 } from "lucide-react";
+import { Building2, ShieldOff } from "lucide-react";
 import { Card } from "@/components/erad/card";
 import { EmptyState } from "@/components/erad/empty-state";
 import { StatCounts } from "@/components/admin/stat-counts";
 import { ResetTestData } from "@/components/admin/reset-test-data";
 import { childTenantsQuery } from "@/hooks/use-config";
+import { useMe } from "@/hooks/use-me";
+import { canSeeTenants } from "@/services/tenant-rules";
 
 export const Route = createFileRoute("/_authenticated/admin/tenants")({
   head: () => ({
@@ -26,7 +28,17 @@ export const Route = createFileRoute("/_authenticated/admin/tenants")({
 });
 
 function TenantsLayout() {
+  const me = useMe();
   const child = useMatch({ from: "/_authenticated/admin/tenants/$tenantId", shouldThrow: false });
+  // Say so at once; asking the server for another country's list only ends in a long wait and an error.
+  if (!canSeeTenants(me.access?.role))
+    return (
+      <EmptyState
+        icon={ShieldOff}
+        title="Tenants are for the group administrator"
+        cause="Your role works with this organisation. The group administrator sees the counts and settings of every country."
+      />
+    );
   return child ? <Outlet /> : <TenantsPage />;
 }
 

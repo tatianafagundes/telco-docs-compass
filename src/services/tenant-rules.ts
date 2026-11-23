@@ -145,3 +145,8 @@ export function effectiveRetentionDays(
   const min = floors.minRetentionDays ?? 0;
   return policyDays < min ? { days: min, raised: true } : { days: policyDays, raised: false };
 }
+
+/** The Tenants area (counts and settings of the countries) is for the group administrator only. */
+export function canSeeTenants(role: string | undefined): boolean {
+  return role === "master_admin";
+}

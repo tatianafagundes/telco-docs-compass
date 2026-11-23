@@ -3,6 +3,7 @@ import { ShieldOff } from "lucide-react";
 import { PageHeader } from "@/components/erad/page-header";
 import { EmptyState } from "@/components/erad/empty-state";
 import { useMe } from "@/hooks/use-me";
+import { canSeeTenants } from "@/services/tenant-rules";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -43,7 +44,7 @@ function AdminLayout() {
     ...(role === "tenant_admin"
       ? [{ to: "/admin/systems", label: "Connected systems" } as const]
       : []),
-    ...(role === "master_admin" ? [{ to: "/admin/tenants", label: "Tenants" } as const] : []),
+    ...(canSeeTenants(role) ? [{ to: "/admin/tenants", label: "Tenants" } as const] : []),
   ] as const;
   return (
     <div className="flex flex-col gap-4">
