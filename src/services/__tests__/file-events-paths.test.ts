@@ -108,6 +108,7 @@ const WRITERS: Record<string, string> = {
   "services/retention.functions.ts": "permanent deletion (update)",
   "services/file-hook-versions.ts": "guard values only, no write",
   "services/file-result-target.ts": "scan and extraction answers, guarded",
+  "services/file-hook-sweep.ts": "steps that waited too long fail, guarded",
 };
 // Writes decided from an earlier read: only as a guarded patch, or as the guard itself.
 const GUARDED = [
@@ -115,6 +116,7 @@ const GUARDED = [
   "services/document-add-version.ts",
   "services/document-content.functions.ts",
   "services/file-result-target.ts",
+  "services/file-hook-sweep.ts",
 ];
 const fileOf = (p: string) => sources.find((s) => s.path === p)!.sf;
 

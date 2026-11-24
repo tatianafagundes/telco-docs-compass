@@ -139,6 +139,7 @@ describe("runMaintenance", () => {
     });
     expect(await runMaintenance(db.asDb(), NOW)).toEqual({
       expiredDocuments: 2,
+      timedOutSteps: 0,
       deadLetters: 0,
       failed: [],
     });

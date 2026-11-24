@@ -3,16 +3,20 @@
 //
 //   - documents past their expiry date become Expired, with an activity event;
 //   - saved answers to repeated requests (idempotency keys) older than their lifetime are removed;
-//   - system access tokens past their expiry are removed.
+//   - system access tokens past their expiry are removed;
+//   - uploads never confirmed and steps an outside system never answered fail (file hooks).
 //
 // Each step is separate: one failing is logged and does not stop the others.
 import { idempotencyCutoff } from "@/services/document-rules";
 import { countDeadLetters } from "@/services/delivery-dead-letter";
+import { timeOutWaitingSteps } from "@/services/file-hook-sweep";
 import { must } from "@/services/shared/must";
 import type { Db } from "@/services/seam-runtime";
 
 export interface MaintenanceResult {
   expiredDocuments: number;
+  /** Uploads and outside steps that waited too long and failed in this run. */
+  timedOutSteps: number;
   /** Deliveries the sender gave up on. Above zero means a receiver needs attention. */
   deadLetters: number;
   failed: string[];
@@ -91,12 +95,18 @@ export async function deleteExpiredTokens(admin: Db, now = new Date()): Promise<
 }
 
 export async function runMaintenance(admin: Db, now = new Date()): Promise<MaintenanceResult> {
-  const result: MaintenanceResult = { expiredDocuments: 0, deadLetters: 0, failed: [] };
+  const result: MaintenanceResult = {
+    expiredDocuments: 0,
+    timedOutSteps: 0,
+    deadLetters: 0,
+    failed: [],
+  };
   const steps: [string, () => Promise<unknown>][] = [
     [
       "expireDocuments",
       async () => (result.expiredDocuments = await expireDueDocuments(admin, now)),
     ],
+    ["stepTimeouts", async () => (result.timedOutSteps = await timeOutWaitingSteps(admin, now))],
     ["idempotencyKeys", () => deleteStaleIdempotencyKeys(admin, now)],
     ["accessTokens", () => deleteExpiredTokens(admin, now)],
     ["deadLetters", async () => (result.deadLetters = await countDeadLetters(admin))],
