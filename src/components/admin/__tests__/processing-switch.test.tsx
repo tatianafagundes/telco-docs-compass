@@ -1,17 +1,19 @@
 // Admin > Connected systems: the organisation's own antivirus and reader (file-hooks spec D1, D4,
 // R5.6). The API is mocked; who may change the switch is the server's job.
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const getProcessingSwitch = vi.fn();
 const setProcessingSwitch = vi.fn();
 vi.mock("@/services/api", () => ({
   api: {
+    listSystems: async () => [],
     getProcessingSwitch: () => getProcessingSwitch(),
     setProcessingSwitch: (i: unknown) => setProcessingSwitch(i),
   },
 }));
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));
+import { ConnectedSystems } from "@/components/admin/connected-systems";
 import { ProcessingSwitch } from "@/components/admin/processing-switch";
 import {
   disconnectWarning,
@@ -83,7 +85,9 @@ describe("the switch", () => {
     expect(
       screen.getByText(/Files wait for your own antivirus\. The built-in check stops\./),
     ).toBeTruthy();
-    const turnOn = screen.getByRole("button", { name: "Turn on" });
+    // The confirm button names the result, never "Turn on" (design review B3).
+    const dialog = () => within(screen.getByRole("dialog"));
+    const turnOn = dialog().getByRole("button", { name: "Use your own antivirus" });
     expect(turnOn).toHaveAttribute("aria-disabled", "true");
     fireEvent.click(turnOn);
     expect(setProcessingSwitch).not.toHaveBeenCalled();
@@ -91,7 +95,7 @@ describe("the switch", () => {
       screen.getByRole("checkbox", { name: "I understand files will wait for this system" }),
     );
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Turn on" }));
+      fireEvent.click(dialog().getByRole("button", { name: "Use your own antivirus" }));
     });
     expect(setProcessingSwitch).toHaveBeenCalledWith({ scan: true });
   });
@@ -99,6 +103,11 @@ describe("the switch", () => {
     show([]);
     fireEvent.click(await screen.findByRole("button", { name: "Use your own antivirus" }));
     expect(screen.getByText(/No system with this permission is connected yet/)).toBeTruthy();
+    expect(
+      screen.getByRole("checkbox", {
+        name: "I understand files will fail after 30 minutes until a system is connected",
+      }),
+    ).toBeTruthy();
   });
   it("turning it off warns that protection is weaker, without a checkbox", async () => {
     getProcessingSwitch.mockResolvedValue({ scan: true, read: false });
@@ -107,8 +116,15 @@ describe("the switch", () => {
     fireEvent.click(screen.getByRole("button", { name: "Use the built-in check" }));
     expect(screen.getByText(/protection is weaker/)).toBeTruthy();
     expect(screen.queryByRole("checkbox")).toBeNull();
+    // Lowering protection looks like the risk it is.
+    expect(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Use the built-in check" })
+        .className,
+    ).toMatch(/destructive|critical|danger/);
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Turn off" }));
+      fireEvent.click(
+        within(screen.getByRole("dialog")).getByRole("button", { name: "Use the built-in check" }),
+      );
     });
     expect(setProcessingSwitch).toHaveBeenCalledWith({ scan: false });
   });
@@ -125,5 +141,48 @@ describe("the switch", () => {
     getProcessingSwitch.mockRejectedValue(new Error("x"));
     show([]);
     expect(await screen.findByRole("button", { name: "Try again" })).toBeTruthy();
+  });
+});
+
+describe("connecting a system that checks files (design review S4)", () => {
+  it("names it for what it does and says the other permissions were cleared", async () => {
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <ConnectedSystems />
+      </QueryClientProvider>,
+    );
+    fireEvent.click((await screen.findAllByRole("button", { name: "Connect a system" }))[0]!);
+    const d = within(screen.getByRole("dialog"));
+    expect(d.getByRole("textbox", { name: "Name shown in activity" })).toHaveValue("Order care");
+    fireEvent.click(
+      d.getByRole("checkbox", { name: "Check files for threats and report the result" }),
+    );
+    expect(d.getByRole("textbox", { name: "Name shown in activity" })).toHaveValue("Antivirus");
+    expect(
+      d.getByText("Other permissions were cleared: this system can only check files."),
+    ).toBeTruthy();
+    expect(
+      d.getByRole("checkbox", { name: "Read documents and download files" }),
+    ).not.toBeChecked();
+  });
+  it("a name the admin typed is kept", async () => {
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <ConnectedSystems />
+      </QueryClientProvider>,
+    );
+    fireEvent.click((await screen.findAllByRole("button", { name: "Connect a system" }))[0]!);
+    const d = within(screen.getByRole("dialog"));
+    fireEvent.change(d.getByRole("textbox", { name: "Name shown in activity" }), {
+      target: { value: "Acme AV" },
+    });
+    fireEvent.click(
+      d.getByRole("checkbox", { name: "Check files for threats and report the result" }),
+    );
+    expect(d.getByRole("textbox", { name: "Name shown in activity" })).toHaveValue("Acme AV");
   });
 });

@@ -14,7 +14,6 @@ import { DocumentPanel } from "@/components/documents/document-panel";
 import { ApprovedSummary } from "@/components/documents/approved-summary";
 import { meQuery } from "@/hooks/use-me";
 import {
-  storedPipelineLabel,
   PIPELINE_TONE,
   recordKindLabel,
   STATUS_LABEL,
@@ -120,6 +119,15 @@ function RecordPage() {
   });
   const { data } = list;
   const waiting = pollDelay(data.items, Date.now()) !== false;
+  // A check someone asked for says when it ran, even when nothing changed (design review S2).
+  const [checkedAt, setCheckedAt] = useState<string | null>(null);
+  const checkNow = () =>
+    void list.refetch().then((r) => {
+      if (!r.isError)
+        setCheckedAt(
+          new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
+        );
+    });
   const { data: me } = useSuspenseQuery(meQuery);
   const role = me.access?.role ?? "viewer";
   const entityKind = data.entity?.referred_type === "Account" ? "account" : "order";
@@ -188,7 +196,7 @@ function RecordPage() {
             tone="warning"
             status="Can't refresh right now"
             action={
-              <Button onClick={() => void list.refetch()} unavailable={list.isFetching}>
+              <Button onClick={checkNow} unavailable={list.isFetching}>
                 Check now
               </Button>
             }
@@ -198,9 +206,10 @@ function RecordPage() {
         ) : waiting ? (
           <p className="type-label-14 flex flex-wrap items-center gap-2 text-text-secondary">
             Some files are waiting for your organisation's systems. This list updates on its own.
-            <Button onClick={() => void list.refetch()} unavailable={list.isFetching}>
+            <Button onClick={checkNow} unavailable={list.isFetching}>
               Check now
             </Button>
+            <span role="status">{checkedAt ? `Checked ${checkedAt}` : ""}</span>
           </p>
         ) : null}
         <ApprovedSummary
@@ -304,10 +313,11 @@ function RecordPage() {
                         {d.legal_hold ? <Tag small>On hold</Tag> : null}
                         {d.pipeline_state !== "ready" ? (
                           <Tag tone={PIPELINE_TONE[d.pipeline_state]} small>
-                            {storedPipelineLabel(
-                              d.pipeline_state,
-                              addedHere.get(d.id) === "uploading",
-                            )}
+                            {
+                              processingView(d.pipeline_state, d.pipeline_detail, {
+                                uploadingHere: addedHere.get(d.id) === "uploading",
+                              }).label
+                            }
                           </Tag>
                         ) : null}
                         {(() => {

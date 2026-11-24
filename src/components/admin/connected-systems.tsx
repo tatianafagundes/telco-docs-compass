@@ -221,12 +221,11 @@ export function ConnectedSystems() {
         open={revoking !== null}
         onOpenChange={(o) => !o && setRevoking(null)}
         title={`Disconnect ${revoking?.name ?? ""}?`}
-        description={[
-          "Its key stops working straight away and its change notifications end. Documents it added stay where they are.",
-          revoking ? disconnectWarning(revoking, sw.data) : null,
-        ]
-          .filter(Boolean)
-          .join(" ")}
+        // What happens to files comes first, when files wait for this system (design review S10).
+        description={
+          (revoking ? disconnectWarning(revoking, sw.data) : null) ??
+          "Its key stops working straight away and its change notifications end."
+        }
         actions={
           <>
             <Button onClick={() => setRevoking(null)}>Keep connected</Button>
@@ -240,7 +239,12 @@ export function ConnectedSystems() {
           </>
         }
       >
-        {null}
+        <p className="type-paragraph-14 text-text-secondary">
+          {revoking && disconnectWarning(revoking, sw.data)
+            ? "Its key stops working straight away and its change notifications end. "
+            : ""}
+          Documents it added stay where they are.
+        </p>
       </Dialog>
     </div>
   );
@@ -268,6 +272,28 @@ function AddSystemDialog({
       ? (from.scopes.filter((x) => (SCOPES as readonly string[]).includes(x)) as Scope[])
       : DEFAULT_SCOPES.orderCare,
   );
+  // Shown when choosing checking or reading files cleared other permissions (design review S4).
+  const [cleared, setCleared] = useState<string | null>(null);
+  const choose = (s: Scope, on: boolean) => {
+    if (!on) {
+      setScopes((prev) => prev.filter((x) => x !== s));
+      return;
+    }
+    const after = withScope(scopes, s);
+    const lost = scopes.filter((x) => !after.includes(x));
+    setScopes(after);
+    setCleared(
+      lost.length
+        ? `Other permissions were cleared: this system can only ${s === "scan" ? "check files" : s === "extract" ? "read files" : "do what is ticked"}.`
+        : null,
+    );
+    // A system that checks or reads files is rarely Order care: name it for what it does, unless
+    // the name was already changed.
+    if ((s === "scan" || s === "extract") && name === defaultName(kind)) {
+      setKind("other");
+      setName(s === "scan" ? "Antivirus" : "Reader");
+    }
+  };
   const create = useMutation({
     mutationFn: () => api.createSystem({ name: name.trim(), systemKind: kind, scopes }),
     onSuccess: (r) => onCreated(r.system.name, r.key),
@@ -311,7 +337,7 @@ function AddSystemDialog({
             const k = v as SystemKind;
             setKind(k);
             setScopes(DEFAULT_SCOPES[k]);
-            setName(KIND_LABEL[k].split(" (")[0] ?? KIND_LABEL[k]);
+            setName(defaultName(k));
           }}
           groups={[{ options: SYSTEM_KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] })) }]}
         />
@@ -324,26 +350,40 @@ function AddSystemDialog({
         />
         <fieldset className="flex flex-col gap-2">
           <legend className="type-label-14 mb-1">What it can do</legend>
-          <p className="type-label-12 text-text-secondary">
-            Checking files and reading files each need a system of their own, with no other
-            permission.
-          </p>
-          {SCOPES.map((s) => (
+          {SCOPES.filter((x) => !PROCESSING.includes(x)).map((x) => (
             <Checkbox
-              key={s}
-              label={SCOPE_LABEL[s]}
-              checked={scopes.includes(s)}
-              onCheckedChange={(c) =>
-                setScopes((prev) => (c === true ? withScope(prev, s) : prev.filter((x) => x !== s)))
-              }
+              key={x}
+              label={SCOPE_LABEL[x]}
+              checked={scopes.includes(x)}
+              onCheckedChange={(c) => choose(x, c === true)}
             />
           ))}
+          <div className="mt-2 flex flex-col gap-2 border-t border-border-subtle pt-3">
+            <p className="type-label-12 text-text-secondary">
+              Checking files and reading files each need a system of their own, with no other
+              permission.
+            </p>
+            {PROCESSING.map((x) => (
+              <Checkbox
+                key={x}
+                label={SCOPE_LABEL[x]}
+                checked={scopes.includes(x)}
+                onCheckedChange={(c) => choose(x, c === true)}
+              />
+            ))}
+          </div>
+          <p role="status" className="type-label-12 text-text-secondary">
+            {cleared ?? ""}
+          </p>
         </fieldset>
       </div>
     </Dialog>
   );
 }
 
+/** The name a kind starts with ("Order care" for Order care (TMF622)). */
+const defaultName = (k: SystemKind) => KIND_LABEL[k].split(" (")[0] ?? KIND_LABEL[k];
+const PROCESSING: readonly Scope[] = ["scan", "extract"];
 const kindLabel = (k: string) => KIND_LABEL[k as SystemKind] ?? k;
 function SystemList(p: {
   systems: ConnectedSystem[];

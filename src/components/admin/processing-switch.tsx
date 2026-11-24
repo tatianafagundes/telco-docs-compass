@@ -8,6 +8,7 @@ import { Button } from "@/components/erad/button";
 import { Card } from "@/components/erad/card";
 import { Checkbox } from "@/components/erad/checkbox";
 import { Dialog } from "@/components/erad/dialog";
+import { Banner } from "@/components/erad/banner";
 import { Tag } from "@/components/erad/tag";
 import { failureText } from "@/hooks/use-config";
 import {
@@ -22,6 +23,11 @@ import type { ConnectedSystem } from "@/services/integration-clients.functions";
 import { middleTruncate } from "@/services/upload-rules";
 const N = EXTERNAL_RESULT_TIMEOUT_MINUTES;
 
+/** The confirm button names the result, never "on" or "off" (design review B3). */
+const confirmLabel = (c: { step: Step; on: boolean }) => {
+  const t = c.on ? STEP_COPY[c.step].own : STEP_COPY[c.step].builtIn;
+  return `Use ${t}`;
+};
 export function ProcessingSwitch({ systems }: { systems: readonly ConnectedSystem[] }) {
   const qc = useQueryClient();
   const sw = useQuery({ queryKey: switchKey, queryFn: () => api.getProcessingSwitch() });
@@ -66,9 +72,8 @@ export function ProcessingSwitch({ systems }: { systems: readonly ConnectedSyste
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="type-label-14 flex flex-wrap items-center gap-2">
                     {c.title}
-                    <Tag tone={on ? "cleared" : "indeterminate"} small>
-                      {on ? "Own system" : "Built-in"}
-                    </Tag>
+                    {/* Neutral either way: the choice is not good versus bad (design review N7). */}
+                    <Tag small>{on ? "Own system" : "Built-in"}</Tag>
                   </span>
                   <p className="type-paragraph-14 text-text-secondary">
                     {on
@@ -99,38 +104,46 @@ export function ProcessingSwitch({ systems }: { systems: readonly ConnectedSyste
             : ""
         }
         description={
-          changing
-            ? `${changing.on ? STEP_COPY[changing.step].on : STEP_COPY[changing.step].off} The change is recorded in the organisation's activity.`
-            : ""
+          changing ? (changing.on ? STEP_COPY[changing.step].on : STEP_COPY[changing.step].off) : ""
         }
         actions={
           <>
             <Button onClick={() => setChanging(null)}>Cancel</Button>
             <Button
-              variant="primary"
+              // Lowering protection is styled as the risk it is (design review B3).
+              variant={
+                changing && !changing.on && changing.step === "scan" ? "destructive" : "primary"
+              }
               unavailable={save.isPending || (changing?.on === true && !understood)}
               onClick={() => changing && save.mutate(changing)}
             >
-              {changing?.on ? "Turn on" : "Turn off"}
+              {changing ? confirmLabel(changing) : ""}
             </Button>
           </>
         }
       >
-        {changing?.on ? (
-          <div className="flex flex-col gap-3">
-            {systemFor(systems, changing.step) ? null : (
-              <p className="type-paragraph-14">
-                No system with this permission is connected yet. Connect one first, or files will
-                wait and then fail.
-              </p>
-            )}
+        <div className="flex flex-col gap-3">
+          {changing?.on && !systemFor(systems, changing.step) ? (
+            <Banner tone="warning" status="No system connected">
+              No system with this permission is connected yet. Until one is, every new file fails
+              after {N} minutes.
+            </Banner>
+          ) : null}
+          {changing?.on ? (
             <Checkbox
-              label="I understand files will wait for this system"
+              label={
+                systemFor(systems, changing.step)
+                  ? "I understand files will wait for this system"
+                  : `I understand files will fail after ${N} minutes until a system is connected`
+              }
               checked={understood}
               onCheckedChange={(v) => setUnderstood(v === true)}
             />
-          </div>
-        ) : null}
+          ) : null}
+          <p className="type-label-12 text-text-secondary">
+            The change is recorded in the organisation's activity.
+          </p>
+        </div>
       </Dialog>
     </Card>
   );

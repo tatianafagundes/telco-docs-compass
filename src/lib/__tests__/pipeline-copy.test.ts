@@ -46,6 +46,7 @@ describe("while a step runs (R5.1)", () => {
     "a built-in %s step shows the simulated tooltip and waits for nobody",
     (state) => {
       expect(processingView(state, { mode: "simulated", attempt: 1 })).toEqual({
+        label: state === "scanning" ? "Checking for threats" : "Reading details",
         waiting: null,
         simulated: true,
         message: null,
@@ -54,8 +55,12 @@ describe("while a step runs (R5.1)", () => {
       expect(processingView(state, null).simulated).toBe(true);
     },
   );
-  it.each(["uploading", "ready"] as const)("%s shows nothing extra", (state) => {
+  it.each([
+    ["uploading", "No file yet"],
+    ["ready", "Ready"],
+  ] as const)("%s shows nothing extra (tag %s)", (state, label) => {
     expect(processingView(state, ext())).toEqual({
+      label,
       waiting: null,
       simulated: false,
       message: null,
@@ -110,7 +115,7 @@ describe("failures and blocked files (R5.2, R5.3)", () => {
       ["retry", "delete"],
     ],
   ])("%s", (_n, detail, message, actions) => {
-    const v = processingView("failed", detail);
+    const v = processingView("failed", detail, { nameChars: 32 });
     expect(v.message).toBe(message);
     expect(v.actions).toEqual(actions);
     expect(v.waiting).toBeNull();
@@ -136,6 +141,7 @@ describe("failures and blocked files (R5.2, R5.3)", () => {
   });
   it("a blocked file names the check, offers a report and delete, and says how to go on", () => {
     expect(processingView("quarantined", ext({ reason: "threat" }))).toEqual({
+      label: "Blocked for safety",
       waiting: null,
       simulated: false,
       message:
@@ -148,6 +154,29 @@ describe("failures and blocked files (R5.2, R5.3)", () => {
     expect(processingView("failed", ext({ reason: "scanError", by: "<b>x</b>" })).message).toBe(
       "<b>x</b> couldn't check this file. Try again.",
     );
+  });
+});
+
+describe("the tag of a failed file names what failed (design review B2)", () => {
+  it.each([
+    [{ reason: "scanError" }, "Couldn't check"],
+    [ext({ reason: "noResult" }), "Couldn't check"],
+    [{ reason: "noResult" }, "Couldn't check"],
+    [{ reason: "noResult", step: "read" }, "Couldn't read"],
+    [{ reason: "unreadable", step: "read" }, "Couldn't read"],
+    [null, "Couldn't read"],
+    [{ reason: "noFile" }, "No file yet"],
+  ])("%j: %s", (detail, label) => {
+    expect(processingView("failed", detail).label).toBe(label);
+  });
+  it("an upload this page is sending says Uploading, else No file yet", () => {
+    expect(processingView("uploading", null, { uploadingHere: true }).label).toBe("Uploading");
+    expect(processingView("uploading", null).label).toBe("No file yet");
+  });
+  it("the panel shows a longer system name than the card", () => {
+    const by = "Acme Antivirus Enterprise Gateway Europe";
+    expect(processingView("scanning", ext({ by })).waiting!.system).not.toBe(by);
+    expect(processingView("scanning", ext({ by }), { nameChars: 80 }).waiting!.system).toBe(by);
   });
 });
 
@@ -203,9 +232,29 @@ describe("announcements (R5.5)", () => {
         doc("e", "ready"),
       ]),
     ).toEqual([
-      { text: "a.pdf: reading details", urgent: false },
-      { text: "b.pdf: needs attention", urgent: true },
-      { text: "c.pdf: blocked for safety", urgent: true },
+      { text: "a.pdf: reading details.", urgent: false },
+      {
+        text: "b.pdf: couldn't read. We couldn't read the text in this file, so no details were filled in.",
+        urgent: true,
+      },
+      {
+        text: "c.pdf: blocked for safety. The built-in check found a possible threat in this file.",
+        urgent: true,
+      },
+    ]);
+  });
+  it("a failure says the same words as the tag, and what happened (design review S9)", () => {
+    expect(
+      announcements(new Map([["a", "scanning" as PipelineState]]), [
+        {
+          id: "a",
+          name: "R.pdf",
+          pipeline_state: "failed",
+          pipeline_detail: ext({ reason: "noResult" }),
+        },
+      ]),
+    ).toEqual([
+      { text: "R.pdf: couldn't check. Acme AV didn't answer within 30 minutes.", urgent: true },
     ]);
   });
   it("nothing on the first list", () => {

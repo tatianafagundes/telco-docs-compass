@@ -16,7 +16,7 @@ vi.mock("@/services/api", () => ({
   newIdempotencyKey: () => "k",
 }));
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));
-import { ProcessingAnnouncer } from "@/components/documents/processing-announcer";
+import { ANNOUNCEMENT_MS, ProcessingAnnouncer } from "@/components/documents/processing-announcer";
 import { ProcessingNotice } from "@/components/documents/processing-notice";
 import { UploadProgress } from "@/components/upload/upload-progress";
 import type { UploadRow } from "@/hooks/use-upload";
@@ -93,13 +93,59 @@ describe("the upload card (R5.1–R5.3)", () => {
     card(row("failed"), { ...ext, step: "read", by: "Acme OCR", reason: "noResult" });
     expect(buttons()).toEqual(expect.arrayContaining(["Try again", "Keep without reading"]));
   });
-  it("a file that never arrived offers only Delete, unavailable to non-managers", () => {
-    card(row("failed"), { reason: "noFile" }, false);
+  it("a file that never arrived offers only Delete to a manager, and a sentence to others", () => {
+    card(row("failed"), { reason: "noFile" }, true);
     expect(screen.getByText("The file never arrived. Add it again.")).toBeTruthy();
-    const list = within(screen.getByRole("list"));
-    expect(list.getAllByRole("button").map((b) => b.textContent)).toEqual(["Delete"]);
-    expect(list.getByRole("button", { name: "Delete" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByText("No file yet")).toBeTruthy();
+    expect(
+      within(screen.getByRole("list"))
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["Delete"]);
+  });
+  it("no disabled Delete for people who cannot delete: one sentence instead (design review S6)", () => {
+    card(row("failed"), { reason: "noFile" }, false);
+    expect(within(screen.getByRole("list")).queryAllByRole("button")).toEqual([]);
     expect(screen.getByText("A manager can delete this file.")).toBeTruthy();
+  });
+  it("a scan failure is tagged Couldn't check, never Couldn't read (design review B2)", () => {
+    card(row("failed"), { ...ext, reason: "scanError" });
+    expect(screen.getByText("Couldn't check")).toBeTruthy();
+    expect(screen.queryByText("Couldn't read")).toBeNull();
+  });
+  it("Report a problem, Try again and Keep without reading follow the person's rights (S7)", () => {
+    const h = handlers();
+    render(
+      <UploadProgress
+        rows={[row("quarantined"), row("failed", { key: "k2", docId: "d2" })]}
+        details={
+          new Map<string, unknown>([
+            ["d1", { ...ext, reason: "threat" }],
+            ["d2", { reason: "unreadable", step: "read" }],
+          ])
+        }
+        canDelete={false}
+        canEdit={false}
+        canReport={false}
+        {...h}
+      />,
+    );
+    expect(within(screen.getByRole("list")).queryAllByRole("button")).toEqual([]);
+    expect(
+      screen.getByText("An editor can try again. A manager can delete this file."),
+    ).toBeTruthy();
+  });
+  it("after an action, focus stays on the row (design review S5)", async () => {
+    const h = card(row("failed"), { ...ext, reason: "scanError" });
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(h.onRetryStep).toHaveBeenCalled();
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    expect(document.activeElement).toBe(document.querySelector('[data-upload-row="k1"]'));
+  });
+  it("a batch whose files only wait for an outside system is added, and can be dismissed (S1)", () => {
+    card(row("scanning"), ext);
+    expect(screen.getByRole("heading", { name: "1 added: 1 waiting" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Dismiss" })).toBeTruthy();
   });
   it("a blocked file says how to go on and offers Report a problem", () => {
     const h = card(row("quarantined"), { ...ext, reason: "threat" });
@@ -146,6 +192,16 @@ describe("the panel notice", () => {
     expect(screen.getByText(/couldn't read the text/)).toBeTruthy();
     expect(screen.queryAllByRole("button")).toEqual([]);
   });
+  it("says who can act where the person cannot, and where Delete is for a manager (S6)", () => {
+    notice("failed", { reason: "unreadable", step: "read" }, "viewer");
+    expect(
+      screen.getByText("An editor can try again. A manager can delete this file."),
+    ).toBeTruthy();
+  });
+  it("a manager is told Delete is in the menu above", () => {
+    notice("quarantined", { ...ext, reason: "threat" }, "manager");
+    expect(screen.getByText("Delete is in the menu above.")).toBeTruthy();
+  });
   it("nothing for a ready document", () => {
     const { container } = notice("ready", null);
     expect(container).toBeEmptyDOMElement();
@@ -163,9 +219,34 @@ describe("the announcer (R5.5)", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("");
     rerender(<ProcessingAnnouncer docs={docs("reading", "failed")} />);
     expect(screen.getByRole("status")).toHaveTextContent("A.pdf: reading details.");
-    expect(screen.getByRole("alert")).toHaveTextContent("B.pdf: needs attention.");
+    expect(screen.getByRole("alert")).toHaveTextContent("B.pdf: couldn't read.");
     rerender(<ProcessingAnnouncer docs={docs("reading", "failed")} />);
-    expect(screen.getByRole("status")).toHaveTextContent("A.pdf: reading details.");
+    expect(screen.getByRole("status").children).toHaveLength(1);
+  });
+  it("the same failure again after Try again is a new announcement (design review B1)", () => {
+    const { rerender } = render(<ProcessingAnnouncer docs={docs("reading", "reading")} />);
+    rerender(<ProcessingAnnouncer docs={docs("reading", "failed")} />);
+    const first = screen.getByRole("alert").firstElementChild;
+    rerender(<ProcessingAnnouncer docs={docs("reading", "reading")} />);
+    rerender(<ProcessingAnnouncer docs={docs("reading", "failed")} />);
+    const alerts = screen.getByRole("alert").children;
+    expect(alerts).toHaveLength(2);
+    expect(alerts[1]).not.toBe(first);
+    expect(alerts[1]).toHaveTextContent("B.pdf: couldn't read.");
+  });
+  it("each announcement leaves the page after a few seconds", () => {
+    vi.useFakeTimers();
+    try {
+      const { rerender } = render(<ProcessingAnnouncer docs={docs("scanning", "reading")} />);
+      rerender(<ProcessingAnnouncer docs={docs("reading", "failed")} />);
+      rerender(<ProcessingAnnouncer docs={docs("ready", "failed")} />);
+      act(() => void vi.advanceTimersByTime(ANNOUNCEMENT_MS));
+      expect(screen.getByRole("alert").children).toHaveLength(0);
+      expect(screen.getByRole("status").children).toHaveLength(0);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
   it("never moves focus", () => {
     const b = document.createElement("button");

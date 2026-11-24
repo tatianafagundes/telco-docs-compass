@@ -10,14 +10,13 @@ import { DocumentDetails } from "@/components/documents/document-details";
 import {
   activityDetail,
   activityLabel,
-  storedPipelineLabel,
   PIPELINE_TONE,
   STATUS_LABEL,
   STATUS_TONE,
 } from "@/lib/document-labels";
 import { api } from "@/services/api";
 import { can, type AppRole } from "@/services/document-rules";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Banner } from "@/components/erad/banner";
 import { ManageAccessDialog } from "@/components/access/manage-access-dialog";
@@ -29,6 +28,7 @@ import { ReviewJourney } from "@/components/review/review-journey";
 import { meQuery } from "@/hooks/use-me";
 import { RecordLine } from "@/components/documents/record-line";
 import { ProcessingNotice } from "@/components/documents/processing-notice";
+import { processingView } from "@/lib/pipeline-copy";
 
 // Query factory shared with route loaders; moving it only helps hot reload.
 // eslint-disable-next-line react-refresh/only-export-components
@@ -62,6 +62,7 @@ export function DocumentPanel({
   const recordId = entityId ?? "";
   const q = useQuery(documentQuery(id));
   const [sharing, setSharing] = useState(false);
+  const heading = useRef<HTMLHeadingElement>(null);
   const [allActivity, setAllActivity] = useState(false);
   const [showWhy, setShowWhy] = useState(false);
   const review = useReviewState(
@@ -93,19 +94,28 @@ export function DocumentPanel({
 
   const headerBlock = (
     <>
-      <h3 className="type-title-16-medium">{doc.name}</h3>
+      <h3 ref={heading} tabIndex={-1} className="type-title-16-medium outline-none">
+        {doc.name}
+      </h3>
       <div className="flex flex-wrap gap-2">
         <Tag tone={STATUS_TONE[doc.status]} small>
           {STATUS_LABEL[doc.status]}
         </Tag>
         <Tag tone={PIPELINE_TONE[doc.pipeline_state]} small>
-          {storedPipelineLabel(doc.pipeline_state, false)}
+          {processingView(doc.pipeline_state, doc.pipeline_detail).label}
         </Tag>
         {doc.legal_hold ? (
           <Tag icon={<Lock aria-hidden="true" className="size-4 shrink-0" />}>On hold</Tag>
         ) : null}
       </div>
-      {!shared ? <ProcessingNotice doc={doc} entityId={recordId} role={role} /> : null}
+      {!shared ? (
+        <ProcessingNotice
+          doc={doc}
+          entityId={recordId}
+          role={role}
+          onDone={() => heading.current?.focus()}
+        />
+      ) : null}
       {shared || showRecord ? <RecordLine entityId={entityId} /> : null}
       {!shared && journeyStep(doc.status, toCheck, review.gate.pending) !== null ? (
         <ReviewJourney step={journeyStep(doc.status, toCheck, review.gate.pending) ?? 0} />

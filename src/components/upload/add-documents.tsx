@@ -213,6 +213,8 @@ export function AddDocuments({
         rows={upload.rows}
         details={details}
         canDelete={canDelete}
+        canEdit={can(role, "edit")}
+        canReport={can(role, "review")}
         onCancel={upload.cancel}
         onRetryUpload={upload.retryUpload}
         onRetryStep={upload.retryStep}

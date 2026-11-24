@@ -4,13 +4,16 @@ import { Button } from "@/components/erad/button";
 import { ProgressBar } from "@/components/erad/misc";
 import { Tag } from "@/components/erad/tag";
 import { Tooltip } from "@/components/erad/tooltip";
-import { PIPELINE_LABEL, PIPELINE_TONE } from "@/lib/document-labels";
-import { processingView, waitingLine } from "@/lib/pipeline-copy";
+import { PIPELINE_TONE } from "@/lib/document-labels";
+import { processingView, waitingLine, type ProcessingView } from "@/lib/pipeline-copy";
 import { batchState, type UploadRow } from "@/hooks/use-upload";
 import { batchSummary, middleTruncate, uploadProgress } from "@/services/upload-rules";
 
 export interface UploadProgressProps {
   rows: UploadRow[];
+  /** Try again and Keep without reading need edit rights; Report a problem needs review rights. */
+  canEdit?: boolean;
+  canReport?: boolean;
   /** Each document's processing detail as the list has it (who a step waits for, why it failed). */
   details?: ReadonlyMap<string, unknown>;
   canDelete: boolean;
@@ -25,10 +28,27 @@ export interface UploadProgressProps {
   onDismiss: () => void;
 }
 
+/** One sentence for what the person cannot do here themselves (design review S6). */
+function WhoCan({ view, p }: { view: ProcessingView; p: UploadProgressProps }) {
+  const parts = [
+    view.actions.includes("retry") && p.canEdit === false ? "An editor can try again." : null,
+    view.actions.includes("delete") && !p.canDelete ? "A manager can delete this file." : null,
+  ].filter(Boolean);
+  return parts.length ? (
+    <p className="type-label-12 text-text-secondary">{parts.join(" ")}</p>
+  ) : null;
+}
 /** Collapsible per-batch status, bottom right. Only the final state is announced. */
 export function UploadProgress(p: UploadProgressProps) {
   const [open, setOpen] = useState(true);
-  const states = p.rows.map(batchState);
+  const viewOf = (r: UploadRow) =>
+    r.state === "error" || r.state === "cancelled"
+      ? null
+      : processingView(r.state, r.docId ? p.details?.get(r.docId) : null, { uploadingHere: true });
+  const states = p.rows.map((r) => {
+    const b = batchState(r);
+    return b === "checking" && viewOf(r)?.waiting ? "waiting" : b;
+  });
   const summary = batchSummary(states);
   const live = p.rows.filter((r) => r.state !== "cancelled");
   const progress = uploadProgress(
@@ -93,17 +113,38 @@ export function UploadProgress(p: UploadProgressProps) {
         <ul className="flex max-h-72 flex-col gap-2 overflow-y-auto">
           {p.rows.map((r) => {
             const st = r.state === "error" || r.state === "cancelled" ? null : r.state;
-            const view = st ? processingView(st, r.docId ? p.details?.get(r.docId) : null) : null;
+            const view = viewOf(r);
             const why =
               r.state === "error" ? "Upload stopped. Nothing was added. Try again." : view?.message;
-            const has = (a: string) => view?.actions.includes(a as never) ?? false;
-            const tag = st ? (
-              <Tag tone={PIPELINE_TONE[st]} small>
-                {PIPELINE_LABEL[st]}
-              </Tag>
-            ) : null;
+            // As the panel allows it (design review S6, S7): no control a person cannot use.
+            const has = (a: string) =>
+              (view?.actions.includes(a as never) ?? false) &&
+              (a === "delete"
+                ? p.canDelete
+                : a === "report"
+                  ? (p.canReport ?? true)
+                  : (p.canEdit ?? true));
+            // After an action the button may go: focus stays on the row (design review S5).
+            const then = (fn: (row: UploadRow) => void) => () => {
+              fn(r);
+              requestAnimationFrame(() =>
+                document.querySelector<HTMLElement>(`[data-upload-row="${r.key}"]`)?.focus(),
+              );
+            };
+            const tag =
+              st && view ? (
+                <Tag tone={PIPELINE_TONE[st]} small>
+                  {view.label}
+                </Tag>
+              ) : null;
             return (
-              <li key={r.key} className="flex flex-col gap-1 border-t border-border-subtle pt-2">
+              <li
+                key={r.key}
+                data-upload-row={r.key}
+                tabIndex={-1}
+                aria-label={r.name}
+                className="flex flex-col gap-1 border-t border-border-subtle pt-2 outline-none"
+              >
                 <div className="flex items-center justify-between gap-2">
                   <span className="type-label-12 min-w-0 truncate" title={r.name}>
                     {middleTruncate(r.name, 36)}
@@ -136,30 +177,16 @@ export function UploadProgress(p: UploadProgressProps) {
                   {r.state === "error" && failedUploads.length <= 1 ? (
                     <Button onClick={() => p.onRetryUpload(r)}>Try again</Button>
                   ) : null}
-                  {has("retry") ? (
-                    <Button onClick={() => p.onRetryStep(r)}>Try again</Button>
-                  ) : null}
+                  {has("retry") ? <Button onClick={then(p.onRetryStep)}>Try again</Button> : null}
                   {has("keepUnread") ? (
-                    <Button onClick={() => p.onKeepUnread(r)}>Keep without reading</Button>
+                    <Button onClick={then(p.onKeepUnread)}>Keep without reading</Button>
                   ) : null}
                   {has("report") ? (
-                    <Button onClick={() => p.onReport(r)}>Report a problem</Button>
+                    <Button onClick={then(p.onReport)}>Report a problem</Button>
                   ) : null}
-                  {has("delete") ? (
-                    <Button
-                      unavailable={!p.canDelete}
-                      title={p.canDelete ? undefined : "Ask a manager to delete it"}
-                      onClick={() => p.onDelete(r)}
-                    >
-                      Delete
-                    </Button>
-                  ) : null}
+                  {has("delete") ? <Button onClick={() => p.onDelete(r)}>Delete</Button> : null}
                 </div>
-                {has("delete") && !p.canDelete ? (
-                  <p className="type-label-12 text-text-secondary">
-                    A manager can delete this file.
-                  </p>
-                ) : null}
+                {view ? <WhoCan view={view} p={p} /> : null}
               </li>
             );
           })}

@@ -159,7 +159,9 @@ export function nextPipelineState(
   }
 }
 
-export type BatchFileState = "uploading" | "checking" | "ready" | "attention" | "cancelled";
+/** `waiting`: sent and waiting for the organisation's own antivirus or reader (up to 30 minutes). */
+export type BatchFileState =
+  "uploading" | "checking" | "waiting" | "ready" | "attention" | "cancelled";
 
 export function batchSummary(states: BatchFileState[]): {
   done: boolean;
@@ -169,11 +171,14 @@ export function batchSummary(states: BatchFileState[]): {
   const live = states.filter((s) => s !== "cancelled");
   const ready = live.filter((s) => s === "ready").length;
   const attention = live.filter((s) => s === "attention").length;
-  const done = live.every((s) => s === "ready" || s === "attention");
+  const waiting = live.filter((s) => s === "waiting").length;
+  // A file waiting for an outside system is added: the batch is done, the file follows the list.
+  const done = live.every((s) => s === "ready" || s === "attention" || s === "waiting");
   const n = live.length;
   const added = `${n} added`;
   const parts = [
     ready ? `${ready} ready` : null,
+    waiting ? `${waiting} waiting` : null,
     attention ? `${attention} need${attention === 1 ? "s" : ""} attention` : null,
   ].filter(Boolean);
   return { done, attention, line: parts.length ? `${added}: ${parts.join(", ")}` : added };

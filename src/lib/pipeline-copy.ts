@@ -1,6 +1,7 @@
 // What the screens say and offer for a document's processing (file-hooks spec R5.1–R5.5). Pure: the
 // upload card, the record list and the document panel all read it, so they never disagree.
 import type { PipelineState } from "@/schemas/document";
+import { PIPELINE_LABEL, storedPipelineLabel } from "@/lib/document-labels";
 import { readDetail, type PipelineDetail } from "@/services/file-hook-detail";
 import { EXTERNAL_RESULT_TIMEOUT_MINUTES } from "@/services/file-hook-timeouts";
 import { middleTruncate } from "@/services/upload-rules";
@@ -9,6 +10,8 @@ import { middleTruncate } from "@/services/upload-rules";
 export const SYSTEM_NAME_CHARS = 32;
 export type ProcessingAction = "retry" | "keepUnread" | "report" | "delete";
 export interface ProcessingView {
+  /** The tag: names the step that failed, so a file never checked never reads as a reading problem. */
+  label: string;
   /** Set while a step waits for the organisation's own antivirus or reader. */
   waiting: { system: string; since: string | null } | null;
   /** The "Scan is simulated" tooltip: only while a built-in step runs. */
@@ -19,16 +22,43 @@ export interface ProcessingView {
 }
 
 /** The system a step was recorded with, or what it stands for when none was recorded. */
-function systemName(d: PipelineDetail, step: "scan" | "read"): string {
-  if (d.by) return middleTruncate(d.by, SYSTEM_NAME_CHARS);
+function nameOf(d: PipelineDetail, step: "scan" | "read", max: number): string {
+  if (d.by) return middleTruncate(d.by, max);
   if (d.mode === "external")
     return step === "scan" ? "Your organisation's antivirus" : "Your organisation's reader";
   return step === "scan" ? "The built-in check" : "The built-in reader";
 }
 
-export function processingView(state: PipelineState, rawDetail: unknown): ProcessingView {
+/** The tag of a failed document by what failed: the check, the reading, or the file itself. */
+function failedLabel(d: PipelineDetail): string {
+  if (d.reason === "noFile") return "No file yet";
+  const scan =
+    d.step === "scan" || d.reason === "scanError" || (d.reason === "noResult" && d.step !== "read");
+  return scan ? "Couldn't check" : PIPELINE_LABEL.failed;
+}
+
+export interface ViewOptions {
+  /** This page is sending the file right now (else an upload means the file never arrived). */
+  uploadingHere?: boolean;
+  /** Longest system name, in characters: 32 in the card and the table, more in the panel. */
+  nameChars?: number;
+}
+export function processingView(
+  state: PipelineState,
+  rawDetail: unknown,
+  opts: ViewOptions = {},
+): ProcessingView {
   const d = readDetail(rawDetail);
-  const none: ProcessingView = { waiting: null, simulated: false, message: null, actions: [] };
+  const max = opts.nameChars ?? SYSTEM_NAME_CHARS;
+  const systemName = (dd: PipelineDetail, step: "scan" | "read") => nameOf(dd, step, max);
+  const none: ProcessingView = {
+    label:
+      state === "failed" ? failedLabel(d) : storedPipelineLabel(state, opts.uploadingHere ?? false),
+    waiting: null,
+    simulated: false,
+    message: null,
+    actions: [],
+  };
   if (state === "scanning" || state === "reading") {
     const step = state === "scanning" ? "scan" : "read";
     if (d.mode === "external")
@@ -117,30 +147,29 @@ export interface Announcement {
   text: string;
   urgent: boolean;
 }
-const SPOKEN: Record<PipelineState, string> = {
-  uploading: "uploading",
-  scanning: "checking for threats",
-  reading: "reading details",
-  ready: "ready",
-  failed: "needs attention",
-  quarantined: "blocked for safety",
-};
 /**
  * The announcements for what changed since the last list, once per change. Documents seen for the
  * first time are not announced (the list just loaded or another page added them).
  */
 export function announcements(
   before: ReadonlyMap<string, PipelineState>,
-  docs: readonly { id: string; name: string; pipeline_state: PipelineState }[],
+  docs: readonly {
+    id: string;
+    name: string;
+    pipeline_state: PipelineState;
+    pipeline_detail?: unknown;
+  }[],
 ): Announcement[] {
   const out: Announcement[] = [];
   for (const doc of docs) {
     const was = before.get(doc.id);
     if (was === undefined || was === doc.pipeline_state) continue;
-    out.push({
-      text: `${middleTruncate(doc.name, 48)}: ${SPOKEN[doc.pipeline_state]}`,
-      urgent: doc.pipeline_state === "failed" || doc.pipeline_state === "quarantined",
-    });
+    const urgent = doc.pipeline_state === "failed" || doc.pipeline_state === "quarantined";
+    // The words on screen, and for a failure or a blocked file what happened (design review S9).
+    const v = processingView(doc.pipeline_state, doc.pipeline_detail, { uploadingHere: true });
+    const what = v.label.toLowerCase();
+    const first = urgent && v.message ? ` ${v.message.split(/(?<=\.) /)[0]}` : "";
+    out.push({ text: `${middleTruncate(doc.name, 48)}: ${what}.${first}`, urgent });
   }
   return out;
 }
