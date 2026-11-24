@@ -37,7 +37,8 @@ function systemDeps(ctx: SystemCtx): StepDeps {
     },
     now: () => new Date().toISOString(),
     owners: () => resolveOwners(ctx.admin, ctx.tenantId, new Date()),
-    record: (action, documentId, detail) => audit(ctx, action, documentId, detail),
+    record: (action, documentId, detail, versionId) =>
+      audit(ctx, action, documentId, detail, versionId),
   };
 }
 

@@ -356,12 +356,12 @@ describe("failures", () => {
   // A scanner is given the link and then the receipt is written. If the receipt cannot be written the
   // request must still answer with a TMF error body (a 503 the scanner can retry), never an unhandled
   // exception: this route has no write guard around it as the idempotent ones do.
-  it.fails(
-    "DEFECT (Low) gateway-reads.ts:~149 + file-result-receipts.ts:12: the receipt failing to write throws a raw DatabaseError out of the handler (500 without a TMF body), where the idempotent endpoints answer 503; the old `download` activity entry has the same flaw",
-    async () => {
-      const db = await world("scan", {
-        pipeline_state: "scanning",
-        pipeline_detail: d({ step: "scan" }),
+  it.each(["scan", "read"])(
+    "a %s key: the record failing to write answers 503 with a TMF body, never the link (QA D5)",
+    async (scope) => {
+      const db = await world(scope, {
+        pipeline_state: scope === "scan" ? "scanning" : "ready",
+        pipeline_detail: d({ step: scope === "scan" ? "scan" : "read" }),
       });
       db.fail("document_events", "insert");
       let res: Response | undefined;
@@ -373,7 +373,9 @@ describe("failures", () => {
       }
       expect(thrown).toBeUndefined();
       expect(res!.status).toBe(503);
-      expect(await codeOf(res!)).toBe("unavailable");
+      const body = JSON.stringify(await json(res!));
+      expect(body).toContain("unavailable");
+      expect(body).not.toContain("token=");
     },
   );
   it("a download link never carries the signed address into the log", async () => {

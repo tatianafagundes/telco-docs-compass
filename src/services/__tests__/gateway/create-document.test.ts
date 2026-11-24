@@ -693,6 +693,17 @@ describe("a file sent with the request is checked like any other (file-hooks R4.
       pipeline_detail: { mode: "external", byClient: "client-av", step: "scan", attempt: 1 },
     });
   });
+  it("each step the server runs is recorded against the version, via the system (seg L4)", async () => {
+    const db = await world();
+    expect((await create()).status).toBe(201);
+    const version = db.rows("document_versions")[0]!;
+    const steps = db.rows("document_events").filter((e) => e["action"] === "pipelineStateChange");
+    expect(steps.length).toBeGreaterThan(0);
+    for (const e of steps) {
+      expect(e["version_id"]).toBe(version["id"]);
+      expect(String(e["detail"])).toMatch(/ · via Order care$/);
+    }
+  });
   it("an infected file sent inline ends quarantined, not ready", async () => {
     const db = await world();
     const res = await create({

@@ -18,6 +18,7 @@ import { audit } from "@/services/gateway-idempotency";
 import { isUuid, readDetail } from "@/services/file-hook-detail";
 import { downloadDecision, type Downloader } from "@/services/file-hook-download";
 import { recordScanDownload } from "@/services/file-result-receipts";
+import { DatabaseError } from "@/services/shared/must";
 // ---------- reads ----------
 
 export async function listDocuments(request: Request): Promise<Response> {
@@ -148,9 +149,19 @@ export async function getAttachmentContent(
       tmfError(503, "unavailable", "Service Unavailable", "Try again shortly."),
       ctx.requestId,
     );
-  if (decision.receipt)
-    await recordScanDownload(ctx, doc.id, v.id, readDetail(pipe.pipeline_detail).attempt);
-  else await audit(ctx, "download", doc.id, "Download link");
+  // The link is given only once its record is written: a scanner's `clean` needs the receipt.
+  try {
+    if (decision.receipt)
+      await recordScanDownload(ctx, doc.id, v.id, readDetail(pipe.pipeline_detail).attempt);
+    else await audit(ctx, "download", doc.id, "Download link", v.id);
+  } catch (e) {
+    if (!(e instanceof DatabaseError)) throw e;
+    console.error(JSON.stringify({ op: "tmf.download", step: e.message }));
+    return errorReply(
+      tmfError(503, "unavailable", "Service Unavailable", "Try again shortly."),
+      ctx.requestId,
+    );
+  }
   return reply(
     200,
     { url: signed.signedUrl, expiresInSeconds: DOWNLOAD_URL_SECONDS },

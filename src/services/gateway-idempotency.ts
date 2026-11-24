@@ -8,16 +8,31 @@ import { claimKey, completeKey, releaseKey } from "@/services/idempotency-claim"
 import { hashBody } from "@/services/document-rules";
 import { DatabaseError, must } from "@/services/shared/must";
 import { tmfError } from "@/services/tmf667-mapper";
+import { cleanLabel } from "@/services/file-hook-text";
 import { errorReply, reply } from "@/services/gateway-reply";
 import { SystemCtx } from "@/services/gateway-core";
-export async function audit(ctx: SystemCtx, action: string, documentId: string, detail: string) {
+/** The longest activity detail the screens show. */
+const MAX_ACTIVITY_DETAIL = 160;
+/**
+ * Records what a connected system did. The system's name is cleaned of control and direction
+ * characters, and the detail is cut before ` · via <system>` so who did it is never lost.
+ */
+export async function audit(
+  ctx: SystemCtx,
+  action: string,
+  documentId: string,
+  detail: string,
+  versionId?: string,
+) {
+  const via = ` · via ${cleanLabel(ctx.name, 80)}`;
   must(
     await ctx.admin.from("document_events").insert({
       tenant_id: ctx.tenantId,
       document_id: documentId,
+      ...(versionId ? { version_id: versionId } : {}),
       actor: null,
       action,
-      detail: `${detail} · via ${ctx.name}`.slice(0, 160),
+      detail: cleanLabel(detail, MAX_ACTIVITY_DETAIL - [...via].length) + via,
     }),
     "recording an activity event",
   );
