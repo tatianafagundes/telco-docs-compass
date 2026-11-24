@@ -229,6 +229,27 @@ describe("the batch (code review M1, S3)", () => {
     row(db)["updated_at"] = OLD_UPLOAD;
     expect(await sweep(db)).toBe(1);
   });
+  it("looks versions up in lists of at most 50 ids (final seg M3)", async () => {
+    const db = world(due, { created_at: ago(99 * HOUR) });
+    more(db, 120, due);
+    const lists: number[] = [];
+    const from = db.asDb().from.bind(db.asDb());
+    const spy = vi.spyOn(db.asDb(), "from").mockImplementation(((t: string) => {
+      const q = from(t as never) as unknown as { in: (c: string, v: unknown[]) => unknown };
+      if (t === "document_versions") {
+        const orig = q.in.bind(q);
+        q.in = (c: string, v: unknown[]) => {
+          lists.push(v.length);
+          return orig(c, v);
+        };
+      }
+      return q;
+    }) as never);
+    expect(await sweep(db)).toBe(121);
+    spy.mockRestore();
+    expect(lists.length).toBeGreaterThan(1);
+    expect(Math.max(...lists)).toBeLessThanOrEqual(50);
+  });
   it("moves at most a batch of each kind per run; the next run moves the rest", async () => {
     const db = world(due, { created_at: ago(99 * HOUR) });
     more(db, TIMEOUT_BATCH + 9, due);

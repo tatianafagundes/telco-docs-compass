@@ -46,8 +46,9 @@ afterEach(() => {
   vi.clearAllTimers();
 });
 async function settle() {
-  for (let i = 0; i < 6; i++) {
-    await new Promise((r) => setImmediate(r));
+  // The hash is real async work (crypto.subtle): give it room even on a busy machine.
+  for (let i = 0; i < 20; i++) {
+    for (let j = 0; j < 3; j++) await new Promise((r) => setImmediate(r));
     await vi.advanceTimersByTimeAsync(800);
   }
 }
@@ -144,7 +145,7 @@ describe("the walk and Try again", () => {
       await settle();
     });
     expect(m.advancePipeline.mock.calls).toEqual([[{ id: "d1", retry: true }], [{ id: "d1" }]]);
-    expect(result.current.rows[0]).toMatchObject({ state: "scanning", retried: true });
+    expect(result.current.rows[0]).toMatchObject({ state: "scanning" });
   });
 
   it("while Try again is being walked, a list that still says failed does not flip the row back", async () => {
@@ -208,7 +209,6 @@ describe("the walk and Try again", () => {
         documentType: "c",
         docId: null,
         state: "failed",
-        retried: false,
         uploaded: false,
       }),
     );
@@ -227,37 +227,30 @@ describe("a step that could not be advanced after the file was stored", () => {
     return hook;
   }
 
-  it("the row is an error, and the document exists (the setup of the two tests below)", async () => {
+  it("the row is not an error once the document exists (the setup of the two tests below)", async () => {
     const { result } = await stopped();
-    expect(result.current.rows[0]).toMatchObject({ state: "error", docId: "d1", uploaded: true });
+    expect(result.current.rows[0]).toMatchObject({ docId: "d1", uploaded: true });
+    expect(result.current.rows[0]!.state).not.toBe("error");
     expect(m.del).not.toHaveBeenCalled();
   });
 
-  // Defect QA-F3, Medium, src/hooks/use-upload.ts:164-172 (sync) with src/components/upload/upload-progress.tsx:118.
-  // advancePipeline can fail after the document and its file are stored (another tab or the sweep moved it:
-  // pipeline.changed; storage not yet readable: pipeline.notUploaded). The row becomes "error" and sync
-  // skips it for good, so the card keeps saying "Upload stopped. Nothing was added." while the list shows
-  // the document being scanned, failed or ready.
-  it.fails("the list's state replaces an error row whose document is stored", async () => {
+  // Was QA-F3: advancePipeline can fail after the document and its file are stored (pipeline.changed,
+  // pipeline.notUploaded). The row stays a stored document and follows the list.
+  it("the list's state replaces the row of a stored document (was QA-F3)", async () => {
     const { result } = await stopped();
     act(() => result.current.sync([{ id: "d1", pipeline_state: "scanning" }]));
     expect(result.current.rows[0]!.state).toBe("scanning");
   });
 
-  // Defect QA-F3b, Medium, src/hooks/use-upload.ts:145-148 (retryUpload). "Try again" on that row clears
-  // docId and uploaded and registers the file again: a second document for the same file (and, with
-  // outside processing, a second scan), while the first one carries on.
-  it.fails(
-    "Try again on an error row whose document is stored does not register the file a second time",
-    async () => {
-      const { result } = await stopped();
-      await act(async () => {
-        result.current.retryUpload(result.current.rows[0]!);
-        await settle();
-      });
-      expect(m.register).toHaveBeenCalledTimes(1);
-    },
-  );
+  // Was QA-F3b: Try again on that row registered the file again (a second document).
+  it("Try again on the row of a stored document does not register the file a second time (was QA-F3b)", async () => {
+    const { result } = await stopped();
+    await act(async () => {
+      result.current.retryUpload(result.current.rows[0]!);
+      await settle();
+    });
+    expect(m.register).toHaveBeenCalledTimes(1);
+  });
 
   it("an upload that really failed (the ticket upload threw) takes the half-registered document back out", async () => {
     m.uploadContent.mockRejectedValueOnce(new Error("network"));

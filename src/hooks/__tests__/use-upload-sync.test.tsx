@@ -35,8 +35,9 @@ afterEach(() => {
 
 /** Lets the hash (real async) finish and the 700 ms step delay pass. */
 async function settle() {
-  for (let i = 0; i < 5; i++) {
-    await new Promise((r) => setImmediate(r));
+  // The hash is real async work (crypto.subtle): give it room even on a busy machine.
+  for (let i = 0; i < 20; i++) {
+    for (let j = 0; j < 3; j++) await new Promise((r) => setImmediate(r));
     await vi.advanceTimersByTimeAsync(800);
   }
 }

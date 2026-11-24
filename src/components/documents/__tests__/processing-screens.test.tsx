@@ -34,7 +34,6 @@ const row = (state: UploadRow["state"], over: Partial<UploadRow> = {}): UploadRo
   documentType: "contract",
   docId: "d1",
   state,
-  retried: false,
   uploaded: true,
   ...over,
 });

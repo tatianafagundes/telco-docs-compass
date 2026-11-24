@@ -229,17 +229,13 @@ describe("which system the screen says a step waits for (D1, D3)", () => {
     expect(systemFor([sys(["scan"], { revokedAt: "2026-11-02T00:00:00Z" })], "scan")).toBeNull();
   });
 
-  // Defect QA-F4, Low, src/components/admin/processing-switch-view.ts:40-42 (systemFor).
-  // The server picks the active key with isActiveKey: not revoked and not expired
-  // (external-processing.ts activeProcessingKeys). The screen checks revokedAt only. With the switch on
-  // and the antivirus key expired, the card says "Files wait for Acme AV." and the disconnect warning
-  // applies, while the server has no antivirus: every file waits for nobody and fails after 30 minutes.
-  it.fails("an expired key is not the system a step waits for", () => {
+  // Was QA-F4: the screen checked revokedAt only, while the server also drops an expired key.
+  it("an expired key is not the system a step waits for (was QA-F4)", () => {
     const expired = sys(["scan"], { expiresAt: "2020-01-01T00:00:00Z" });
     expect(systemFor([expired], "scan")).toBeNull();
   });
 
-  it.fails("the card says none is connected when the only key has expired", async () => {
+  it("the card says none is connected when the only key has expired (was QA-F4)", async () => {
     m.get.mockResolvedValue({ scan: true, read: false });
     show([sys(["scan"], { expiresAt: "2020-01-01T00:00:00Z" })]);
     expect(

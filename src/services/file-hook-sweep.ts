@@ -16,6 +16,8 @@ import type { Db } from "@/services/seam-runtime";
 
 /** Most documents of each kind (uploads, outside steps) looked at in one run; the rest wait a minute. */
 export const TIMEOUT_BATCH = 200;
+/** Version ids per lookup: about 2 KB of address. */
+export const VERSION_LOOKUP_CHUNK = 50;
 const SIMULATED: Record<"scan" | "read", StepOwner> = {
   scan: { mode: "simulated" },
   read: { mode: "simulated" },
@@ -83,11 +85,19 @@ async function candidates(admin: Db, now: Date): Promise<Candidate[]> {
 async function versionTimes(admin: Db, docs: Candidate[]): Promise<Map<string, string>> {
   const ids = [...new Set(docs.map((d) => d.current_version_id).filter((v): v is string => !!v))];
   if (!ids.length) return new Map();
-  const rows = must(
-    await admin.from("document_versions").select("id, document_id, created_at").in("id", ids),
-    "reading when versions were created",
-  );
-  return new Map((rows ?? []).map((v) => [`${v.document_id}:${v.id}`, v.created_at]));
+  // In small lists: hundreds of ids in one address can pass the request-line limit (final seg M3).
+  const rows: { id: string; document_id: string; created_at: string }[] = [];
+  for (let i = 0; i < ids.length; i += VERSION_LOOKUP_CHUNK) {
+    const part = must(
+      await admin
+        .from("document_versions")
+        .select("id, document_id, created_at")
+        .in("id", ids.slice(i, i + VERSION_LOOKUP_CHUNK)),
+      "reading when versions were created",
+    );
+    rows.push(...(part ?? []));
+  }
+  return new Map(rows.map((v) => [`${v.document_id}:${v.id}`, v.created_at]));
 }
 
 /** Records the steps that failed, against their version. A failed record is reported with the ids. */

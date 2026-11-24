@@ -32,8 +32,20 @@ export const STEP_COPY: Record<
 const SCOPE_OF: Record<Step, "scan" | "extract"> = { scan: "scan", read: "extract" };
 
 /** The connected system a step waits for, if one is connected (one of each kind, BR-163). */
-export function systemFor(systems: readonly ConnectedSystem[], step: Step): ConnectedSystem | null {
-  return systems.find((s) => !s.revokedAt && processingScope(s.scopes) === SCOPE_OF[step]) ?? null;
+export function systemFor(
+  systems: readonly ConnectedSystem[],
+  step: Step,
+  now = new Date(),
+): ConnectedSystem | null {
+  // As the server: a disconnected or expired key is no system to wait for (final QA F4).
+  return (
+    systems.find(
+      (s) =>
+        !s.revokedAt &&
+        (!s.expiresAt || new Date(s.expiresAt) > now) &&
+        processingScope(s.scopes) === SCOPE_OF[step],
+    ) ?? null
+  );
 }
 
 /** What disconnecting a system means for files, when files wait for it (D1); else null. */

@@ -17,7 +17,6 @@ export interface UploadRow {
   documentType: string;
   docId: string | null;
   state: PipelineState | "error" | "cancelled";
-  retried: boolean;
   uploaded: boolean;
 }
 
@@ -62,7 +61,7 @@ export function useUpload(entityId: string) {
           ...(retry && first ? { retry: true } : {}),
         });
         first = false;
-        patch(key, { state: res.state, ...(retry ? { retried: true } : {}) });
+        patch(key, { state: res.state });
         refresh();
         if (res.state === "ready" || res.state === "failed" || res.state === "quarantined") return;
         // Waiting for the organisation's own antivirus or reader: the page refetches instead.
@@ -124,7 +123,13 @@ export function useUpload(entityId: string) {
         }
         if (docId) await walk(row.key, docId);
       } catch {
-        patch(row.key, { state: "error" });
+        // Once the file is stored the document exists: the row follows the list from here (sync),
+        // it never says "Nothing was added" (final QA F3).
+        setRows((rs) =>
+          rs.map((r) =>
+            r.key === row.key && !(r.docId && r.uploaded) ? { ...r, state: "error" } : r,
+          ),
+        );
         refresh();
       }
     },
@@ -140,7 +145,6 @@ export function useUpload(entityId: string) {
         documentType: p.documentType,
         docId: null,
         state: "uploading",
-        retried: false,
         uploaded: false,
       }));
       setRows((rs) => [
@@ -158,6 +162,11 @@ export function useUpload(entityId: string) {
   };
 
   const retryUpload = (row: UploadRow) => {
+    // A stored document is never registered twice: its steps are walked again instead (final QA F3b).
+    if (row.docId && row.uploaded) {
+      void walk(row.key, row.docId).catch(() => refresh());
+      return;
+    }
     patch(row.key, { state: "uploading", docId: null, uploaded: false });
     void runOne({ ...row, state: "uploading", docId: null, uploaded: false });
   };

@@ -37,6 +37,7 @@ with it (and the reason must still hold).
 | `BULK_ROUNDS_PER_CALL` | 3 | `scheduled-run.ts` | Passes per scheduler call: moves large jobs without hitting the request time limit. |
 | `EXPIRE_BATCH` | 500 | `maintenance.ts` | Documents expired per run; a backlog clears over a few minutes. |
 | `TIMEOUT_BATCH` | 200 | `file-hook-sweep.ts` | Uploads, and separately steps waiting for an outside system, looked at per run (oldest change first); a backlog clears over a few minutes. |
+| `VERSION_LOOKUP_CHUNK` | 50 | `file-hook-sweep.ts` | Version ids per lookup in the timeout sweep, so the request address stays short. |
 | `EXPIRY_FALLBACK_INTERVAL_MS` | 60000 | `expiry-fallback.ts` | Expiry from a read runs at most once a minute per tenant. |
 | `MAX_TENANTS` | 1000 | `expiry-fallback.ts` | The once-a-minute memory stays bounded. |
 | `FAN_OUT_BATCH` | 200 | `tmf-events.ts` | Events turned into deliveries per pass. |
