@@ -234,7 +234,13 @@ export function stepTransition(
       if (state !== "reading") return refuse("wrongState");
       const no = resultRefusal("read", prev, input.from, ctx.versionId.toLowerCase());
       if (no) return refuse(no);
-      const rec = recorded("read", input.result, input.from);
+      // The built-in reader records nothing: the scanner's answer stays, so its lost reply can be
+      // answered again (R2.8, QA D1).
+      const rec = input.from
+        ? recorded("read", input.result, input.from)
+        : prev.lastResult
+          ? { lastResult: prev.lastResult }
+          : {};
       return input.result === "read"
         ? ok("ready", {
             attempt: prev.attempt,

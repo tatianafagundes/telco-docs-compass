@@ -326,21 +326,18 @@ describe("replay (R2.8): the same result again", () => {
   });
   // R2.8: "A repeated identical result for a version already moved by this client in this attempt
   // answers 200 with the stored outcome (a scanner whose reply was lost does not loop on 409)".
-  // With the built-in reader the server runs the reading in the same request, and that write
-  // replaces pipeline_detail without `lastResult`, so a scanner that lost the reply of `clean`
-  // and retries under a new Idempotency-Key gets 409 notScanning, and loops.
-  it.fails(
-    "DEFECT (Medium) pipeline-step.ts / system-processing.ts: after clean with the built-in reader, a lost reply retried under a new key answers 200, not 409 notScanning",
-    async () => {
-      const db = await world();
-      receipt(db);
-      const first = await scan({ result: "clean" }, { key: "first-key-0001" });
-      expect((await json(first))["state"]).toBe("ready");
-      const again = await scan({ result: "clean" }, { key: "second-key-002" });
-      expect(again.status).toBe(200);
-      expect(doc(db)["pipeline_state"]).toBe("ready");
-    },
-  );
+  // With the built-in reader the server runs the reading in the same request; that write keeps the
+  // scanner's `lastResult`, so a scanner that lost the reply of `clean` and retries under a new
+  // Idempotency-Key is answered again instead of looping on 409. Was QA D1.
+  it("after clean with the built-in reader, a lost reply retried under a new key answers 200 (QA D1)", async () => {
+    const db = await world();
+    receipt(db);
+    const first = await scan({ result: "clean" }, { key: "first-key-0001" });
+    expect((await json(first))["state"]).toBe("ready");
+    const again = await scan({ result: "clean" }, { key: "second-key-002" });
+    expect(again.status).toBe(200);
+    expect(doc(db)["pipeline_state"]).toBe("ready");
+  });
   it("with an external reader the same retry is answered while the reading waits", async () => {
     const db = await world();
     receipt(db);

@@ -524,6 +524,25 @@ describe("stepTransition", () => {
       code: "notYet",
     });
   });
+  it("the built-in reading keeps the scanner's answer, so its lost reply is answered again (QA D1)", () => {
+    const last = { step: "scan", attempt: 1, result: "clean", byClient: "c-scan" };
+    const r = stepTransition(
+      "reading",
+      { attempt: 2, lastResult: last },
+      { kind: "readResult", result: "read" },
+      ctx(),
+    );
+    expect(r).toMatchObject({ ok: true, state: "ready", detail: { lastResult: last } });
+    if (!r.ok) return;
+    expect(
+      stepTransition(
+        "ready",
+        r.detail,
+        { kind: "scanResult", result: "clean", from: fromScan },
+        ctx(),
+      ),
+    ).toEqual({ ok: false, code: "replay" });
+  });
   it("refuses without a current version", () => {
     expect(
       stepTransition("uploading", null, { kind: "confirmed" }, { ...ctx(), versionId: "" }),
