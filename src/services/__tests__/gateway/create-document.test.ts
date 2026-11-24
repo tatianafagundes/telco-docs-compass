@@ -578,7 +578,7 @@ describe("the download link of an attachment", () => {
   const link = (id = DOC_ID, att = VERSION) =>
     getAttachmentContent(call("GET", `/document/${id}/attachment/${att}/content`), id, att);
   async function stored(doc: Record<string, unknown> = {}, version: Record<string, unknown> = {}) {
-    const db = await buildWorld({ documents: [docRow(doc)] });
+    const db = await buildWorld({ documents: [docRow({ current_version_id: VERSION, ...doc })] });
     db.tables["document_versions"] = [
       {
         id: VERSION,
@@ -607,17 +607,17 @@ describe("the download link of an attachment", () => {
     ]);
   });
 
-  it.each(["scanning", "quarantined"])(
-    "refuses 409 contentLocked while the document is %s",
-    async (state) => {
-      const db = await stored({ pipeline_state: state });
-      const res = await link();
-      expect(res.status).toBe(409);
-      expect(await code(res)).toBe("contentLocked");
-      expect(db.storageCalls).toEqual([]);
-      expect(db.rows("document_events")).toEqual([]);
-    },
-  );
+  it.each([
+    ["scanning", "contentLocked"],
+    ["quarantined", "quarantined"],
+  ])("refuses 409 while the document is %s (%s)", async (state, want) => {
+    const db = await stored({ pipeline_state: state });
+    const res = await link();
+    expect(res.status).toBe(409);
+    expect(await code(res)).toBe(want);
+    expect(db.storageCalls).toEqual([]);
+    expect(db.rows("document_events")).toEqual([]);
+  });
 
   it.each(["ready", "reading", "failed"])(
     "gives the link once the file was checked: %s",
@@ -664,6 +664,14 @@ describe("the download link of an attachment", () => {
   it("needs the read scope", async () => {
     await buildWorld({ scopes: ["register"] });
     expect((await link()).status).toBe(403);
+  });
+  it("refuses an older version that is not current, even when the document is ready (file-hooks seg H1)", async () => {
+    const db = await stored({ pipeline_state: "ready", current_version_id: "ver-2" });
+    const res = await link();
+    expect(res.status).toBe(409);
+    expect(await code(res)).toBe("notCurrent");
+    expect(db.storageCalls).toEqual([]);
+    expect(db.rows("document_events")).toEqual([]);
   });
 });
 describe("a file sent with the request is checked like any other (file-hooks R4.5, H4)", () => {

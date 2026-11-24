@@ -263,12 +263,13 @@ describe("the current version, for every state and key kind", () => {
 });
 
 describe("an older version", () => {
-  it("a read key gets a version that was never quarantined while the document is ready", async () => {
-    await world("read", {
+  it("a read key never gets an older version, even one never quarantined (seg H1)", async () => {
+    const db = await world("read", {
       pipeline_state: "ready",
       pipeline_detail: d({ quarantinedVersions: [] }),
     });
-    expect((await link(OLD)).status).toBe(200);
+    expect(await codeOf(await link(OLD))).toBe("notCurrent");
+    expect(signed(db)).toBe(0);
   });
   it.each(["read", "scan", "extract"])(
     "a quarantined older version is refused to a %s key, the current one is not",

@@ -18,11 +18,12 @@ export type Downloader =
   | { kind: "reader"; clientId: string };
 export type DownloadDecision =
   | { ok: true; receipt: boolean }
-  | { ok: false; code: "quarantined" | "contentLocked" | "notYourStep" };
+  | { ok: false; code: "quarantined" | "contentLocked" | "notYourStep" | "notCurrent" };
 
 /**
- * Who may download a version. A quarantined version: nobody, ever. People and `read` keys only a
- * checked file (see checkedFile). A scanner or reader only the current version,
+ * Who may download a version. A quarantined version: nobody, ever. People and `read` keys only the
+ * current version, once it is a checked file (see checkedFile): an older version may never have been
+ * scanned (it can be replaced mid-check), and no per-version clean record exists yet. A scanner or reader only the current version,
  * only during its own external step, and only the system recorded for that step; a scanner's
  * download writes a receipt so a `clean` result can be checked against it (R2.3).
  */
@@ -35,10 +36,12 @@ export function downloadDecision(
   if (isQuarantined(d, versionId)) return { ok: false, code: "quarantined" };
   const current = doc.currentVersionId?.toLowerCase() === versionId.toLowerCase();
   if (doc.pipelineState === "quarantined" && current) return { ok: false, code: "quarantined" };
-  if (who.kind === "person" || who.kind === "readKey")
+  if (who.kind === "person" || who.kind === "readKey") {
+    if (!current) return { ok: false, code: "notCurrent" };
     return checkedFile(doc.pipelineState, d)
       ? { ok: true, receipt: false }
       : { ok: false, code: "contentLocked" };
+  }
   const want = who.kind === "scanner" ? "scanning" : "reading";
   const mine =
     current &&

@@ -532,9 +532,20 @@ describe("QA downloadDecision matrix", () => {
   it("an older version of a quarantined document is still locked for people", () => {
     expect(downloadDecision(who.person, doc("quarantined", {}), V2)).toEqual({
       ok: false,
-      code: "contentLocked",
+      code: "notCurrent",
     });
   });
+  it.each(["ready", "reading"] as const)(
+    "an older version is never given to people or read keys, even when the document is %s (seg H1)",
+    (state) => {
+      for (const w of [who.person, who.readKey])
+        expect(downloadDecision(w, doc(state, {}), V2)).toEqual({ ok: false, code: "notCurrent" });
+      expect(downloadDecision(who.readKey, doc(state, {}), V)).toEqual({
+        ok: true,
+        receipt: false,
+      });
+    },
+  );
   it("a scanner gets the current version only while its own external scan runs, and a receipt", () => {
     expect(downloadDecision(who.scanner, doc("scanning", ext()), V)).toEqual({
       ok: true,

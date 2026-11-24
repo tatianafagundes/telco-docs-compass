@@ -130,12 +130,14 @@ export async function getAttachmentContent(
           )
         : decision.code === "notYourStep"
           ? tmfError(409, "notYourStep", "Conflict", "This file is not waiting for this system.")
-          : tmfError(
-              409,
-              "contentLocked",
-              "Conflict",
-              "Content is being checked and can't be downloaded yet.",
-            ),
+          : decision.code === "notCurrent"
+            ? tmfError(409, "notCurrent", "Conflict", "Only the current version can be downloaded.")
+            : tmfError(
+                409,
+                "contentLocked",
+                "Conflict",
+                "Content is being checked and can't be downloaded yet.",
+              ),
       ctx.requestId,
     );
   const { data: signed } = await ctx.admin.storage
