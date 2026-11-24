@@ -9,10 +9,12 @@ import {
   NOT_FOUND,
   type Answer,
 } from "@/services/file-result-target";
+import { isUuid } from "@/services/file-hook-detail";
 import { authenticate } from "@/services/gateway-core";
+import { errorReply } from "@/services/gateway-reply";
 import { audit, idempotent } from "@/services/gateway-idempotency";
 import { processAsSystem } from "@/services/system-processing";
-import { tmfError } from "@/services/tmf667-mapper";
+import { tmfError, type TmfError } from "@/services/tmf667-mapper";
 
 const conflict = (code: string, message: string, status = 409): Answer => ({
   status,
@@ -36,6 +38,9 @@ export async function confirmUpload(
 ): Promise<Response> {
   const ctx = await authenticate(request, "register");
   if (ctx instanceof Response) return ctx;
+  // A malformed id is answered before anything is remembered for its Idempotency-Key (seg L3).
+  if (!isUuid(id) || !isUuid(versionId))
+    return errorReply(NOT_FOUND.body as TmfError, ctx.requestId);
   return idempotent(request, ctx, `uploaded:${id}:${versionId}`, {}, async () => {
     const t = await loadTarget(ctx, id, versionId);
     if (!t) return NOT_FOUND;

@@ -226,6 +226,14 @@ describe("refusals leave the document uploading", () => {
 });
 
 describe("who and what", () => {
+  it("a malformed id is 404 before anything is remembered for the key (seg L3)", async () => {
+    const db = await world();
+    const { v } = await registered(db);
+    const keys = db.writesTo("idempotency_keys").length;
+    const res = await confirm("not-a-uuid", v, { idem: "key-malformed-1" });
+    expect(res.status).toBe(404);
+    expect(db.writesTo("idempotency_keys")).toHaveLength(keys);
+  });
   it("another system with `register` is refused, and a scanner key is refused by scope", async () => {
     const db = await world();
     const { id, v } = await registered(db);
