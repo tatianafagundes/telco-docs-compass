@@ -116,7 +116,8 @@ const SPEC: FieldSpec[] = [
 ];
 const field = (name: string, value: unknown, confidence = 0.95): ExtractedField => ({
   name,
-  value,
+  // The schema lets only plain values through; the rule still refuses any other shape on its own.
+  value: value as ExtractedField["value"],
   confidence,
 });
 

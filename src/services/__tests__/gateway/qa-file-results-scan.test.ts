@@ -530,6 +530,20 @@ describe("the body", () => {
 });
 
 describe("idempotency key", () => {
+  it.each([
+    ["document", { id: "not-a-uuid" }],
+    ["version", { v: "../../x" }],
+  ])(
+    "a malformed %s id is 404 before anything is remembered for the key (seg L3)",
+    async (_n, ids) => {
+      const db = await world();
+      const res = await scan({ result: "error" }, { ...ids, key: "key-malformed-1" });
+      expect(res.status).toBe(404);
+      expect(await codeOf(res)).toBe("notFound");
+      expect(db.writesTo("idempotency_keys")).toEqual([]);
+      expect(db.writesTo("documents")).toEqual([]);
+    },
+  );
   it("the same key with another body is refused and changes nothing more", async () => {
     const db = await world();
     receipt(db);

@@ -397,6 +397,22 @@ describe("value types", () => {
     if (status === 400) untouched(db);
     else expect(db.rows("extraction_fields")).toHaveLength(1);
   });
+  it.each([
+    ["null", null],
+    ["an object", { a: 1 }],
+    ["a list", ["x"]],
+    ["deeply nested lists", JSON.parse("[".repeat(5000) + "]".repeat(5000)) as unknown],
+  ])(
+    "a value that is %s is refused as the wrong shape, before anything is hashed or stored (seg L2)",
+    async (_n, value) => {
+      const db = await world();
+      const res = await read({ result: "read", fields: [f("amount", value)] });
+      expect(res.status).toBe(400);
+      expect(await codeOf(res)).toBe("invalidBody");
+      untouched(db);
+      expect(db.rows("idempotency_keys") ?? []).toEqual([]);
+    },
+  );
   it("one bad value among good ones refuses all, and the document stays reading", async () => {
     const db = await world();
     const res = await read({

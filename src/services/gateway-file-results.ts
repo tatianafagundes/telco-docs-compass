@@ -23,6 +23,7 @@ import {
   type Target,
 } from "@/services/file-result-target";
 import { downloadedForScan } from "@/services/file-result-receipts";
+import { isUuid } from "@/services/file-hook-detail";
 import { authenticate, readJson, type SystemCtx } from "@/services/gateway-core";
 import { audit, idempotent } from "@/services/gateway-idempotency";
 import { errorReply } from "@/services/gateway-reply";
@@ -53,6 +54,12 @@ const outcome = (t: Target, state: string, attempt: number, extra: object = {}):
   status: 200,
   body: { id: t.doc.id, versionId: t.version.id, state, attempt, ...extra },
 });
+/** A malformed id is answered before anything is remembered for its Idempotency-Key (seg L3). */
+const notFoundReply = (ctx: SystemCtx) =>
+  errorReply(
+    tmfError(404, "notFound", "Not Found", "No document with this id and attachment."),
+    ctx.requestId,
+  );
 /** The hash the system sent, as the server computed it: lowercase hex, `sha256:` optional. */
 const sentHash = (h: string) => h.replace(/^sha256:/i, "").toLowerCase();
 
@@ -63,6 +70,7 @@ export async function postScanResult(
 ): Promise<Response> {
   const ctx = await authenticate(request, "scan");
   if (ctx instanceof Response) return ctx;
+  if (!isUuid(id) || !isUuid(versionId)) return notFoundReply(ctx);
   const parsed = await readJson(request, ctx);
   if (!parsed.ok) return parsed.res;
   const b = scanResultSchema.safeParse(parsed.body);
@@ -154,6 +162,7 @@ export async function postExtractionResult(
 ): Promise<Response> {
   const ctx = await authenticate(request, "extract");
   if (ctx instanceof Response) return ctx;
+  if (!isUuid(id) || !isUuid(versionId)) return notFoundReply(ctx);
   const parsed = await readJson(request, ctx, MAX_RESULT_BODY_BYTES);
   if (!parsed.ok) return parsed.res;
   const b = extractionResultSchema.safeParse(parsed.body);

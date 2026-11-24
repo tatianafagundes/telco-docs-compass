@@ -43,7 +43,8 @@ const fieldShape = z
       .string()
       .min(1)
       .refine((n) => codePoints(n) <= MAX_FIELD_NAME_CHARS),
-    value: z.unknown(),
+    // A detail is one plain value; nested data is refused here, before any hashing walks it (seg L2).
+    value: z.union([z.string(), z.number(), z.boolean()]),
     confidence: z.number().finite().min(0).max(1),
     // A plain label such as "page 2: table 1", never a link (R3.3).
     source: z
