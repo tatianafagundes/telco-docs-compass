@@ -167,18 +167,16 @@ describe("R2.3: which refusal wins when several apply", () => {
     expect(await codeOf(await scan({ result: "clean" }))).toBe("notFetched");
     noWrite(db);
   });
-  // R2.3 says "state is scanning with mode external (409 notScanning)". A quarantined document is
-  // not scanning. The code answers `quarantined` first (more informative; a deliberate deviation?).
-  it.fails(
-    "DEFECT (Low, spec/code drift) file-hook-rules.ts:~180: a result for a quarantined document answers notScanning (R2.3), not quarantined",
-    async () => {
-      await world({
-        pipeline_state: "quarantined",
-        pipeline_detail: external("scan", { reason: "threat", quarantinedVersions: [V] }),
-      });
-      expect(await codeOf(await scan({ result: "error", attempt: 99 }))).toBe("notScanning");
-    },
-  );
+  // R2.3 lists notScanning for a document that is not scanning. A quarantined document answers
+  // `quarantined` first: it tells the scanner the file is blocked for good, so it stops retrying.
+  // Decided in review (QA D4); the spec says so.
+  it("a result for a quarantined document answers quarantined, not notScanning (QA D4)", async () => {
+    await world({
+      pipeline_state: "quarantined",
+      pipeline_detail: external("scan", { reason: "threat", quarantinedVersions: [V] }),
+    });
+    expect(await codeOf(await scan({ result: "error", attempt: 99 }))).toBe("quarantined");
+  });
   it("a quarantined version in a document that is scanning again answers quarantined, never moves", async () => {
     const db = await world({ pipeline_detail: external("scan", { quarantinedVersions: [V] }) });
     receipt(db);

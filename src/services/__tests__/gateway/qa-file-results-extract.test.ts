@@ -311,16 +311,16 @@ describe("names", () => {
     });
     expect(((await json(res))["names"] as string[]).length).toBe(20);
   });
-  // R3.3: "unknown names refused with 400 listing them, escaped". The names come back as the
-  // reader wrote them (only unsafe characters replaced); the markup characters are not escaped.
-  it.fails(
-    "DEFECT (Low, needs a decision: what 'escaped' means) gateway-file-results.ts:~228: an unknown name with markup is echoed as sent",
-    async () => {
-      await world();
-      const res = await read({ result: "read", fields: [f("<img src=x onerror=alert(1)>", "v")] });
-      expect(JSON.stringify(await json(res))).not.toContain("<img");
-    },
-  );
+  // R3.3: "unknown names refused with 400 listing them, escaped". Decided in review (QA D6): escaped
+  // means JSON-encoded, with unsafe characters replaced and the name cut; the answer is JSON only
+  // (nosniff), and the screens show these names as text, never as markup.
+  it("an unknown name with markup comes back inside JSON that is never sniffed as HTML (QA D6)", async () => {
+    await world();
+    const res = await read({ result: "read", fields: [f("<img src=x onerror=alert(1)>", "v")] });
+    expect(res.headers.get("Content-Type")).toMatch(/^application\/json/);
+    expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    expect((await json(res))["names"]).toEqual(["<img src=x onerror=alert(1)>"]);
+  });
   it("the answer never repeats a value", async () => {
     await world();
     const res = await read({

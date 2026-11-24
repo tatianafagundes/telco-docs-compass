@@ -24,6 +24,8 @@ export function reply(
       "Content-Type": "application/json;charset=utf-8",
       "X-Request-ID": requestId,
       "Cache-Control": "no-store",
+      // Never read as anything but JSON: names a caller sent come back inside it (file-hooks QA D6).
+      "X-Content-Type-Options": "nosniff",
       ...headersFor(status, body),
       ...extra,
     },
