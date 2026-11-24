@@ -100,6 +100,8 @@ export function friendlyError(code: string | undefined): string {
       return "This document is still within its keep-until period.";
     case "doc.edit.approvedContent":
       return "This document is approved, so its content stays as it was approved. You can still rename it or update its description.";
+    case "extraction.field.notCurrent":
+      return "This detail was read from an earlier version of the file. Check the details of the current version.";
     case "doc.changedMeanwhile":
       return "Someone changed this document just now. Try again.";
     case "extraction.detail.notRequired":
