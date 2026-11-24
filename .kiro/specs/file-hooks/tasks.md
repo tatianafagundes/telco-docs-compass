@@ -83,9 +83,17 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
   - Hand-written `{"attempt": 3.0}` rows stay unwritable (one `it.fails`, 2.6).
 
 ## 6. Timeouts and alerts
-- [ ] 6.1 Timeout step in the scheduled run (R4.7) with injected `now`; boundary tests; scanner revoked mid-scan still times out.
-- [ ] 6.2 Quarantine-rate alert (R6.5).
-- [ ] 6.3 Review: `code-reviewer` on phase 6.
+- [x] 6.1 Timeout step in the scheduled run (R4.7): `file-hook-sweep.ts` `timeOutWaitingSteps`, called by `runMaintenance` (step `stepTimeouts`, `timedOutSteps` in the result). Guarded on state, version and attempt; seeded, deleted, purged and version-less documents left out in the query; records `pipelineStateChange` against the version; does not read keys, so a disconnected antivirus still times out. Tests `file-hook-sweep.test.ts` (boundaries at N and N+1 ms, every tenant, batch, races, failures).
+- [x] 6.2 Quarantine-rate alert (R6.5): `file-result-alerts.ts` after each accepted infected result; alert line with ids and counts only; a failed count is logged and never changes the answer. FakeDb gained `like`, `not` and `or`.
+- [x] 6.3 Review: `code-reviewer` CHANGES REQUESTED (M1, S1–S4, nits, Q1–Q2). Fixed, each with a test and a mutation caught:
+  - M1: the batch was cut before filters that remove rows, so stuck rows could starve due ones. Now filtered in the query (seeded, no version, wait possibly over: an upload unchanged for 24 h, a step started or changed more than 30 min ago; timestamps quoted for PostgREST); a full batch that moves nothing is logged (`noProgress`).
+  - S1: the documents already moved get their record even when a later write fails; a failed record names the documents.
+  - S2: the activity detail of an infected result is built from the prefix the alert counts.
+  - S3: the batch test now moves more than a batch over two runs.
+  - S4: decided: an alert line on every infected result past the limit (alerting deduplicates).
+  - Nit: an unexpected error in the count is logged as a fixed word.
+  - Q2: `readDetail` drops an unreadable start time, so the step counts from the last change.
+- [ ] 6.4 Carried: `document_events` has no index for the receipt check and the alert count (Q1). Add `(tenant_id, document_id, version_id, action)` and `(tenant_id, action, created_at)` in a new migration with 8.5, after checking the hosted table size.
 
 ## 7. Screens
 - [ ] 7.1 Copy and actions by reason and step (R5.2, R5.3); tooltip only for simulated (R5.1).
