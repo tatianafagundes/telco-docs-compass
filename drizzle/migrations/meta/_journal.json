@@ -148,6 +148,13 @@
       "when": 1794324576722,
       "tag": "0020_processing_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794325176722,
+      "tag": "0021_file_hooks_indexes",
+      "breakpoints": true
     }
   ]
 }
