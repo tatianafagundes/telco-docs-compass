@@ -22,6 +22,7 @@ import {
   type Answer,
   type Target,
 } from "@/services/file-result-target";
+import { checkQuarantineRate } from "@/services/file-result-alerts";
 import { downloadedForScan } from "@/services/file-result-receipts";
 import { isUuid } from "@/services/file-hook-detail";
 import { authenticate, readJson, type SystemCtx } from "@/services/gateway-core";
@@ -144,6 +145,7 @@ export async function postScanResult(
         t.doc.id,
         `Scan ${what} (${body.engine}, attempt ${body.attempt})`,
       );
+      if (body.result === "infected") await checkQuarantineRate(ctx);
       let state: string = next.state;
       // The built-in reading is run here: no browser waits on a file the antivirus answered for.
       if (next.state === "reading" && next.detail.mode === "simulated") {

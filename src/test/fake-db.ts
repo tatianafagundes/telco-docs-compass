@@ -366,6 +366,25 @@ class QueryBuilder implements PromiseLike<DbAnswer> {
     });
     return this;
   }
+  /** SQL LIKE: `%` any run of characters, `_` one character; case-sensitive, as in Postgres. */
+  like(column: string, pattern: string) {
+    const re = new RegExp(
+      "^" +
+        pattern
+          .split("")
+          .map((c) =>
+            c === "%" ? ".*" : c === "_" ? "." : c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+          )
+          .join("") +
+        "$",
+      "s",
+    );
+    this.filters.push((r) => {
+      const v = pathValue(r, column);
+      return typeof v === "string" && re.test(v);
+    });
+    return this;
+  }
   match(query: Row) {
     for (const [k, v] of Object.entries(query)) this.eq(k, v);
     return this;

@@ -2,6 +2,7 @@
 // cases, replay, receipts, body limits, idempotency, and that no log line carries a value.
 // Tests that expose a real defect are `it.fails` with the defect named above them.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { QUARANTINE_ALERT_PER_HOUR } from "@/services/file-hook-timeouts";
 import { sha256Bytes } from "@/services/gateway-create-input";
 import { getAttachmentContent, postScanResult } from "@/test/gateway-api";
 import {
@@ -647,5 +648,76 @@ describe("R6.2: the key is checked again on every call", () => {
       expect((await scan({ result: "infected" })).status).toBe(401);
       noWrite(db);
     }
+  });
+});
+
+describe("the quarantine-rate alert (R6.5)", () => {
+  const infectedEarlier = (db: FakeDb, n: number, minutesAgo = 10) => {
+    for (let i = 0; i < n; i++)
+      db.rows("document_events").push({
+        tenant_id: TENANT,
+        document_id: `doc-${i}`,
+        action: "scanResult",
+        detail: `Scan infected: Other (ClamAV, attempt 1) · via Order care`,
+        created_at: new Date(Date.now() - minutesAgo * 60_000).toISOString(),
+      });
+  };
+  const alerts = () => logs.filter((l) => l.includes('"level":"alert"'));
+  it.each([
+    [QUARANTINE_ALERT_PER_HOUR - 1, 0],
+    [QUARANTINE_ALERT_PER_HOUR, 1],
+  ])(
+    "%i earlier infected results this hour and one more: %i alert line(s), ids and counts only",
+    async (earlier, expected) => {
+      const db = await world();
+      // This request's activity entry gets its time as the database default would give it.
+      db.autoCreatedAtTables.add("document_events");
+      infectedEarlier(db, earlier);
+      const res = await scan({ result: "infected", threatName: THREAT });
+      expect(res.status).toBe(200);
+      expect(alerts()).toHaveLength(expected);
+      if (expected) {
+        const line = JSON.parse(alerts()[0]!) as Record<string, unknown>;
+        expect(line).toEqual({
+          level: "alert",
+          op: "fileHooks.quarantineRate",
+          tenant: TENANT,
+          client: CLIENT_ID,
+          quarantinesLastHour: QUARANTINE_ALERT_PER_HOUR + 1,
+          limit: QUARANTINE_ALERT_PER_HOUR,
+        });
+      }
+    },
+  );
+  it("counts only this hour, this organisation, and infected results", async () => {
+    const db = await world();
+    db.autoCreatedAtTables.add("document_events");
+    infectedEarlier(db, 50, 61);
+    for (let i = 0; i < 50; i++)
+      db.rows("document_events").push(
+        {
+          tenant_id: OTHER_TENANT,
+          action: "scanResult",
+          detail: "Scan infected: X (e, attempt 1) · via y",
+          created_at: new Date().toISOString(),
+        },
+        {
+          tenant_id: TENANT,
+          action: "scanResult",
+          detail: "Scan clean (e, attempt 1) · via y",
+          created_at: new Date().toISOString(),
+        },
+      );
+    await scan({ result: "infected", threatName: THREAT });
+    expect(alerts()).toEqual([]);
+  });
+  it("a failed count never changes the answer, and says so in the log", async () => {
+    const db = await world();
+    infectedEarlier(db, 50);
+    db.fail("document_events", "select");
+    const res = await scan({ result: "infected", threatName: THREAT });
+    expect(res.status).toBe(200);
+    expect(doc(db)["pipeline_state"]).toBe("quarantined");
+    expect(logs.join("\n")).toContain("counting quarantines in the last hour");
   });
 });
