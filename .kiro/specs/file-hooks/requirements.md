@@ -54,14 +54,17 @@ Out: a storage port (the store stays Supabase here), OCR started from the screen
 
 ### R2 Scan result in
 1. A scanner SHALL be able to download the current version only while the document is in `scanning` with
-   `mode: external`. Every other key keeps today's rule (409 `contentLocked` while scanning).
+   `mode: external`. People and `read` keys get only the current version, once it passed the check
+   (ready, reading, or failed while reading); otherwise 409 `contentLocked`, an older version 409
+   `notCurrent` (decided in the phase 5 review: an older version may never have been scanned).
 2. `POST /document/{id}/attachment/{versionId}/scanResult` with `{ result: "clean"|"infected"|"error",
    contentHash, attempt, engine, threatName? }` and an `Idempotency-Key`. Idempotency is scoped to
    document, version and attempt.
 3. Checks, in this order, each refusing with no write: key and scope (401/403); designated scanner of the
-   organisation (403 `notDesignatedScanner`); document and version in the key's tenant (404, same body for
+   organisation (403 `notDesignated`, one code for scanners and readers); document and version in the key's tenant (404, same body for
    unknown document, other tenant and unknown version); version is current (409 `versionNotCurrent`);
-   state is `scanning` with `mode: external` (409 `notScanning`); attempt matches (409 `staleAttempt`);
+   state is `scanning` with `mode: external` (409 `notScanning`; a quarantined document answers 409
+   `quarantined`, decided in the phase 5 review); attempt matches (409 `staleAttempt`);
    `contentHash` equals the server hash (409 `hashMismatch`); for `clean`, this client downloaded this
    version during this attempt (409 `notFetched`).
 4. `clean` → `reading` (R1.2); `infected` → `quarantined` { reason: "threat", by, step: "scan" } and the

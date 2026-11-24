@@ -19,8 +19,8 @@ The API follows TM Forum TMF667 Document Management v4 and the TMF630 REST guide
 | `hold` | place and release legal holds |
 | `delete` | delete (soft; an admin can restore) |
 | `subscribe` | subscribe to change events |
-| `scan` | the organisation's own antivirus: check files and report the result (endpoints not available yet) |
-| `extract` | the organisation's own reader: read details from files and report them (endpoints not available yet) |
+| `scan` | the organisation's own antivirus: download files waiting for its scan and report the result |
+| `extract` | the organisation's own reader: download files waiting to be read and propose their details |
 
 `scan` and `extract` are exclusive: a key with one has no other scope, and an organisation has one such key of each kind until it is disconnected. Such a key is checked again on every call; a key that is not the organisation's connected system for it answers 403 `notDesignated`.
 
@@ -39,7 +39,10 @@ Base path: `/api/public/tmf-api/document/v4` on the app's host. The older `/api/
 | `DELETE /document/{id}` | soft delete; holds and keep-until dates block it | `delete` |
 | `POST /document/{id}/transition` | extension: move to a `lifecycleState` | `transition` or `approve` |
 | `POST /document/{id}/legalHold` | extension: `{ "active": true, "reason": "...", "reference": "..." }` | `hold` |
-| `GET /document/{id}/attachment/{attachmentId}/content` | extension: a download link valid for 60 seconds | `read` |
+| `GET /document/{id}/attachment/{attachmentId}/content` | extension: a download link valid for 60 seconds (current version, once checked) | `read`, or `scan`/`extract` during the system's own step |
+| `POST /document/{id}/attachment/{attachmentId}/uploaded` | extension: confirm the file sent to `uploadUrl` | `register` (the system that registered it) |
+| `POST /document/{id}/attachment/{attachmentId}/scanResult` | extension: the antivirus's result | `scan` |
+| `POST /document/{id}/attachment/{attachmentId}/extractionResult` | extension: the reader's result and proposed details | `extract` |
 | `GET /documentSpecification`, `GET /documentSpecification/{id}` | the document types the organisation accepts | `read` |
 | `POST /hub`, `DELETE /hub/{id}` | subscribe to events, unsubscribe | `subscribe` |
 | `POST /api/public/tmf-api/oauth/token` | exchange the key for a 15-minute token | none |
@@ -88,10 +91,11 @@ POST /document
 
 The attachment is one of three forms:
 
-- `contentHash` only: the answer (201) includes `uploadUrl`, a signed Supabase Storage upload address. Limitation today: the API has no call to confirm the upload, the file is not compared with `contentHash`, and the document stays in its uploading step. Prefer `url` or `content` until that is built.
+- `contentHash` only: the answer (201) includes `uploadUrl`, a signed Supabase Storage upload address. Upload the file there, then confirm it with `POST /document/{id}/attachment/{attachmentId}/uploaded` (an `Idempotency-Key`, no body). The app reads the stored file, compares its size and hash with what you declared, and starts the checks. Refusals: 409 `fileMissing` (not uploaded yet), `hashMismatch`, `sizeMismatch`, `notUploading` (already confirmed), 413 `tooLarge` (over 25 MB), 403 `notRegisteredHere` (another system registered it). An upload never confirmed fails after 24 hours.
 - `url`: a public `https` address the app fetches once (max 25 MB, no redirects, no private addresses).
 - `content`: the file as base64 inline (max 5 MB of file).
 
+Whatever the form, the file is checked before anyone can download it: it starts as uploading, goes through the scan and the reading, and only then is ready. The answer of `POST /document` gives the state it reached.
 `documentType` must be one the organisation accepts (`GET /documentSpecification`), and the file type must be one the type allows. Records named in `relatedEntity` must exist in the organisation (1 to 5 links). The document starts as `created` (`lifecycleState: draft`).
 
 ## Status and the review rules
@@ -121,7 +125,7 @@ POST /hub
 
 The answer includes `signingSecret` once; store it. Events: `DocumentCreateEvent`, `DocumentChangeEvent`, `DocumentDeleteEvent`, and `DocumentBatchEvent` (one per bulk change pass, only for subscriptions that name it). Only events after the subscription was created are sent.
 
-An event carries references, never document content: fetch the document with your key. A status change carries `id`, `href`, `status` and `lifecycleState`; a delete carries `status: deleted`; other changes carry `id`, `href` and `changedAttributes` (a legal hold change names `legalHold`, without its value); a batch event carries a list of references. File events (`DocumentFileStoredEvent`, `DocumentFileReadyToReadEvent`, `DocumentFilePurgedEvent`, declared extensions) are sent only to subscriptions that name them, and carry `event.file`: `versionId`, `contentHash`, `sizeBytes`, `mediaType` and `attempt` for Stored; `versionId` and `attempt` for ReadyToRead; `versionIds` for Purged. Answering a scan or a reading is not available yet. Each delivery has these headers:
+An event carries references, never document content: fetch the document with your key. A status change carries `id`, `href`, `status` and `lifecycleState`; a delete carries `status: deleted`; other changes carry `id`, `href` and `changedAttributes` (a legal hold change names `legalHold`, without its value); a batch event carries a list of references. File events (`DocumentFileStoredEvent`, `DocumentFileReadyToReadEvent`, `DocumentFilePurgedEvent`, declared extensions) are sent only to subscriptions that name them, and carry `event.file`: `versionId`, `contentHash`, `sizeBytes`, `mediaType` and `attempt` for Stored; `versionId` and `attempt` for ReadyToRead; `versionIds` for Purged. The organisation's own antivirus and reader answer through the API (next section). Each delivery has these headers:
 
 | Header | Use |
 | --- | --- |
@@ -147,6 +151,23 @@ function verify(rawBody, headers, secret) {
 
 The callback must answer directly: redirects are not followed, a delivery times out after 5 seconds, and the address is checked again (public, https) before every delivery. Revoking the system key removes its subscriptions. Answer any 2xx quickly. Otherwise the delivery is retried for your subscription only, after 30 s, 2 min, 10 min, 30 min and 2 h (a longer `Retry-After` is honoured up to 1 h), and given up after 6 attempts. Delivery is at least once.
 
+## The organisation's own antivirus and reader
+An organisation can check files with its own antivirus and read them with its own reader instead of the built-in ones. The organisation administrator connects the system with the `scan` or `extract` scope (one of each kind per organisation, no other scope on that key) and turns the step on in Connected systems. A step that starts then waits for that system: subscribe to `DocumentFileStoredEvent` (scan) or `DocumentFileReadyToReadEvent` (read). Without an answer the step fails after 30 minutes; a person can try again.
+1. On the event, download the version with your key: `GET /document/{id}/attachment/{versionId}/content`. This works only for the current version, only during your own step (409 `notYourStep` otherwise), never for a quarantined version.
+2. Hash the bytes you downloaded (SHA-256, lowercase hex; `sha256:` in front is accepted) and check them. Never send the hash from the event without hashing the file yourself.
+3. Answer once, with an `Idempotency-Key` and the `attempt` from the event:
+```json
+POST /document/{id}/attachment/{versionId}/scanResult
+{ "result": "clean", "contentHash": "<sha256 hex of the bytes>", "attempt": 1, "engine": "ClamAV 1.3" }
+```
+`result` is `clean`, `infected` (with `threatName`, shown only in the activity log) or `error`. `engine` and `threatName` are up to 64 letters, digits, spaces and `._:/-`. `clean` is accepted only after your key downloaded this version in this attempt (409 `notFetched`).
+```json
+POST /document/{id}/attachment/{versionId}/extractionResult
+{ "result": "read", "attempt": 2, "fields": [{ "name": "amount", "value": "48000", "confidence": 0.93, "source": "page 2: table 1" }] }
+```
+`result` is `read` (with `fields`, possibly empty) or `unreadable`. Field names are the document type's details exactly; a value is one string, number or boolean of the detail's type; at most 100 fields and 1 000 000 bytes. One bad field refuses the whole answer (400 `unknownFields`, `duplicateFields` or `badValues`, with `names`). Details are proposals: a person confirms each one, and a detail a person already filled is kept (listed in `skipped`).
+The answer is `{ "id", "versionId", "state", "attempt" }` (plus `proposed` and `skipped` for a reading). The same result again for the same attempt, also under a new key after a lost reply, is answered with `"replayed": true`. Refusals change nothing: 403 `notDesignated` (the key is not the organisation's system for this step), 404 `notFound`, 409 `versionNotCurrent`, `notScanning` or `notReading`, `staleAttempt`, `notYourStep`, `hashMismatch`, `notFetched`, `quarantined`, `changedMeanwhile` (read the document again), `cannotProcess`.
+Residual risk: a clean answer is trusted. The app checks that your system downloaded the very file and hashed it, not how well it scanned.
 ## Limits and errors
 
 - Each system has its own allowance per minute (default 120 reads and 30 changes). Over it: 429 `tooManyRequests` with `Retry-After` and `RateLimit-*` headers. One system never uses up another's allowance.
@@ -157,10 +178,10 @@ The callback must answer directly: redirects are not followed, a delivery times 
 | --- | --- | --- |
 | 400 | `invalidBody`, `invalidJson`, `invalidQuery`, `invalidStatus`, `invalidContent`, `invalidCallback`, `unknownDocumentType`, `mimeNotAccepted`, `filterTooBroad`, `idempotencyKeyMissing`, `tooLarge` | fix the request |
 | 401 | `unauthorized` | get a new token; check the key is not revoked or expired |
-| 403 | `scopeMissing` | ask the tenant admin for the scope |
+| 403 | `scopeMissing`, `notDesignated`, `notRegisteredHere` | ask the tenant admin for the scope, or use the key of the system the step waits for |
 | 404 | `notFound`, `relatedEntityNotFound` | the document or record does not exist in your organisation |
 | 405 | `methodNotAllowed` | use a method the path supports |
-| 409 | `transitionNotAllowed`, `fileMissing` (send the content first: sending for approval, approving and making effective need a checked file), `requiredDetailsPending`, `fourEyesRequired`, `approvedContentLocked`, `contentLocked`, `frozen`, `legalHold`, `retention`, `idempotencyInProgress`, `idempotencyMismatch` | the document's state refuses it; read the message, do not retry blindly (except `idempotencyInProgress`) |
+| 409 | `transitionNotAllowed`, `fileMissing` (send the content first: sending for approval, approving and making effective need a checked file), `requiredDetailsPending`, `fourEyesRequired`, `approvedContentLocked`, `contentLocked`, `notCurrent` (only the current version is downloaded), `frozen`, `legalHold`, `retention`, `idempotencyInProgress`, `idempotencyMismatch` | the document's state refuses it; read the message, do not retry blindly (except `idempotencyInProgress`) |
 | 413 | `bodyTooLarge`, `tooLarge` | send the file by `url` or `uploadUrl` |
 | 415 | `unsupportedMediaType` | PATCH needs `application/merge-patch+json` |
 | 422 | `attachmentUnreachable`, `hashMismatch` | the file at `url` could not be fetched, or does not match `contentHash` |

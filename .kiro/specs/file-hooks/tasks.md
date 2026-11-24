@@ -24,9 +24,9 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
 - [x] 2.4 Review: `seg-review` on phases 1–2: BLOCK with H1–H5, M1–M6, L1–L5. Fixed: H1 (Keep without reading guarded and only for reading failures), H2 (addVersion guarded), H3 (server hash compared in both stored forms; full 64-hex hash required), M2 (size checked, 25 MB cap, 1 MB sniff), M3 (restore refused when it shares the file or bytes with a quarantined version), M4 (attempt carried; results name the version), M6 (API-registered documents can be processed), L1, L2 (request-shape test with the real client). Each fix has a test; 9 mutations caught.
 - [x] 2.6 Review: `qa-test-engineer` adversarial pass on phases 1–2 (`qa-file-hooks-{rules,pipeline,trigger}.test.ts`, 204 tests, real Postgres via PGlite for the trigger and the jsonb guard). 16 defects; fixed: the restore's same-file check failed open and sent the whole list in the URL; subscription filters (`%2C` lists, prefix and unanchored names, a stray `%`); hold plus status change and ReadyToRead version binding (migration 0019); attempts stored as text or out of range now refused; version ids compared in any case; Keep without reading refuses a quarantined version; years 0–99; link-like sources; more invisible characters; FakeDb `eq.null`, uuid case and jsonb text as in PostgREST. Known and left: a row hand-written with `{"attempt": 3.0}` can never be written by the guard (JavaScript reads 3; Postgres's text is "3.0"), pinned by an `it.fails`.
 - [ ] 2.5 Carried to later phases, release gates:
-  - H4 (API inline content goes straight to `ready`) in 5.3.
-  - H5 and M1 (the API and screens download in `uploading`, `failed` after a scan, and older quarantined versions) in 5.5: apply `downloadDecision` in `gateway-reads.ts` and `getContentUrl`, and change the tests and `e2e/tmf-api.py` that expect a link while uploading or failed.
-  - Also in 5.5: a version that was superseded before its scan finished must not be downloadable (no per-version clean record exists yet).
+  - H4 (API inline content goes straight to `ready`): closed in 5.3.
+  - H5 and M1 (downloads in `uploading`, `failed` after a scan, older quarantined versions): closed in 5.5. Check `e2e/tmf-api.py` for a link expected while uploading or failed (8.4).
+  - A version superseded before its scan finished: closed in 5.7 (only the current version is downloaded).
   - M5: the scan is simulated; no release may claim scanning while every owner is simulated.
   - L3/L4: check the hosted data for `failed` rows without a step and quarantined documents whose list was cleared by the old addVersion.
   - L5: uploads that never pass the hash wait for the timeout in 6.1.
@@ -35,7 +35,7 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
   - zod 3.25.76 advisory GHSA-mrhx-c7xc-m3w5 (separate ticket).
   - The storage bucket's own size limit must be at most 25 MB (`MAX_PROCESS_BYTES`): the download is buffered before the size can be checked. Not visible in the repo; check the hosted bucket.
   - Metadata edits (name, sensitivity, expiry) are decided from an earlier read and not guarded on `status` or `legal_hold`; older than this spec, to fix separately.
-  - Publishing to `main` behind the preview is accepted on these conditions: preview access restricted, no real customer or personal files, no wording that files are scanned or safe, 3.x, 5.3 and 5.5 open as release blockers.
+  - Publishing to `main` behind the preview is accepted on these conditions: preview access restricted, no real customer or personal files, no wording that files are scanned or safe. 5.3 and 5.5 are closed; the rest of this list stays open as release blockers.
 
 ## 3. Organisation switch and keys
 - [x] 3.1 `external-processing.ts`: switch read from `tenants.external_processing`, active scanner and reader, `startStep`.
@@ -53,13 +53,31 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
 - [x] 4.4 Review: `code-reviewer` on phases 3 and 4: APPROVED with S1–S8. Fixed: the tripwire now reads the TypeScript syntax tree of all of `src` plus the migrations (11 bypasses it missed, each now caught), rotation recorded first, a failed take-back of an unrecorded key is logged, one designation helper for `authenticate` and `issueToken`, media types restricted to type/subtype. S7 (0020's CHECK on existing rows) does not apply: 0020 and the creation checks were published in the same push, so no processing key could exist before the constraint. Open, for 5.3: API inline content still goes straight to `ready` (H4, Q1).
 
 ## 5. Callbacks and confirm upload
-- [ ] 5.1 `gateway-file-results.ts` `postScanResult` with the check order of R2.3, receipt check, idempotency per document, version and attempt, R2.8.
-- [ ] 5.2 `postExtractionResult` (R3).
-- [ ] 5.3 `confirmUpload` (R4.6); `gateway-create.ts` ordering (R4.5).
-- [ ] 5.4 Routes and legacy twins; `gateway-api.ts` exports; route `AGENTS.md` rules.
-- [ ] 5.5 `gateway-reads.ts` download rule (scanner, reader, quarantined versions).
-- [ ] 5.6 Tests: every refusal with no write (`writesTo` empty); races with `fireWriteHook`; tenant isolation incl. version ids; 429 changes nothing; logs spy.
-- [ ] 5.7 Review: `seg-review` (verdict control, isolation, injection, DoS) and `qa-test-engineer` (adversarial gaps).
+- [x] 5.1 `gateway-file-results.ts` `postScanResult` with the check order of R2.3, receipt check (`file-result-receipts.ts`), idempotency per document, version and attempt, R2.8. The built-in reading runs in the same request after `clean`.
+- [x] 5.2 `postExtractionResult` (R3): fields checked as a whole, saved as pending proposals from the system (`file-result-fields.ts`), a person's row kept, proposals taken back when the document moved meanwhile.
+- [x] 5.3 `confirmUpload` (R4.6, `gateway-file-upload.ts`); API inline and url files stored as `uploading` and run through the steps by `processAsSystem` (H4 closed).
+- [x] 5.4 Routes and legacy twins for `scanResult`, `extractionResult`, `uploaded`; `gateway-api.ts` exports; route `AGENTS.md` rule.
+- [x] 5.5 `downloadDecision` in `gateway-reads.ts` and `getContentUrl`: only checked files, never a quarantined version, the scanner or reader only in its own step; tests and the old uploading/failed contract changed (H5, M1 of 2.5 closed).
+- [x] 5.6 Tests: `gateway/file-results.test.ts`, `gateway/file-downloads.test.ts`, the QA files below; every refusal with no write, races with stubbed reads, tenant isolation incl. version ids, logs spied for values and threat names.
+- [x] 5.7 Review: `seg-review` BLOCK (H1, M1, M2, L1–L8) and `qa-test-engineer` (`gateway/qa-file-results-{scan,extract,flow,upload,download,routes}.test.ts`, 7 defects D1–D7). Fixed, each with a test and a mutation caught:
+  - H1: people and `read` keys download only the current version (`notCurrent`); an older one may never have been scanned.
+  - M2: a version declared over 25 MB is refused before it is fetched into memory.
+  - L1: a system's activity is cut before ` · via <system>`, the name cleaned of control and direction characters; L4: the server's steps record the version.
+  - L2: a reader's detail is one plain value (string, number, boolean); nested data is refused before hashing.
+  - L3: a malformed id is 404 before its Idempotency-Key is remembered (all three callbacks).
+  - D1: the built-in reading keeps the scanner's `lastResult`, so a lost reply to `clean` is answered again.
+  - D2: an error reading the specifications answers 503, not 400 `unknownFields`.
+  - D3: `MAX_RESULT_BODY_BYTES` 1 000 000 (bytes), room for 100 details of 2000 characters in any script.
+  - D5: a download link is given only after its record (receipt or activity) is written; else 503.
+  - D7: a failed take-back is logged with row ids, never a value.
+  - Decided: D4 a quarantined document answers `quarantined` (R2.3 updated); D6 "escaped" means JSON-encoded with unsafe characters replaced, answers sent with `nosniff`; `notDesignated` is the one code for scanners and readers (R2.3 updated).
+- [ ] 5.8 Carried, with reasons:
+  - seg M1: a person adding a detail between the reader's check and its insert gives a second, pending row for that name (no unique index on version and name). The person's row is kept and the proposal waits for review, so nothing is applied silently. A unique index needs a check of the hosted rows first; with 8.5.
+  - seg L5: the scan receipt is not bound to a client id. One processing key of each kind per organisation (BR-163) makes the designated system the only one that can download in the step; a rotated key keeps the same client.
+  - seg L7: a failure in the middle of `processAsSystem` leaves a simulated step where it stopped. A person's Check now or the scheduled run (6.1) moves it on.
+  - seg L8: a 403 `notYourStep`/`notDesignated` tells a key of the same organisation that a document exists; accepted, the key already reads its organisation's documents.
+  - M2 rest: createDocument still fetches the file it just stored; reuse the bytes in memory later. The bucket's own size limit stays a release gate (2.5).
+  - Hand-written `{"attempt": 3.0}` rows stay unwritable (one `it.fails`, 2.6).
 
 ## 6. Timeouts and alerts
 - [ ] 6.1 Timeout step in the scheduled run (R4.7) with injected `now`; boundary tests; scanner revoked mid-scan still times out.
