@@ -98,7 +98,7 @@ function project(row: Row, columns: string | null): Row {
 /** One call made to the storage stub. */
 export interface StorageCall {
   bucket: string;
-  op: "upload" | "download" | "createSignedUploadUrl" | "createSignedUrl" | "remove";
+  op: "upload" | "download" | "createSignedUploadUrl" | "createSignedUrl" | "remove" | "list";
   path: string;
   bytes?: Uint8Array;
   contentType?: string;
@@ -223,6 +223,18 @@ export class FakeDb {
             data: { size: copy.byteLength, arrayBuffer: async () => copy.buffer },
             error: null,
           };
+        },
+        /** As supabase-js: the objects of a folder whose name contains `search`, with their size. */
+        list: async (folder: string, o: { search?: string; limit?: number } = {}) => {
+          const a = await answer(bucket, "list", folder);
+          if (a.error) return { data: null, error: a.error };
+          const prefix = `${bucket}/${folder ? `${folder}/` : ""}`;
+          const found = [...this.objects.entries()]
+            .filter(([k]) => k.startsWith(prefix) && !k.slice(prefix.length).includes("/"))
+            .map(([k, v]) => ({ name: k.slice(prefix.length), metadata: { size: v.byteLength } }))
+            .filter((f) => !o.search || f.name.includes(o.search))
+            .slice(0, o.limit ?? 100);
+          return { data: found, error: null };
         },
         createSignedUploadUrl: (path: string) => answer(bucket, "createSignedUploadUrl", path),
         createSignedUrl: (path: string) => answer(bucket, "createSignedUrl", path),

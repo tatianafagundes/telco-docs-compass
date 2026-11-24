@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { seamError } from "@/services/document-rules";
+import { downloadWithin } from "@/services/stored-file";
 import { resolveOwners } from "@/services/external-processing";
 import { advanceStep } from "@/services/pipeline-step";
 import { forbidden, loadRole, runWrite } from "@/services/seam-runtime";
@@ -29,14 +30,7 @@ export const advancePipeline = createServerFn({ method: "POST" })
       { op: "advancePipeline", idempotencyKey, body, scope: { kind: "doc", id: data.id } },
       (env) =>
         advanceStep(env, data, {
-          download: async (path, maxBytes) => {
-            const { data: file } = await env.admin.storage.from(BUCKET).download(path);
-            if (!file) return null;
-            // The download is already buffered here: this only stops a second copy and the hash. Memory
-            // is bounded by the bucket's own size limit, which must be at most MAX_PROCESS_BYTES.
-            if (file.size > maxBytes) return "tooLarge";
-            return new Uint8Array(await file.arrayBuffer());
-          },
+          download: (path, maxBytes) => downloadWithin(env.admin, BUCKET, path, maxBytes),
           now: () => new Date().toISOString(),
           // The organisation switch decides who handles a step that starts now (D1).
           owners: () => resolveOwners(env.admin, env.tenantId, new Date()),

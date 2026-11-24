@@ -12,6 +12,7 @@ import {
   type StepDeps,
 } from "@/services/pipeline-step";
 import type { WriteEnv } from "@/services/seam-runtime";
+import { downloadWithin } from "@/services/stored-file";
 
 const BUCKET = "documents";
 /** uploading → scanning → reading → ready is three steps; one more answers the final state. */
@@ -29,12 +30,7 @@ function systemEnv(ctx: SystemCtx): WriteEnv {
 }
 function systemDeps(ctx: SystemCtx): StepDeps {
   return {
-    download: async (path, maxBytes) => {
-      const { data: file } = await ctx.admin.storage.from(BUCKET).download(path);
-      if (!file) return null;
-      if (file.size > maxBytes) return "tooLarge";
-      return new Uint8Array(await file.arrayBuffer());
-    },
+    download: (path, maxBytes) => downloadWithin(ctx.admin, BUCKET, path, maxBytes),
     now: () => new Date().toISOString(),
     owners: () => resolveOwners(ctx.admin, ctx.tenantId, new Date()),
     record: (action, documentId, detail, versionId) =>

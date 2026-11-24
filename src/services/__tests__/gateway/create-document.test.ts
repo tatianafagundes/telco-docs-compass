@@ -93,7 +93,10 @@ describe("registering a document with inline content", () => {
     ]);
     // One upload; the later downloads are the server reading it back to hash and check it.
     expect(db.storageCalls.filter((c) => c.op === "upload")).toHaveLength(1);
-    expect(db.storageCalls.filter((c) => c.op !== "upload" && c.op !== "download")).toEqual([]);
+    // The server reads the stored file to check it: listing (its size) and download, nothing else.
+    expect(db.storageCalls.filter((c) => !["upload", "download", "list"].includes(c.op))).toEqual(
+      [],
+    );
     expect(db.storageCalls[0]).toMatchObject({
       bucket: "documents",
       op: "upload",
