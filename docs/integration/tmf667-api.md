@@ -167,7 +167,7 @@ POST /document/{id}/attachment/{versionId}/extractionResult
 ```
 `result` is `read` (with `fields`, possibly empty) or `unreadable`. Field names are the document type's details exactly; a value is one string, number or boolean of the detail's type; at most 100 fields and 1 000 000 bytes. One bad field refuses the whole answer (400 `unknownFields`, `duplicateFields` or `badValues`, with `names`). Details are proposals: a person confirms each one, and a detail a person already filled is kept (listed in `skipped`).
 The answer is `{ "id", "versionId", "state", "attempt" }` (plus `proposed` and `skipped` for a reading). The same result again for the same attempt, also under a new key after a lost reply, is answered with `"replayed": true`. Refusals change nothing: 403 `notDesignated` (the key is not the organisation's system for this step), 404 `notFound`, 409 `versionNotCurrent`, `notScanning` or `notReading`, `staleAttempt`, `notYourStep`, `hashMismatch`, `notFetched`, `quarantined`, `changedMeanwhile` (read the document again), `cannotProcess`.
-Residual risk: a clean answer is trusted. The app checks that your system downloaded the very file and hashed it, not how well it scanned.
+Residual risk: a clean answer is trusted. The app checks that your system downloaded the very file and hashed it, not how well it scanned. A download link already given stays valid for its 60 seconds even if the version is quarantined meanwhile.
 ## Limits and errors
 
 - Each system has its own allowance per minute (default 120 reads and 30 changes). Over it: 429 `tooManyRequests` with `Retry-After` and `RateLimit-*` headers. One system never uses up another's allowance.

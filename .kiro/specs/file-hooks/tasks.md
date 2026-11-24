@@ -71,12 +71,15 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
   - D5: a download link is given only after its record (receipt or activity) is written; else 503.
   - D7: a failed take-back is logged with row ids, never a value.
   - Decided: D4 a quarantined document answers `quarantined` (R2.3 updated); D6 "escaped" means JSON-encoded with unsafe characters replaced, answers sent with `nosniff`; `notDesignated` is the one code for scanners and readers (R2.3 updated).
+- [x] 5.7b Re-check: `seg-review` PASS WITH FINDINGS; H1 confirmed closed. Fixed: a failed document with a reason but no step (a legacy timeout) is never a checked file; token answers carry `nosniff` too.
 - [ ] 5.8 Carried, with reasons:
   - seg M1: a person adding a detail between the reader's check and its insert gives a second, pending row for that name (no unique index on version and name). The person's row is kept and the proposal waits for review, so nothing is applied silently. A unique index needs a check of the hosted rows first; with 8.5.
   - seg L5: the scan receipt is not bound to a client id. One processing key of each kind per organisation (BR-163) makes the designated system the only one that can download in the step; a rotated key keeps the same client.
   - seg L7: a failure in the middle of `processAsSystem` leaves a simulated step where it stopped. A person's Check now or the scheduled run (6.1) moves it on.
   - seg L8: a 403 `notYourStep`/`notDesignated` tells a key of the same organisation that a document exists; accepted, the key already reads its organisation's documents.
-  - M2 rest: createDocument still fetches the file it just stored; reuse the bytes in memory later. The bucket's own size limit stays a release gate (2.5).
+  - M2 rest (seg re-check: Medium, open): the declared size is checked first, but both downloads still buffer the whole stored object before its real size is known, so a file uploaded larger than declared is read into memory. Release gate: the bucket's own limit at most 25 MB (2.5), or stream from a signed address with `readResponseBytes` and `MAX_PROCESS_BYTES`. createDocument also fetches the file it just stored; reuse the bytes later.
+  - seg re-check: `reviewExtraction` does not check that the field's version is still current or that the field is still pending; guard both with 8.5.
+  - seg re-check: a download link already given stays valid for its 60 seconds (300 for a preview) if the version is quarantined meanwhile; stated in the API guide.
   - Hand-written `{"attempt": 3.0}` rows stay unwritable (one `it.fails`, 2.6).
 
 ## 6. Timeouts and alerts
