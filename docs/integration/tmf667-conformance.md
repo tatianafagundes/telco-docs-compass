@@ -27,6 +27,8 @@ How the API compares with the official TM Forum TMF667 Document Management v4.0.
 | `PATCH` changes only name, description, status, characteristics, external ids, links (added) and the end date | Type, files and owner change through their own rules (new version, admin) | Other fields answer 400 |
 | No `PUT /document`, no `POST`/`PATCH`/`DELETE /documentSpecification`, no `DocumentSpecification*` events | Document types are managed in the app so group locks and country rules stay enforced | Those operations answer 405 |
 | Extensions `/transition`, `/legalHold`, `/attachment/{id}/content` | Status moves, holds and downloads need their own scope and reason | None: additional paths |
+| Extensions `/attachment/{id}/uploaded`, `/scanResult`, `/extractionResult` and scopes `scan`, `extract` | Confirming an upload and letting the organisation's own antivirus and reader answer for a file (file hooks) | None: additional paths and scopes |
+| Events `DocumentFileStoredEvent`, `DocumentFileReadyToReadEvent`, `DocumentFilePurgedEvent` with `event.file` | A scanner or reader needs to know a file waits for it; sent only when a subscription names them | None: not sent to existing subscriptions |
 | Events carry a reference (`id`, `href`, `status`, `lifecycleState`), not the whole `Document`; `DocumentChangeEvent` adds `changedAttributes` | Events never carry content; the receiver fetches with its own key and scope | Valid against the official payload (no required fields) |
 | `DocumentBatchEvent` carries `event.document` as a list (official: one `Document`) | One event per bulk pass instead of one per document | Only sent to subscriptions that name `DocumentBatchEvent` |
 | Hub reply adds `signingSecret` (once) and `@type` | Events are signed | None |

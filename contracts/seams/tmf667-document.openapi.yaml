@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Document Management (TMF667 v4)
-  version: 4.0.0-erad.2
+  version: 4.0.0-erad.3
   description: |
     TM Forum TMF667 Document Management v4.0.0 for connected systems (Order care TMF622,
     Ticket management TMF621, CRM TMF629/TMF666, CPQ TMF648). Follows TMF630 REST guidelines.
@@ -32,7 +32,13 @@ info:
       - POST /document/{id}/transition: explicit status task with our detailed lifecycleState
         (PATCH status does the same with the same rules)
       - POST /document/{id}/legalHold: legal holds need a reason and their own permission
-      - GET /document/{id}/attachment/{attachmentId}/content: 60-second download link (attachment.url points here)
+      - GET /document/{id}/attachment/{attachmentId}/content: 60-second download link (attachment.url points here);
+        the current version only, once it passed the check; the organisation's antivirus or reader only during its own step
+      - POST /document/{id}/attachment/{attachmentId}/uploaded: confirm a file sent to uploadUrl (the system that registered it)
+      - POST /document/{id}/attachment/{attachmentId}/scanResult and /extractionResult: answers of the organisation's own
+        antivirus (scope scan) and reader (scope extract); each such key has that one scope and is the organisation's only one
+      - Events DocumentFileStoredEvent, DocumentFileReadyToReadEvent, DocumentFilePurgedEvent (event.file), sent only to
+        subscriptions that name them in eventType
       - @type EradDocument (@baseType Document, @schemaLocation): lifecycleState, validFor (UTC date-times:
         start of the effective day to the end of the expiry day), sensitivity, legalHold,
         attachment.contentHash, attachment.isCurrent, attachment.creationDate, document[].role
@@ -193,11 +199,91 @@ paths:
       - { name: attachmentId, in: path, required: true, schema: { type: string, format: uuid } }
     get:
       operationId: retrieveAttachmentContent
-      summary: "Extension: 60-second download link (scope read)"
+      summary: "Extension: 60-second download link (scope read; scan or extract during the system's own step). 409 contentLocked, notCurrent, quarantined or notYourStep otherwise."
       responses:
         "200": { description: OK, content: { application/json: { schema: { type: object, properties: { url: { type: string }, expiresInSeconds: { type: integer } } } } } }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+  /document/{id}/attachment/{attachmentId}/uploaded:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: attachmentId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: confirmAttachmentUpload
+      summary: "Extension: confirm the file sent to uploadUrl; the server checks its size and hash and starts the checks (scope register, the registering system only)"
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/FileStepAnswer" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+  /document/{id}/attachment/{attachmentId}/scanResult:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: attachmentId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: postScanResult
+      summary: "Extension: the organisation's antivirus answers for the current version (scope scan). clean needs a download of this version in this attempt."
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [result, contentHash, attempt, engine]
+              properties:
+                result: { type: string, enum: [clean, infected, error] }
+                contentHash: { type: string, description: "SHA-256 of the downloaded bytes, hex; sha256: prefix accepted" }
+                attempt: { type: integer, minimum: 1 }
+                engine: { type: string, pattern: "^[A-Za-z0-9 ._:/-]{1,64}$" }
+                threatName: { type: string, pattern: "^[A-Za-z0-9 ._:/-]{1,64}$", description: "Only with infected; shown only in the activity log" }
+      responses:
+        "200": { description: OK (also a replay of the same result, with replayed true), content: { application/json: { schema: { $ref: "#/components/schemas/FileStepAnswer" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /document/{id}/attachment/{attachmentId}/extractionResult:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: attachmentId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: postExtractionResult
+      summary: "Extension: the organisation's reader answers for the current version (scope extract); details are proposals a person confirms"
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [result, attempt]
+              properties:
+                result: { type: string, enum: [read, unreadable] }
+                attempt: { type: integer, minimum: 1 }
+                fields:
+                  type: array
+                  maxItems: 100
+                  description: "Only with read. Names exactly as the type's details; one bad field refuses all."
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [name, value, confidence]
+                    properties:
+                      name: { type: string, maxLength: 200 }
+                      value: { oneOf: [{ type: string, maxLength: 2000 }, { type: number }, { type: boolean }] }
+                      confidence: { type: number, minimum: 0, maximum: 1 }
+                      source: { type: string, maxLength: 64, description: "A plain label, never a link" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/FileStepAnswer" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /documentSpecification:
     get:
       operationId: listDocumentSpecification
@@ -235,7 +321,7 @@ components:
       flows:
         clientCredentials:
           tokenUrl: /api/public/tmf-api/oauth/token
-          scopes: { read: Read, register: Register and change, transition: Status path, approve: Approve, hold: Legal holds, delete: Delete, subscribe: Events }
+          scopes: { read: Read, register: Register and change, transition: Status path, approve: Approve, hold: Legal holds, delete: Delete, subscribe: Events, scan: "The organisation's own antivirus (alone)", extract: "The organisation's own reader (alone)" }
   parameters:
     IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, pattern: "^[A-Za-z0-9_-]{8,128}$" } }
   responses:
@@ -263,6 +349,17 @@ components:
         validFor: { type: object, properties: { startDateTime: { type: string, format: date-time }, endDateTime: { type: string, format: date-time } } }
         acceptedMimeTypes: { type: array, items: { type: string }, description: "Extension (legacy)" }
         maxSizeMb: { type: number, description: "Extension (legacy)" }
+    FileStepAnswer:
+      type: object
+      required: [id, versionId, state]
+      properties:
+        id: { type: string }
+        versionId: { type: string }
+        state: { type: string, enum: [uploading, scanning, reading, ready, failed, quarantined] }
+        attempt: { type: integer }
+        replayed: { type: boolean }
+        proposed: { type: integer, description: "Reader answers: details saved as proposals" }
+        skipped: { type: array, items: { type: string }, description: "Details a person already filled, kept" }
     Error: { type: object, required: [code, reason], properties: { code: { type: string }, reason: { type: string }, message: { type: string }, status: { type: string }, "@type": { type: string } } }
     Document:
       type: object

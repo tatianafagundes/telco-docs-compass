@@ -44,6 +44,7 @@ Log in as a manager of the Sweden tenant and as its admin, then check:
 - No file, no approval: a document without its file shows Approve unavailable with "The file has not arrived yet"; through the API, `POST .../transition` answers 409 `fileMissing`.
 - Navigation and tables: the menu button next to Documents switches the left navigation to icons (names in tooltips) and back; it is remembered. A record with more than 25 documents shows pages (1–25 of n). Dates in tables read 2026-11-10.
 - Connected systems: open "Disconnected (n)", choose Connect again: the dialog has the old name and permissions, and a new key is shown once.
+- File hooks: Admin, Connected systems shows "Your own antivirus and reader" with both steps Built-in; "Use your own antivirus" asks for the confirmation, Cancel leaves it Built-in. Adding a PDF to O-7731 still ends Ready (built-in check), and its tag shows "Checking for threats" with the "Scan is simulated" tooltip while it runs.
 ## 2. API end to end (automated)
 
 From a checkout, with Python 3 and `pip install requests playwright` then `python -m playwright install chromium`:
@@ -53,6 +54,10 @@ BASE_URL=<preview address> SKIP_SLOW=1 python3 e2e/tmf-api.py
 BASE_URL=<preview address> python3 e2e/share-isolation.py
 ```
 
+File hooks (turns on the Sweden organisation's own antivirus while it runs, then back off; needs migrations 0016-0020):
+```
+BASE_URL=<preview address> python3 e2e/file-hooks.py
+```
 They create temporary system keys and "TMF test" documents and remove the keys at the end. Leftover
 test documents: Admin as the group admin, "Reset test data". Exit code 1 means a check failed; the
 output lists which.
@@ -68,6 +73,10 @@ output lists which.
 - Documents expire in the scheduled job; opening a list also expires the reader's tenant, at most
   once a minute, so expiry still happens if the scheduler is not set up.
 
+- Downloads: people and read keys get only the current version, and only once it was checked (not while uploading, after a failed scan, or when the file never arrived): 409 `contentLocked` or `notCurrent`.
+- Files sent to the API (inline or by url) are checked like uploads, so the answer of `POST /document` can show the file still being checked.
+- Uploads never confirmed fail after 24 hours; steps waiting for the organisation's own systems fail after 30 minutes (scheduled job).
+- A failed scan is tagged "Couldn't check"; a file that never arrived "No file yet".
 ## Rolling back
 
 The commit before this work on `main` is tagged locally as `pre-hardening-main` (`8cd46ff`). To undo,

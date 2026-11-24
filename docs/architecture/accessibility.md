@@ -30,6 +30,12 @@ Where "Add documents" differs from the EDS file upload pattern, and why (R25):
 | Progress per file with percentage and amount | One progress bar for the batch, then a line per file with its state (uploading, scanning, reading, ready, or the problem) | Files are small; what people wait for is scanning and reading, which have no percentage. |
 | Cancel ("x") and retry (refresh icon) per file | "Cancel" while a file waits, "Try again" for a failed upload, "Retry" or "Keep without reading" when reading fails | Text buttons say what happens; the reading step has two ways forward, which an icon cannot tell apart. |
 | Finished files shown as removable pills | Finished files join the record's documents table with a "Ready" tag; removing one is "Delete" in its panel | An added file is a document with history and access rules, so it is deleted like any document, not dismissed. |
+## Processing states (file hooks)
+- A document's processing change is announced once: a polite status for a step done, an alert for a failure or a blocked file. Each announcement is a new element, so the same failure twice is said twice; it leaves the page after 5 s (`processing-announcer.tsx`).
+- Polling never moves focus. After a person's own Try again, Keep without reading or Report a problem, focus goes to the file's row in the upload card or to the document's heading in the panel.
+- Failure copy names the step, the system and the next step; actions a person cannot take are not shown as disabled buttons, one sentence says who can act.
+- "Check now" says "Checked HH:mm" in a status; a failed refresh is a visible banner.
+- Checked with axe-core 4.10 (WCAG 2.2 AA) on the components in light and dark (0 violations, design review round 2). Not yet checked with a screen reader: required before release (R5.7).
 ## When you add a screen
 
 - Every control has a name; every input has a visible label.
