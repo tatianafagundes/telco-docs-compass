@@ -160,8 +160,9 @@ Out: a storage port (the store stays Supabase here), OCR started from the screen
    administrators only and recorded.
 3. Callbacks count against the key's write limit; a 429 never changes a document.
 4. Extracted values, threat names and file names never appear in events or logs (tested by spying on logs).
-5. An alert-level log line (no values) is written when one key quarantines more than
-   `QUARANTINE_ALERT_PER_HOUR` documents in an hour.
+5. An alert-level log line (no values) is written when the organisation's antivirus quarantines more
+   than `QUARANTINE_ALERT_PER_HOUR` documents in an hour (one antivirus per organisation, D3; a key
+   replaced inside the hour still counts, decided in the final review).
 6. Residual risk, stated in the docs: a compromised or wrong scanner cannot be told apart from a correct one;
    the controls limit what it can do. A human security review approves before publishing; a privacy (and AI,
    if the reader is AI) impact assessment is flagged for the customer.

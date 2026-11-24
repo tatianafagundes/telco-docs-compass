@@ -161,28 +161,23 @@ describe("a failing count never changes the answer (it never throws)", () => {
   });
 });
 
-describe("whose quarantines the count is (R6.5: one key)", () => {
-  // Defect QA-F1, Low, src/services/file-result-alerts.ts:21-27. The count is the organisation's, not
-  // the key's. The comment assumes one antivirus key per organisation (BR-163), but a key revoked and
-  // replaced inside the hour leaves both keys' results in the count: 11 from the old key and 10 from the
-  // new one raise an alert that names the new key as having quarantined 21 documents.
-  // The activity detail carries "via <system name>" so the split exists in the data.
-  it.fails(
-    "two keys that each stay under the limit do not raise an alert naming one of them",
-    async () => {
-      const logs = spyLogs();
-      const db = new FakeDb({
-        document_events: [
-          ...infected(11, {
-            detail: `${INFECTED_DETAIL_PREFIX}: Eicar (ClamAV, attempt 1) · via Old AV`,
-          }),
-          ...infected(10, {
-            detail: `${INFECTED_DETAIL_PREFIX}: Eicar (ClamAV, attempt 1) · via New AV`,
-          }),
-        ],
-      });
-      await checkQuarantineRate(ctxOf(db, "client-new"), NOW);
-      expect(logs.alerts()).toEqual([]);
-    },
-  );
+describe("whose quarantines the count is (R6.5, decided in the final review)", () => {
+  // Was QA-F1. The count is the organisation's: it has one antivirus at a time (BR-163), and a key
+  // replaced inside the hour is still the same antivirus as far as files are concerned. An alert
+  // after a replacement is wanted, not a false one; the line names the key in use now.
+  it("results of a key replaced inside the hour still count", async () => {
+    const logs = spyLogs();
+    const db = new FakeDb({
+      document_events: [
+        ...infected(11, {
+          detail: `${INFECTED_DETAIL_PREFIX}: Eicar (ClamAV, attempt 1) · via Old AV`,
+        }),
+        ...infected(10, {
+          detail: `${INFECTED_DETAIL_PREFIX}: Eicar (ClamAV, attempt 1) · via New AV`,
+        }),
+      ],
+    });
+    await checkQuarantineRate(ctxOf(db, "client-new"), NOW);
+    expect(logs.alerts()).toHaveLength(1);
+  });
 });
