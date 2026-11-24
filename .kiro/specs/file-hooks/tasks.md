@@ -96,12 +96,12 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
 - [ ] 6.4 Carried: `document_events` has no index for the receipt check and the alert count (Q1). Add `(tenant_id, document_id, version_id, action)` and `(tenant_id, action, created_at)` in a new migration with 8.5, after checking the hosted table size.
 
 ## 7. Screens
-- [ ] 7.1 Copy and actions by reason and step (R5.2, R5.3); tooltip only for simulated (R5.1).
-- [ ] 7.2 One list refetch with backoff, hidden-tab pause, Check now, refresh error (R5.4).
-- [ ] 7.3 Announcements: polite status per change, alert for failures and quarantine (R5.5).
-- [ ] 7.4 Connected systems: labels, switch with confirmation, disconnect and switch-off warnings, name help (R5.6).
-- [ ] 7.5 Component tests (fake timers, no leaked intervals, text-only rendering of values and system names); browser check light and dark with axe.
-- [ ] 7.6 Review: `design-review` on the captures of every state; fix findings.
+- [x] 7.1 Copy and actions by reason and step (R5.2, R5.3), one pure rule for every screen (`src/lib/pipeline-copy.ts`): the card, the panel notice (`processing-notice.tsx`) and the record table; tooltip only for a built-in step (R5.1). Found on the way: an old timeout that recorded no step now scans again on Try again and is never kept without reading (it may have been the scan).
+- [x] 7.2 The record list refetches every 5 s, then 15 s after 2 minutes, only while a shown document waits for an outside system; React Query pauses while the tab is hidden and refetches on return; Check now with "Checked HH:mm"; "Can't refresh right now" banner. The upload card follows the list for rows the page is not walking (`useUpload.sync`).
+- [x] 7.3 Announcements (`processing-announcer.tsx`): polite for steps, alert for failures and blocked files, one keyed element each, focus never moved.
+- [x] 7.4 Connected systems: labels, the switch card with confirmation and the weaker-protection warning (`processing-switch.tsx`, `api.get/setProcessingSwitch`), disconnect warning for the system files wait for, name help, processing permissions exclusive in the dialog.
+- [x] 7.5 Component tests (`pipeline-copy.test.ts`, `processing-screens.test.tsx`, `processing-switch.test.tsx`, `use-upload-sync.test.tsx` with fake timers and no leaked timers; text-only rendering of system names). Browser check: a gallery of the real components with a stubbed API (outside the repo), light and dark, axe-core 4.10 WCAG 2.2 AA: 0 violations in 9 states each. The record page itself was not captured (its server functions need the service key); judged from code.
+- [x] 7.6 Review: `design-review` (`docs/design/file-hooks-screens-review.md`): 3 blockers, 10 shoulds, 8 nits. Fixed B1–B3, S1–S10, N2, N6, N7; round 2 captured with 0 axe violations. Left with reasons: N1, N3, N4, N5, N8. Before release: a person checks the announcements with a screen reader (R5.7).
 
 ## 8. Documentation and release
 - [ ] 8.1 `docs/integration/tmf667-api.md`: scopes, the three endpoints with examples, events, residual risk (R6.6), how a scanner must hash the bytes it downloaded.
