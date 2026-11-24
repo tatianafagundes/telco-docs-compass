@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import type { PipelineState } from "@/schemas/document";
 import {
   carriedQuarantine,
+  failedAfterCheck,
+  failedStep,
   MAX_QUARANTINED_VERSIONS,
   quarantineHasRoom,
   readDetail,
@@ -238,5 +240,22 @@ describe("text from outside systems", () => {
     expect(codePointSlice("😀😀😀", 2)).toBe("😀😀");
     expect(cleanLabel("😀".repeat(10), 5)).toBe("😀😀😀😀…");
     expect(cleanLabel("a\u202Eb", 10)).toBe("a\uFFFDb");
+  });
+});
+
+describe("the step a failure came from, one rule for retry, keep, downloads and the screens", () => {
+  it.each([
+    [{ reason: "scanError" }, "scan", false],
+    [{ reason: "noResult", step: "scan" }, "scan", false],
+    [{ reason: "noResult", step: "read" }, "read", true],
+    [{ reason: "noResult" }, "scan", false],
+    [{ reason: "unreadable" }, "read", true],
+    [{ reason: "unreadableAgain" }, "read", true],
+    [{ reason: "noFile" }, "scan", false],
+    [null, "read", true],
+  ])("%j: step %s, checked before it failed: %s", (raw, step, checked) => {
+    const d = readDetail(raw);
+    expect(failedStep(d)).toBe(step);
+    expect(failedAfterCheck(d)).toBe(checked);
   });
 });

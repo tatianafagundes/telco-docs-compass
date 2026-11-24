@@ -59,6 +59,21 @@ const ownOf = (r: Record<string, unknown>) => (k: string) =>
  * malformed attempt is 0. The quarantine list is never shortened. Older details used
  * `unreadableAgain`; it reads as `unreadable`, and a missing step is taken from the reason.
  */
+/**
+ * The step a failure came from: the recorded one, else from the reason (readDetail fills that in);
+ * a reason with no known step (an old timeout) may have been the scan, so it counts as the scan; a
+ * failure with neither was an old reading failure. Try again restarts this step.
+ */
+export function failedStep(d: PipelineDetail): Step {
+  return d.step ?? (d.reason === undefined ? "read" : "scan");
+}
+/**
+ * Whether a failed file passed the scan: only a reading failure, never a file that did not arrive.
+ * Keep without reading and downloads by people both rely on it.
+ */
+export function failedAfterCheck(d: PipelineDetail): boolean {
+  return d.reason !== "noFile" && failedStep(d) === "read";
+}
 export function readDetail(raw: unknown): PipelineDetail {
   const own = ownOf(asRecord(raw));
   const legacy = own("reason") === "unreadableAgain";

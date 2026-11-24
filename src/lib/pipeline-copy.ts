@@ -2,7 +2,12 @@
 // upload card, the record list and the document panel all read it, so they never disagree.
 import type { PipelineState } from "@/schemas/document";
 import { PIPELINE_LABEL, storedPipelineLabel } from "@/lib/document-labels";
-import { readDetail, type PipelineDetail } from "@/services/file-hook-detail";
+import {
+  failedAfterCheck,
+  failedStep,
+  readDetail,
+  type PipelineDetail,
+} from "@/services/file-hook-detail";
 import { EXTERNAL_RESULT_TIMEOUT_MINUTES } from "@/services/file-hook-timeouts";
 import { middleTruncate } from "@/services/upload-rules";
 
@@ -18,6 +23,8 @@ export interface ProcessingView {
   simulated: boolean;
   /** What happened and what to do, for a failed or blocked file. */
   message: string | null;
+  /** What happened, alone: what a screen reader is told (a name with a full stop never cuts it). */
+  headline: string | null;
   actions: ProcessingAction[];
 }
 
@@ -32,9 +39,7 @@ function nameOf(d: PipelineDetail, step: "scan" | "read", max: number): string {
 /** The tag of a failed document by what failed: the check, the reading, or the file itself. */
 function failedLabel(d: PipelineDetail): string {
   if (d.reason === "noFile") return "No file yet";
-  const scan =
-    d.step === "scan" || d.reason === "scanError" || (d.reason === "noResult" && d.step !== "read");
-  return scan ? "Couldn't check" : PIPELINE_LABEL.failed;
+  return failedStep(d) === "scan" ? "Couldn't check" : PIPELINE_LABEL.failed;
 }
 
 export interface ViewOptions {
@@ -57,56 +62,68 @@ export function processingView(
     waiting: null,
     simulated: false,
     message: null,
+    headline: null,
     actions: [],
   };
+  const say = (headline: string, next?: string) => ({
+    headline,
+    message: next ? `${headline} ${next}` : headline,
+  });
   if (state === "scanning" || state === "reading") {
     const step = state === "scanning" ? "scan" : "read";
     if (d.mode === "external")
       return { ...none, waiting: { system: systemName(d, step), since: d.since ?? null } };
-    return { ...none, simulated: true };
+    // The built-in check is simulated: its tag never says files are checked for threats (seg M1).
+    return { ...none, simulated: true, ...(step === "scan" ? { label: "Simulated check" } : {}) };
   }
   if (state === "quarantined")
     return {
       ...none,
-      message: `${systemName(d, "scan")} found a possible threat in this file. It's blocked: nobody can open or download it. To use this document again, add a clean new version.`,
+      ...say(
+        `${systemName(d, "scan")} found a possible threat in this file.`,
+        "It's blocked: nobody can open or download it. To use this document again, add a clean new version.",
+      ),
       actions: ["report", "delete"],
     };
   if (state !== "failed") return none;
   const n = EXTERNAL_RESULT_TIMEOUT_MINUTES;
   switch (d.reason) {
     case "noFile":
-      return { ...none, message: "The file never arrived. Add it again.", actions: ["delete"] };
+      return { ...none, ...say("The file never arrived.", "Add it again."), actions: ["delete"] };
     case "scanError":
       return {
         ...none,
-        message: `${systemName(d, "scan")} couldn't check this file. Try again.`,
+        ...say(`${systemName(d, "scan")} couldn't check this file.`, "Try again."),
         actions: ["retry", "delete"],
       };
     case "noResult":
       // A timeout that recorded no step may have been the scan: Try again scans again, and the
       // file cannot be kept unread (the retry and keep rules read it the same way).
-      return d.step !== "read"
+      return !failedAfterCheck(d)
         ? {
             ...none,
-            message: `${systemName(d, "scan")} didn't answer within ${n} minutes. Try again.`,
+            ...say(`${systemName(d, "scan")} didn't answer within ${n} minutes.`, "Try again."),
             actions: ["retry", "delete"],
           }
         : {
             ...none,
-            message: `${systemName(d, "read")} didn't answer within ${n} minutes. Try again, or keep the file without reading.`,
+            ...say(
+              `${systemName(d, "read")} didn't answer within ${n} minutes.`,
+              "Try again, or keep the file without reading.",
+            ),
             actions: ["retry", "keepUnread", "delete"],
           };
     default:
       // unreadable, and older failures that recorded no reason (they were reading failures).
-      if (d.step === "scan")
+      if (failedStep(d) === "scan")
         return {
           ...none,
-          message: `${systemName(d, "scan")} couldn't check this file. Try again.`,
+          ...say(`${systemName(d, "scan")} couldn't check this file.`, "Try again."),
           actions: ["retry", "delete"],
         };
       return {
         ...none,
-        message: "We couldn't read the text in this file, so no details were filled in.",
+        ...say("We couldn't read the text in this file, so no details were filled in."),
         actions: ["retry", "keepUnread", "delete"],
       };
   }
@@ -168,7 +185,7 @@ export function announcements(
     // The words on screen, and for a failure or a blocked file what happened (design review S9).
     const v = processingView(doc.pipeline_state, doc.pipeline_detail, { uploadingHere: true });
     const what = v.label.toLowerCase();
-    const first = urgent && v.message ? ` ${v.message.split(/(?<=\.) /)[0]}` : "";
+    const first = urgent && v.headline ? ` ${v.headline}` : "";
     out.push({ text: `${middleTruncate(doc.name, 48)}: ${what}.${first}`, urgent });
   }
   return out;

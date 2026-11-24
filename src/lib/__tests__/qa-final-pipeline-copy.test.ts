@@ -294,11 +294,9 @@ describe("the announcement text (R5.5)", () => {
     expect(say("ready", { attempt: 2 })).toEqual([{ text: "Report.pdf: ready.", urgent: false }]);
   });
 
-  // Defect QA-F2, Low, src/lib/pipeline-copy.ts:196 (`message.split(/(?<=\.) /)[0]`). The announcement
-  // keeps "the first sentence" by cutting after the first ". ". A system name with a full stop and a space
-  // ("Acme Corp. Scanner", "Acme Inc. AV") is cut inside the name, so a screen-reader user hears only
-  // "Acme Inc." and never that a possible threat was found, on an alert that is the only notice they get.
-  it.fails("a system name with a full stop does not cut the sentence inside the name", () => {
+  // Was QA-F2: the announcement cut the message after the first ". ", so a system name such as
+  // "Acme Inc. AV" was cut inside the name. It now speaks `headline`, built apart from the rest.
+  it("a system name with a full stop does not cut the sentence inside the name (was QA-F2)", () => {
     const out = say("quarantined", {
       mode: "external",
       by: "Acme Inc. Scanner",
@@ -310,7 +308,7 @@ describe("the announcement text (R5.5)", () => {
     });
     expect(out[0]!.text).toContain("possible threat");
   });
-  it.fails("the same for a failure: the name 'St. Mary AV' is not the whole message", () => {
+  it("the same for a failure: the name 'St. Mary AV' is not the whole message (was QA-F2)", () => {
     const out = say("failed", {
       mode: "external",
       by: "St. Mary AV",

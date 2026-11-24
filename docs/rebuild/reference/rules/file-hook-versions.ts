@@ -4,6 +4,7 @@ import type { PipelineState } from "@/schemas/document";
 import {
   carriedQuarantine,
   isQuarantined,
+  failedAfterCheck,
   quarantineHasRoom,
   readDetail,
   storedAttemptText,
@@ -77,10 +78,8 @@ export function keepUnread(
 ): KeepUnread {
   if (state !== "failed") return { ok: false, code: "notFailed" };
   const d = readDetail(rawDetail);
-  // Old failures with neither step nor reason were reading; a reason with no known step (a
-  // timeout) may have been the scan, so the file may never have been checked.
-  const reading = d.step === "read" || (d.step === undefined && d.reason === undefined);
-  if (d.reason === "noFile" || !reading) return { ok: false, code: "notReadingFailure" };
+  // Only a file that passed the scan (see failedAfterCheck).
+  if (!failedAfterCheck(d)) return { ok: false, code: "notReadingFailure" };
   // A quarantined version is never made ready (D5), whatever the failure says.
   if (isQuarantined(d, currentVersionId)) return { ok: false, code: "notReadingFailure" };
   const attemptText = storedAttemptText(rawDetail);

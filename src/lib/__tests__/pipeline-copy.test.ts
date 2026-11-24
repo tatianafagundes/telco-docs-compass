@@ -46,10 +46,11 @@ describe("while a step runs (R5.1)", () => {
     "a built-in %s step shows the simulated tooltip and waits for nobody",
     (state) => {
       expect(processingView(state, { mode: "simulated", attempt: 1 })).toEqual({
-        label: state === "scanning" ? "Checking for threats" : "Reading details",
+        label: state === "scanning" ? "Simulated check" : "Reading details",
         waiting: null,
         simulated: true,
         message: null,
+        headline: null,
         actions: [],
       });
       expect(processingView(state, null).simulated).toBe(true);
@@ -64,6 +65,7 @@ describe("while a step runs (R5.1)", () => {
       waiting: null,
       simulated: false,
       message: null,
+      headline: null,
       actions: [],
     });
   });
@@ -146,6 +148,7 @@ describe("failures and blocked files (R5.2, R5.3)", () => {
       simulated: false,
       message:
         "Acme AV found a possible threat in this file. It's blocked: nobody can open or download it. To use this document again, add a clean new version.",
+      headline: "Acme AV found a possible threat in this file.",
       actions: ["report", "delete"],
     });
     expect(processingView("quarantined", null).message).toMatch(/^The built-in check found/);

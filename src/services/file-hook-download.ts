@@ -1,6 +1,6 @@
 // File hooks: who may download a version (R2.1, R3.1, D5). Pure: no I/O.
 import type { PipelineState } from "@/schemas/document";
-import { isQuarantined, readDetail } from "@/services/file-hook-detail";
+import { failedAfterCheck, isQuarantined, readDetail } from "@/services/file-hook-detail";
 
 /**
  * People and `read` keys get a file only once it passed the check: ready, being read, or failed while
@@ -9,10 +9,7 @@ import { isQuarantined, readDetail } from "@/services/file-hook-detail";
  */
 function checkedFile(state: PipelineState, d: ReturnType<typeof readDetail>): boolean {
   if (state === "ready" || state === "reading") return true;
-  if (state !== "failed" || d.reason === "noFile") return false;
-  // Old failures with neither step nor reason were reading failures. A reason with no known step
-  // (a timeout written without its step) may have been a scan: never treated as checked.
-  return d.step === "read" || (d.step === undefined && d.reason === undefined);
+  return state === "failed" && failedAfterCheck(d);
 }
 export type Downloader =
   | { kind: "person" }
