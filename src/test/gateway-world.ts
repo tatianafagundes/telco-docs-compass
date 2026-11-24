@@ -96,6 +96,11 @@ export async function buildWorld(opts: WorldOptions = {}): Promise<FakeDb> {
         ...opts.client,
       },
     ],
+    // The organisation switch (file hooks): off unless a test turns it on.
+    tenants: [
+      { id: TENANT, external_processing: {} },
+      { id: OTHER_TENANT, external_processing: {} },
+    ],
     integration_tokens: [],
     documents: opts.documents ?? [
       docRow(),

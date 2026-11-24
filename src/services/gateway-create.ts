@@ -1,5 +1,6 @@
 // POST /document: register a document with its first file. What the request may contain is in
 // gateway-create-input.ts; storing the file and version is in document-first-version.ts.
+import { processAsSystem } from "@/services/system-processing";
 import { mimeAccepted, sizeAllowed } from "@/services/upload-rules";
 import type { Json } from "@/integrations/supabase/types";
 import { fetchBytes } from "@/services/gateway-fetch";
@@ -168,8 +169,9 @@ export async function createDocument(request: Request): Promise<Response> {
         description: d.description ?? null,
         document_type: d.documentType,
         status: "draft",
-        // Bytes we received are hash-checked and stored; otherwise the client still has to upload.
-        pipeline_state: bytes ? "ready" : "uploading",
+        // Every file is checked before it counts: bytes received here go through the same steps as an
+        // upload (file-hooks spec R4.5, release gate H4); otherwise the client still has to upload.
+        pipeline_state: "uploading",
         sensitivity: (def.defaultSensitivity ?? "internal") as
           "public" | "internal" | "confidential" | "restricted",
         retention_policy_id: def.retentionPolicyRef ?? null,
@@ -218,6 +220,13 @@ export async function createDocument(request: Request): Promise<Response> {
       doc.id,
       bytes ? (att.url ? "Version 1 (fetched from url)" : "Version 1 (sent inline)") : "Version 1",
     );
+    // A file received with the request is checked now; if that cannot run, it waits in uploading.
+    if (bytes)
+      await processAsSystem(ctx, doc.id).catch(() =>
+        console.error(
+          JSON.stringify({ op: "tmf.createDocument", requestId: ctx.requestId, step: "process" }),
+        ),
+      );
     const created = await findDoc(ctx, doc.id);
     const [tmf] = created ? await loadTmfDocs(ctx, [created]) : [];
     return {

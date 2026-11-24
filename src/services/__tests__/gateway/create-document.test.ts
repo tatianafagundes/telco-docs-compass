@@ -70,6 +70,7 @@ describe("registering a document with inline content", () => {
       name: "Signed contract",
       document_type: "contract",
       status: "draft",
+      // Checked by the server's own steps before it is ready (file-hooks R4.5).
       pipeline_state: "ready",
       sensitivity: "confidential",
       retention_policy_id: "pol-7",
@@ -90,7 +91,9 @@ describe("registering a document with inline content", () => {
     expect(db.rows("document_relations")).toMatchObject([
       { document_id: row?.["id"], entity_id: ENTITY, role: "contract" },
     ]);
-    expect(db.storageCalls).toHaveLength(1);
+    // One upload; the later downloads are the server reading it back to hash and check it.
+    expect(db.storageCalls.filter((c) => c.op === "upload")).toHaveLength(1);
+    expect(db.storageCalls.filter((c) => c.op !== "upload" && c.op !== "download")).toEqual([]);
     expect(db.storageCalls[0]).toMatchObject({
       bucket: "documents",
       op: "upload",
@@ -98,8 +101,11 @@ describe("registering a document with inline content", () => {
       contentType: "application/pdf",
     });
     expect(new TextDecoder().decode(db.storageCalls[0]?.bytes)).toBe(TEXT);
-    expect(db.rows("document_events")).toMatchObject([
-      { action: "upload", detail: "Version 1 (sent inline) · via Order care" },
+    expect(db.rows("document_events").map((e) => [e["action"], e["detail"]])).toEqual([
+      ["upload", "Version 1 (sent inline) · via Order care"],
+      ["pipelineStateChange", "uploading to scanning · via Order care"],
+      ["pipelineStateChange", "scanning to reading · via Order care"],
+      ["pipelineStateChange", "reading to ready · via Order care"],
     ]);
   });
 
@@ -230,8 +236,11 @@ describe("registering a document from a url", () => {
     expect(fetched).toContain(FILE);
     expect(db.rows("documents")[0]).toMatchObject({ pipeline_state: "ready" });
     expect(db.rows("document_versions")[0]).toMatchObject({ content_hash: await sha256Hex(TEXT) });
-    expect(db.rows("document_events")).toMatchObject([
-      { detail: "Version 1 (fetched from url) · via Order care" },
+    expect(db.rows("document_events").map((e) => e["detail"])).toEqual([
+      "Version 1 (fetched from url) · via Order care",
+      "uploading to scanning · via Order care",
+      "scanning to reading · via Order care",
+      "reading to ready · via Order care",
     ]);
   });
 
@@ -462,7 +471,7 @@ describe("registering the same document again", () => {
     expect(again.headers.get("Idempotent-Replay")).toBe("true");
     expect((await json(again))["id"]).toBe((await json(first))["id"]);
     expect(db.rows("documents")).toHaveLength(1);
-    expect(db.storageCalls).toHaveLength(1);
+    expect(db.storageCalls.filter((c) => c.op === "upload")).toHaveLength(1);
   });
 
   it("refuses the same key with different inline content", async () => {
@@ -655,5 +664,33 @@ describe("the download link of an attachment", () => {
   it("needs the read scope", async () => {
     await buildWorld({ scopes: ["register"] });
     expect((await link()).status).toBe(403);
+  });
+});
+describe("a file sent with the request is checked like any other (file-hooks R4.5, H4)", () => {
+  it("is never stored straight as ready: it waits for the organisation's antivirus when the switch is on", async () => {
+    const db = await world();
+    db.rows("tenants")[0]!["external_processing"] = { scan: true };
+    db.rows("integration_clients").push({
+      id: "client-av",
+      name: "Acme AV",
+      tenant_id: TENANT,
+      scopes: ["scan"],
+      revoked_at: null,
+      expires_at: null,
+      key_hash: "av",
+    });
+    expect((await create()).status).toBe(201);
+    expect(db.rows("documents")[0]).toMatchObject({
+      pipeline_state: "scanning",
+      pipeline_detail: { mode: "external", byClient: "client-av", step: "scan", attempt: 1 },
+    });
+  });
+  it("an infected file sent inline ends quarantined, not ready", async () => {
+    const db = await world();
+    const res = await create({
+      attachment: { mimeType: "application/pdf", content: btoa("TEST-QUARANTINE") },
+    });
+    expect(res.status).toBe(201);
+    expect(db.rows("documents")[0]).toMatchObject({ pipeline_state: "quarantined" });
   });
 });

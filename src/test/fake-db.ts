@@ -217,7 +217,12 @@ export class FakeDb {
           const bytes = this.objects.get(`${bucket}/${path}`);
           if (a.error || !bytes)
             return { data: null, error: a.error ?? { message: "Object not found" } };
-          return { data: new Blob([bytes as Uint8Array<ArrayBuffer>]), error: null };
+          // A Blob-like answer: jsdom's Blob has no arrayBuffer().
+          const copy = bytes.slice();
+          return {
+            data: { size: copy.byteLength, arrayBuffer: async () => copy.buffer },
+            error: null,
+          };
         },
         createSignedUploadUrl: (path: string) => answer(bucket, "createSignedUploadUrl", path),
         createSignedUrl: (path: string) => answer(bucket, "createSignedUrl", path),

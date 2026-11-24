@@ -31,8 +31,10 @@ export interface StepDeps {
     maxBytes: number,
   ) => Promise<Uint8Array<ArrayBuffer> | null | "tooLarge">;
   now: () => string;
-  /** Who handles each step if it starts now. Until the organisation switch exists, both are simulated. */
+  /** Who handles each step if it starts now (the organisation switch, D1). */
   owners: () => Promise<Record<Step, StepOwner>>;
+  /** Records the step in the activity log; by default as the signed-in person. A system passes its own. */
+  record?: (action: string, documentId: string, detail: string, versionId: string) => Promise<void>;
 }
 export interface StepAnswer {
   id: string;
@@ -168,7 +170,9 @@ export async function advanceStep(
     "moving a document to its next processing step",
   );
   if (!written) return fail("pipeline.changed", "conflict");
-  await audit(env, "pipelineStateChange", doc.id, `${state} to ${next.state}`, version.id);
+  const detail = `${state} to ${next.state}`;
+  if (deps.record) await deps.record("pipelineStateChange", doc.id, detail, version.id);
+  else await audit(env, "pipelineStateChange", doc.id, detail, version.id);
   return {
     ok: true,
     data: {
