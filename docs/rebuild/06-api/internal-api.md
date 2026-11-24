@@ -26,14 +26,16 @@ In the rebuild, expose these as REST endpoints under `/api/v1` with the same err
 | transition | status change | BR-012 | doc.transition.notAllowed, doc.approve.requiredPending, doc.approve.ownDocument |
 | setHold | place or release a legal hold | manage | – |
 | deleteDocument / restoreDeleted | soft delete and undo | manage | doc.delete.legalHold, doc.delete.retention |
-| reportProblem | send back to draft, or "keep unread" for failed reads | review | doc.keepUnread.notFailed, doc.keepUnread.notRead (the scan failed or the file never arrived), doc.changedMeanwhile |
+| reportProblem | send back to draft, or report a problem (security, unreadable) | review | doc.transition.notAllowed |
 | grantAccess / revokeAccess / listAccess | shares and cross-tenant grants | manage | access.subject.notFound, access.subject.sameTenant, access.crossTenant.off |
-| reviewExtraction | accept, edit or reject one detail | review | extraction.field.notFound, doc.edit.frozen |
+| reviewExtraction | accept, edit or reject one detail of the current version | review | extraction.field.notFound, extraction.field.notCurrent (read from an earlier version), doc.edit.frozen, doc.edit.approvedContent, doc.changedMeanwhile (decided meanwhile) |
 | searchDocuments / countDocuments / facetDocuments | search (see 08) | any | search.failed |
 | findRecord | jump to a record by identifier | any | – |
 | listSavedViews / saveView / deleteView | personal and team views (team views are admin only) | any | view.notFound |
 | startBulkJob / getBulkJob | bulk changes (see 08) | per document | bulk.tooMany, bulk.empty, bulk.notFound |
-| advancePipeline | move the simulated pipeline on; answers `waiting` for a step an outside system handles | uploader | pipeline.notUploaded, pipeline.hashMismatch, pipeline.sizeMismatch, pipeline.tooLarge, pipeline.changed, pipeline.quarantined, pipeline.notRetryable |
+| advancePipeline | move the simulated pipeline on, or Try again (`retry`); answers `waiting` for a step an outside system handles | edit | pipeline.notUploaded, pipeline.hashMismatch, pipeline.sizeMismatch, pipeline.tooLarge, pipeline.changed, pipeline.quarantined, pipeline.notRetryable, pipeline.wrongState, pipeline.badDetail, pipeline.seeded, pipeline.retry.notFailed |
+| updateMetadata `keepUnread` | Keep without reading: a file whose reading failed becomes ready, details entered by hand | edit | doc.keepUnread.notFailed, doc.keepUnread.notRead (the scan failed, timed out without a step, or the file never arrived), doc.changedMeanwhile |
+| getProcessingSwitch / setProcessingSwitch | the organisation's own antivirus and reader on or off (recorded) | tenant_admin | – |
 | resetTestData | remove test artefacts | master admin | reset.notTestData, reset.failed |
 | listHolds / retentionOverview / deletionHistory / verifyHolds / purgeDocument / retentionFor | retention and holds | admin (purge BR-052) | doc.delete.* |
 | getConfig / listChildTenants / getChildView / specUsage / saveSpecification / resetSpecification | group and country configuration | admin | access.roleTooLow, config.locked, config.extendOnly, config.belowFloor, config.unknownPolicy, config.notOverridden, tenant.notFound |

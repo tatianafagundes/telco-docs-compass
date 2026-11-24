@@ -214,6 +214,7 @@ paths:
       parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/FileStepAnswer" } } } }
+        "400": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
@@ -245,6 +246,8 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /document/{id}/attachment/{attachmentId}/extractionResult:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }

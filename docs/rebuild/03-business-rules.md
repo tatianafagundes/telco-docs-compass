@@ -168,8 +168,8 @@ Error shape for internal operations: `{code, category, retryable, customerFacing
 
 ### BR-143 Approved content is protected
 On approved or effective documents, name and description (plus sensitivity and record links) can still change. Confirmed details, dates (expiry/validFor) and file versions cannot; the API replies 409 `approvedContentLocked`. Superseded, expired and archived documents stay fully closed. Tests: `document-rules.test.ts` "approved content protection", `e2e/tmf-api.py` section 4.
-## N. File hooks (`file-hook-rules.ts`, `file-hook-detail.ts`, `file-hook-download.ts`, `file-hook-fields.ts`, `file-hook-timeouts.ts`, `file-hook-text.ts`)
-Spec: `.kiro/specs/file-hooks`. The rules below are implemented as pure functions with tests; the endpoints and screens that use them are built in later phases of that spec, and each rule says where it is used today.
+## N. File hooks (`file-hook-*.ts`, `pipeline-step.ts`, `file-result-*.ts`, `gateway-file-*.ts`, `src/lib/pipeline-copy.ts`)
+Spec: `.kiro/specs/file-hooks`. The pure rules are in `file-hook-rules.ts`, `file-hook-detail.ts`, `file-hook-download.ts`, `file-hook-versions.ts`, `file-hook-fields.ts`, `file-hook-timeouts.ts` and `file-hook-text.ts`; the screens read the same rules through `src/lib/pipeline-copy.ts`. Which step a failure came from is decided once (`failedStep`, `failedAfterCheck`), for Try again, Keep without reading, downloads and the screens.
 | Id | Rule |
 | --- | --- |
 | BR-150 | File events: `DocumentFileStoredEvent` {versionId, contentHash, sizeBytes, mediaType, attempt} when a document enters scanning, `DocumentFileReadyToReadEvent` {versionId, attempt} when it enters reading, `DocumentFilePurgedEvent` {versionIds} on permanent deletion. Written by the database trigger in the same transaction as the change (migrations 0016–0018). Declared extensions, not TMF667 standard events. |

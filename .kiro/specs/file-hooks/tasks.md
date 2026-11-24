@@ -81,7 +81,7 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
 - [ ] 5.8 Carried, with reasons:
   - seg M1: a person adding a detail between the reader's check and its insert gives a second, pending row for that name (no unique index on version and name). The person's row is kept and the proposal waits for review, so nothing is applied silently. A unique index needs a check of the hosted rows first; with 8.5.
   - seg L5: the scan receipt is not bound to a client id. One processing key of each kind per organisation (BR-163) makes the designated system the only one that can download in the step; a rotated key keeps the same client.
-  - seg L7: a failure in the middle of `processAsSystem` leaves a simulated step where it stopped. A person's Check now or the scheduled run (6.1) moves it on.
+  - seg L7: a failure in the middle of `processAsSystem` leaves a simulated step where it stopped. A person's Try again or the next page walk moves it on; the scheduled run does not (it only times out outside steps and uploads; an upload left unprocessed fails as `noFile` after 24 hours). Corrected in the final review.
   - seg L8: a 403 `notYourStep`/`notDesignated` tells a key of the same organisation that a document exists; accepted, the key already reads its organisation's documents.
   - M2 rest (seg re-check: Medium, open): the declared size is checked first, but both downloads still buffer the whole stored object before its real size is known, so a file uploaded larger than declared is read into memory. Release gate: the bucket's own limit at most 25 MB (2.5), or stream from a signed address with `readResponseBytes` and `MAX_PROCESS_BYTES`. createDocument also fetches the file it just stored; reuse the bytes later.
   - seg re-check: `reviewExtraction` does not check that the field's version is still current or that the field is still pending; guard both with 8.5.
@@ -117,5 +117,24 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
 - [x] 8.2 `docs/rebuild/06-api/tmf667.md`, OpenAPI contract (extensions marked non-standard), `bun run sync:rebuild`.
 - [x] 8.3 Screens docs (`record.md`, `admin-systems.md`), `accessibility.md`, `regression-after-publish.md`. There is no `roadmap.md` in this repository; open items are in this file.
 - [x] 8.4 `e2e/file-hooks.py`: scanner key on a test tenant; clean, infected, replay, stale attempt, hash mismatch, other tenant 404; revokes the key at the end.
-- [ ] 8.5 Final multi-perspective review of the whole range (`code-reviewer`, `seg-review`, `qa-test-engineer`, `design-review`); fix findings.
+- [x] 8.5 Final multi-perspective review of the whole range (2f60cbb..): `code-reviewer` CHANGES REQUESTED (M1, S1–S10, nits), `seg-review` BLOCK (H1, H2, M1–M4, L1–L7), `qa-test-engineer` (6 `qa-final-*` files, 378 tests, F1–F4); `design-review` was the phase 7 round (no screen changed since but the labels below). Fixed, each with a test and a mutation caught:
+  - CR M1 / seg M4: a detail read from an earlier version is never confirmed into the document; the decision is guarded on the status read and the tenant (`document-review-step.ts`).
+  - seg H1: any API body with a list over 100 items or nesting over 32 levels is refused before the schema runs (a schema checked 300 000 empty objects one by one).
+  - seg H2: a stored file over 25 MB is refused from its listed size before any byte is fetched (`stored-file.ts`); the size after the download is still checked. Not verified against the hosted Storage API's listing metadata.
+  - CR S1: one rule for the step a failure came from (`failedStep`, `failedAfterCheck` in `file-hook-detail.ts`), used by Try again, Keep without reading, downloads and the screens.
+  - seg M1: the built-in check's tag is "Simulated check", never "Checking for threats".
+  - seg M2 / 6.4: migration 0021, three plain indexes (receipt check, quarantine count, sweep); seg M3: the sweep looks versions up 50 at a time.
+  - QA F2: announcements speak a headline built apart from the rest (a system name with ". " no longer cuts it); F3: a stored upload never shows as stopped or is registered twice; F4: an expired key is no system to wait for.
+  - Decided: F1, the quarantine count is the organisation's antivirus, also across a key replaced inside the hour (R6.5 updated).
+  - CR S3 (dead `UploadRow.retried` removed), S4–S8 (internal API table, BR section intro, error tables, contract responses, ARCHITECTURE.md).
+- [ ] 8.7 Carried from the final review, with reasons (not release-blocking unless marked):
+  - **Release gate:** confirm on the hosted project that the Storage listing carries `metadata.size` (else the H2 check falls back to the size after the download) and that the `documents` bucket limit is at most 25 MB.
+  - **Release gate:** migrations 0016–0021 applied on the hosted database; the 2.5 L3/L4 data checks run.
+  - **Release gate:** a human security review (R6.6) and a screen-reader check of the announcements (R5.7).
+  - **Release gate:** `e2e/file-hooks.py` run on the preview (it turns the Sweden organisation's own antivirus on during the run; needs the owner's go-ahead).
+  - CR S2: the guarded pipeline write and the simulated owners are written in three places; one helper later (the guard columns are the same today, checked by `file-events-paths.test.ts`).
+  - CR S10: subscription query parsing changed in phase 1 (URLSearchParams); covered by `file-events-opt-in.test.ts`, no legacy `+` case added.
+  - seg L1 (restore's hash lookup lowercases; the restored file is scanned again), L4 (a scan answer whose activity write fails is answered as a replay later; the state is right), L5 (status changes decided from an earlier read), L6 (DNS rebinding in url fetch, older than this spec), L7 (a real alert rule behind the log line is for operations).
+  - The unique index on `extraction_fields (version_id, name)` (5.8 seg M1) waits for a check of the hosted rows.
+  - zod advisory GHSA-mrhx-c7xc-m3w5 (separate ticket; H1 removes the measured attack path).
 - [ ] 8.6 Per-commit check, full regression, gitleaks; human security review sign-off (R6.6); publish to `main`; run `e2e/file-hooks.py` on the preview and record the result.

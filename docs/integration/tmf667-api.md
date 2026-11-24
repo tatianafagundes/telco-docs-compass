@@ -176,15 +176,15 @@ Residual risk: a clean answer is trusted. The app checks that your system downlo
 
 | Status | `code` | What to do |
 | --- | --- | --- |
-| 400 | `invalidBody`, `invalidJson`, `invalidQuery`, `invalidStatus`, `invalidContent`, `invalidCallback`, `unknownDocumentType`, `mimeNotAccepted`, `filterTooBroad`, `idempotencyKeyMissing`, `tooLarge` | fix the request |
+| 400 | `invalidBody` (also any list over 100 items or nesting over 32 levels), `invalidJson`, `invalidQuery`, `invalidStatus`, `invalidContent`, `invalidCallback`, `unknownDocumentType`, `mimeNotAccepted`, `filterTooBroad`, `idempotencyKeyMissing`, `tooLarge`; reader answers: `unknownFields`, `duplicateFields`, `badValues` (with `names`) | fix the request |
 | 401 | `unauthorized` | get a new token; check the key is not revoked or expired |
 | 403 | `scopeMissing`, `notDesignated`, `notRegisteredHere` | ask the tenant admin for the scope, or use the key of the system the step waits for |
 | 404 | `notFound`, `relatedEntityNotFound` | the document or record does not exist in your organisation |
 | 405 | `methodNotAllowed` | use a method the path supports |
-| 409 | `transitionNotAllowed`, `fileMissing` (send the content first: sending for approval, approving and making effective need a checked file), `requiredDetailsPending`, `fourEyesRequired`, `approvedContentLocked`, `contentLocked`, `notCurrent` (only the current version is downloaded), `frozen`, `legalHold`, `retention`, `idempotencyInProgress`, `idempotencyMismatch` | the document's state refuses it; read the message, do not retry blindly (except `idempotencyInProgress`) |
+| 409 | `transitionNotAllowed`, `fileMissing` (send the content first: sending for approval, approving and making effective need a checked file), `requiredDetailsPending`, `fourEyesRequired`, `approvedContentLocked`, `contentLocked`, `notCurrent` (only the current version is downloaded), `frozen`, `legalHold`, `retention`, `idempotencyInProgress`, `idempotencyMismatch`; file results and confirmations: `versionNotCurrent`, `notScanning`, `notReading`, `staleAttempt`, `notYourStep`, `hashMismatch` (the hash you sent is not the stored file's), `notFetched`, `quarantined`, `changedMeanwhile`, `cannotProcess`, `notUploading`, `sizeMismatch` | the document's state refuses it; read the message, do not retry blindly (except `idempotencyInProgress`) |
 | 413 | `bodyTooLarge`, `tooLarge` | send the file by `url` or `uploadUrl` |
 | 415 | `unsupportedMediaType` | PATCH needs `application/merge-patch+json` |
-| 422 | `attachmentUnreachable`, `hashMismatch` | the file at `url` could not be fetched, or does not match `contentHash` |
+| 422 | `attachmentUnreachable`, `hashMismatch` | registration: the file at `url` could not be fetched, or does not match `contentHash` (a file result's hash mismatch is 409) |
 | 429 | `tooManyRequests` | wait for `Retry-After` |
 | 503 | `unavailable` | retry with the same `Idempotency-Key` |
 
