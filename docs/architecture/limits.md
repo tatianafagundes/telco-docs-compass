@@ -62,3 +62,5 @@ with it (and the reason must still hold).
 | `MAX_PROCESS_BYTES` | 26214400 | `pipeline-step.ts` | Largest stored file the server reads to hash and check; type limits are lower. |
 | `SIMULATED_SNIFF_BYTES` | 1048576 | `pipeline-step.ts` | The simulated check looks only at the start of a file, so a large file is not decoded whole. |
 | `MAX_RESULT_BODY_BYTES` | 1000000 | `gateway-file-results.ts` | A reader's answer, in bytes: room for 100 details of 2000 characters each, even in a script of 3 bytes a character. Other API bodies keep `MAX_BODY_CHARS`. |
+| `MAX_JSON_ARRAY` | 100 | `gateway-body.ts` | Longest list in any API body, checked before the schema (a schema checks every element before its own length rule). |
+| `MAX_JSON_DEPTH` | 32 | `gateway-body.ts` | Deepest nesting in any API body. |

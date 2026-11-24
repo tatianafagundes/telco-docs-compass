@@ -10,7 +10,13 @@ import { designatedProcessingKey } from "@/services/external-processing";
 import { decideRate, rateHeaders, rateKind, retryGuidance } from "@/services/rate-limit-rules";
 import { z } from "zod";
 
-import { readRequestText, type Limited } from "@/services/gateway-body";
+import {
+  jsonShapeRefusal,
+  MAX_JSON_ARRAY,
+  MAX_JSON_DEPTH,
+  readRequestText,
+  type Limited,
+} from "@/services/gateway-body";
 import type { Db } from "@/services/seam-runtime";
 
 import {
@@ -187,8 +193,9 @@ export async function readJson(
 ): Promise<{ ok: true; body: unknown } | { ok: false; res: Response }> {
   const { value: text, tooLarge } = alreadyRead ?? (await readRequestText(request, maxChars));
   if (tooLarge) return { ok: false, res: bodyTooLarge(ctx) };
+  let body: unknown;
   try {
-    return { ok: true, body: text ? JSON.parse(text) : {} };
+    body = text ? JSON.parse(text) : {};
   } catch {
     return {
       ok: false,
@@ -198,6 +205,23 @@ export async function readJson(
       ),
     };
   }
+  const shape = jsonShapeRefusal(body);
+  if (shape)
+    return {
+      ok: false,
+      res: errorReply(
+        tmfError(
+          400,
+          "invalidBody",
+          "Bad Request",
+          shape === "list"
+            ? `A list in the body holds more than ${MAX_JSON_ARRAY} items.`
+            : `The body nests deeper than ${MAX_JSON_DEPTH} levels.`,
+        ),
+        ctx.requestId,
+      ),
+    };
+  return { ok: true, body };
 }
 
 export async function loadTmfDocs(ctx: SystemCtx, docs: DocRow[]) {

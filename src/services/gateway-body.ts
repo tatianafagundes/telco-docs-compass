@@ -62,3 +62,25 @@ export async function readResponseBytes(
   const r = await readStream(response.body, maxBytes);
   return { value: r.value as Uint8Array<ArrayBuffer>, tooLarge: r.tooLarge };
 }
+
+/** Longest list any API body may hold: the largest declared list (a reader's details) is 100. */
+export const MAX_JSON_ARRAY = 100;
+/** Deepest nesting any API body may have. */
+export const MAX_JSON_DEPTH = 32;
+/**
+ * Whether a parsed body has a list longer than MAX_JSON_ARRAY or nests deeper than MAX_JSON_DEPTH.
+ * Checked before the schema: a schema validates every element of a list before its own length rule,
+ * so a body of many empty objects would otherwise cost the server far more than its size (seg H1).
+ */
+export function jsonShapeRefusal(value: unknown): "list" | "depth" | null {
+  const stack: [unknown, number][] = [[value, 0]];
+  while (stack.length) {
+    const [v, depth] = stack.pop()!;
+    if (typeof v !== "object" || v === null) continue;
+    if (depth >= MAX_JSON_DEPTH) return "depth";
+    const items = Array.isArray(v) ? v : Object.values(v);
+    if (Array.isArray(v) && v.length > MAX_JSON_ARRAY) return "list";
+    for (const x of items) if (typeof x === "object" && x !== null) stack.push([x, depth + 1]);
+  }
+  return null;
+}
