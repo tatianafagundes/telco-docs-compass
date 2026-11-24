@@ -5,11 +5,13 @@ it; English only. "Review" tasks are done by the named agent on the diff of that
 before the next phase. Requirements: `requirements.md`; design: `design.md`.
 
 ## 0. Decisions and requests
+
 - [x] 0.1 D1, D2 and D8 confirmed (2026-11-24): switch column and trigger written in this repo.
 - [x] 0.2 Migrations `0016_file_hooks.sql` (switch, file-event trigger, hold branch), `0017_file_hooks_safe_attempt.sql` (a malformed attempt never blocks an update) and `0018_file_hooks_hardening.sql` (seg-review M1, L1–L3: hold value not sent, empty search_path, version bound to document and tenant, two events for a combined change); `src/test/file-hooks-trigger.test.ts` runs them on PGlite, `src/test/file-hooks-migration.test.ts` guards the payload keys. After publishing: confirm on the preview that the migration applied (an upload emits `DocumentFileStoredEvent`).
 - [x] 0.3 Docs: align names in `docs/rebuild/18-tenancy-and-data-protection.md` (D7) and add BR rules for R1–R6 in `docs/rebuild/03-business-rules.md` (BR-150 to BR-162).
 
 ## 1. Pure rules (no I/O)
+
 - [x] 1.1 `file-hook-rules.ts`: opt-in set, whitelist, payload builders. Tests: null, empty, other-type queries get none; extra keys, `__proto__`, wrong types never pass (R1.5, R1.6).
 - [x] 1.2 `stepTransition` for every state, result, attempt and quarantined version (R2.4, R3.5, R4.4, D5). Table test.
 - [x] 1.3 Download rule table (design) (R2.1, R3.1, D5).
@@ -18,6 +20,7 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
 - [x] 1.6 Review: `code-reviewer` on phase 1: approved with 8 should-fix findings, all fixed (comparable attempt guard, quarantine never shortened, external result checks and replay, timeout checks the wait, external owner names its system, step from reason, unsafe text incl. lone surrogates, names cut by code points); 16 mutations of the rules each caught by a test.
 
 ## 2. Server pipeline (simulated path made safe)
+
 - [x] 2.1 `pipeline.functions.ts` (core in `pipeline-step.ts`): guarded updates (state, version, `pipeline_detail->>attempt` from `expect.attemptText`; needs a jsonb guard next to `updateDocumentIf`); `pipeline_detail` with mode, since, step, attempt; Try again restarts the failed step; server SHA-256 on confirm (R4.3, R4.4, R1.1).
 - [x] 2.2 `externalPending` and the waiting flag when a step is external (R4.2). Test: an editor cannot advance an external scan or retry past it.
 - [x] 2.3 `addVersion` (now `document-add-version.ts`) carries `carriedQuarantine(...)` and is refused when `quarantineHasRoom` is false; restore rule (R4.8, D5).
@@ -38,6 +41,7 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
   - Publishing to `main` behind the preview is accepted on these conditions: preview access restricted, no real customer or personal files, no wording that files are scanned or safe. 5.3 and 5.5 are closed; the rest of this list stays open as release blockers.
 
 ## 3. Organisation switch and keys
+
 - [x] 3.1 `external-processing.ts`: switch read from `tenants.external_processing`, active scanner and reader, `startStep`.
 - [x] 3.2 Scopes `scan`, `extract`: D3 and D4 at creation (admin only, recorded) and in `authenticate`; `ALL_SCOPES` in the test world updated on purpose. Done: `processing-keys.ts` (pure), `integration-client-create.ts` (D3, D4, recorded), `authenticate` re-check (403 `notDesignated`, 503 when the keys cannot be read), migration 0020 (CHECK and partial unique index), `setProcessingSwitch` / `getProcessingSwitch` (organisation administrator, recorded), `resolveOwners` wired into `advancePipeline`, `ALL_SCOPES` kept without the exclusive scopes, `e2e/tmf-api.py` skips them for "all scopes". A switch on with no active key gives an external step with no system (waits, then times out).
 - [x] 3.3 Review: `seg-review` on phase 3: PASS WITH FINDINGS (no Critical/High). Fixed: M1 lost update on the switch and M2 audit after the effect (atomic `set_external_processing`, compensation on key creation, disconnect records first and finishes on retry), M3 processing-key check after the rate limit with a scope filter, L1 switch shape CHECK, L3 key rotation recorded, L5 names cleaned, L7 no token for a non-designated key. Left, with reasons:
@@ -47,12 +51,14 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
   - For phases 4–5: answers and downloads are authorised with `scan`/`extract` only, never by widening `read`; an external step with no system (`by` null) must show "no system connected" and is never offered to anyone; Try again resolves the owner as it is now (the spec's rule), a document keeps its mode only while its step lasts.
 
 ## 4. Events out
+
 - [x] 4.1 Tests that every path that changes `pipeline_state` or purges goes through the guarded update the trigger listens to; no app-side event inserts for the file events (R1.1–R1.4).
 - [x] 4.2 `tmf667-events.ts`: `OPT_IN_EVENTS` before the no-query branch and then the status and type filters (seg-review M2); hold changes give `changedAttributes: ["legalHold"]` without the value (R1.3, R1.5); `file-events-opt-in.test.ts`. Done early: the trigger writes the events as soon as the migration applies.
 - [x] 4.3 Test that no sensitive string (description, hold reason, value, threat name, person name) reaches any outbox row or delivered body (R1.6, R6.4). Done: `file-events-paths.test.ts` (static, reviewed writers), `file-events-no-content.test.ts` (PGlite, every event kind, delivered bodies, poisoned payloads). Logs are spied in 5.6 with the callbacks, which are the first code that handles threat names and values.
 - [x] 4.4 Review: `code-reviewer` on phases 3 and 4: APPROVED with S1–S8. Fixed: the tripwire now reads the TypeScript syntax tree of all of `src` plus the migrations (11 bypasses it missed, each now caught), rotation recorded first, a failed take-back of an unrecorded key is logged, one designation helper for `authenticate` and `issueToken`, media types restricted to type/subtype. S7 (0020's CHECK on existing rows) does not apply: 0020 and the creation checks were published in the same push, so no processing key could exist before the constraint. Open, for 5.3: API inline content still goes straight to `ready` (H4, Q1).
 
 ## 5. Callbacks and confirm upload
+
 - [x] 5.1 `gateway-file-results.ts` `postScanResult` with the check order of R2.3, receipt check (`file-result-receipts.ts`), idempotency per document, version and attempt, R2.8. The built-in reading runs in the same request after `clean`.
 - [x] 5.2 `postExtractionResult` (R3): fields checked as a whole, saved as pending proposals from the system (`file-result-fields.ts`), a person's row kept, proposals taken back when the document moved meanwhile.
 - [x] 5.3 `confirmUpload` (R4.6, `gateway-file-upload.ts`); API inline and url files stored as `uploading` and run through the steps by `processAsSystem` (H4 closed).
@@ -83,6 +89,7 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
   - Hand-written `{"attempt": 3.0}` rows stay unwritable (one `it.fails`, 2.6).
 
 ## 6. Timeouts and alerts
+
 - [x] 6.1 Timeout step in the scheduled run (R4.7): `file-hook-sweep.ts` `timeOutWaitingSteps`, called by `runMaintenance` (step `stepTimeouts`, `timedOutSteps` in the result). Guarded on state, version and attempt; seeded, deleted, purged and version-less documents left out in the query; records `pipelineStateChange` against the version; does not read keys, so a disconnected antivirus still times out. Tests `file-hook-sweep.test.ts` (boundaries at N and N+1 ms, every tenant, batch, races, failures).
 - [x] 6.2 Quarantine-rate alert (R6.5): `file-result-alerts.ts` after each accepted infected result; alert line with ids and counts only; a failed count is logged and never changes the answer. FakeDb gained `like`, `not` and `or`.
 - [x] 6.3 Review: `code-reviewer` CHANGES REQUESTED (M1, S1–S4, nits, Q1–Q2). Fixed, each with a test and a mutation caught:
@@ -96,6 +103,7 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
 - [ ] 6.4 Carried: `document_events` has no index for the receipt check and the alert count (Q1). Add `(tenant_id, document_id, version_id, action)` and `(tenant_id, action, created_at)` in a new migration with 8.5, after checking the hosted table size.
 
 ## 7. Screens
+
 - [x] 7.1 Copy and actions by reason and step (R5.2, R5.3), one pure rule for every screen (`src/lib/pipeline-copy.ts`): the card, the panel notice (`processing-notice.tsx`) and the record table; tooltip only for a built-in step (R5.1). Found on the way: an old timeout that recorded no step now scans again on Try again and is never kept without reading (it may have been the scan).
 - [x] 7.2 The record list refetches every 5 s, then 15 s after 2 minutes, only while a shown document waits for an outside system; React Query pauses while the tab is hidden and refetches on return; Check now with "Checked HH:mm"; "Can't refresh right now" banner. The upload card follows the list for rows the page is not walking (`useUpload.sync`).
 - [x] 7.3 Announcements (`processing-announcer.tsx`): polite for steps, alert for failures and blocked files, one keyed element each, focus never moved.
@@ -104,9 +112,10 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
 - [x] 7.6 Review: `design-review` (`docs/design/file-hooks-screens-review.md`): 3 blockers, 10 shoulds, 8 nits. Fixed B1–B3, S1–S10, N2, N6, N7; round 2 captured with 0 axe violations. Left with reasons: N1, N3, N4, N5, N8. Before release: a person checks the announcements with a screen reader (R5.7).
 
 ## 8. Documentation and release
-- [ ] 8.1 `docs/integration/tmf667-api.md`: scopes, the three endpoints with examples, events, residual risk (R6.6), how a scanner must hash the bytes it downloaded.
-- [ ] 8.2 `docs/rebuild/06-api/tmf667.md`, OpenAPI contract (extensions marked non-standard), `bun run sync:rebuild`.
-- [ ] 8.3 Screens docs (`record.md`, `admin-systems.md`), `accessibility.md`, `regression-after-publish.md`, `roadmap.md`.
-- [ ] 8.4 `e2e/file-hooks.py`: scanner key on a test tenant; clean, infected, replay, stale attempt, hash mismatch, other tenant 404; revokes the key at the end.
+
+- [x] 8.1 `docs/integration/tmf667-api.md`: scopes, the three endpoints with examples, events, residual risk (R6.6), how a scanner must hash the bytes it downloaded.
+- [x] 8.2 `docs/rebuild/06-api/tmf667.md`, OpenAPI contract (extensions marked non-standard), `bun run sync:rebuild`.
+- [x] 8.3 Screens docs (`record.md`, `admin-systems.md`), `accessibility.md`, `regression-after-publish.md`. There is no `roadmap.md` in this repository; open items are in this file.
+- [x] 8.4 `e2e/file-hooks.py`: scanner key on a test tenant; clean, infected, replay, stale attempt, hash mismatch, other tenant 404; revokes the key at the end.
 - [ ] 8.5 Final multi-perspective review of the whole range (`code-reviewer`, `seg-review`, `qa-test-engineer`, `design-review`); fix findings.
 - [ ] 8.6 Per-commit check, full regression, gitleaks; human security review sign-off (R6.6); publish to `main`; run `e2e/file-hooks.py` on the preview and record the result.
