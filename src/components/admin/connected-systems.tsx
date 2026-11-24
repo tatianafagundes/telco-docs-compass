@@ -14,6 +14,8 @@ import { Select } from "@/components/erad/select";
 import { Tag } from "@/components/erad/tag";
 import { TextField } from "@/components/erad/text-field";
 import { SystemLimitsDialog } from "@/components/admin/system-limits-dialog";
+import { ProcessingSwitch } from "@/components/admin/processing-switch";
+import { disconnectWarning, switchKey, withScope } from "@/components/admin/processing-switch-view";
 import { canLine, FILTER_FROM, splitSystems } from "@/components/admin/connected-systems-view";
 import { failureText } from "@/hooks/use-config";
 import { api } from "@/services/api";
@@ -67,6 +69,8 @@ export function ConnectedSystems() {
   const [shownKey, setShownKey] = useState<{ name: string; key: string } | null>(null);
   const [revoking, setRevoking] = useState<ConnectedSystem | null>(null);
   const [limiting, setLimiting] = useState<ConnectedSystem | null>(null);
+  // Shared with the switch card below: the disconnect warning depends on it.
+  const sw = useQuery({ queryKey: switchKey, queryFn: () => api.getProcessingSwitch() });
 
   const rotate = useMutation({
     mutationFn: (s: ConnectedSystem) =>
@@ -134,6 +138,7 @@ export function ConnectedSystems() {
           }}
         />
       )}
+      {list.data ? <ProcessingSwitch systems={list.data} /> : null}
       <Card title="For your integration team">
         <div className="flex flex-col gap-1">
           <p className="type-paragraph-14">
@@ -216,7 +221,12 @@ export function ConnectedSystems() {
         open={revoking !== null}
         onOpenChange={(o) => !o && setRevoking(null)}
         title={`Disconnect ${revoking?.name ?? ""}?`}
-        description="Its key stops working straight away and its change notifications end. Documents it added stay where they are."
+        description={[
+          "Its key stops working straight away and its change notifications end. Documents it added stay where they are.",
+          revoking ? disconnectWarning(revoking, sw.data) : null,
+        ]
+          .filter(Boolean)
+          .join(" ")}
         actions={
           <>
             <Button onClick={() => setRevoking(null)}>Keep connected</Button>
@@ -307,19 +317,24 @@ function AddSystemDialog({
         />
         <TextField
           label="Name shown in activity"
+          helper="People see this name when a file waits for this system or is blocked by it."
           value={name}
           maxLength={80}
           onChange={(e) => setName(e.target.value)}
         />
         <fieldset className="flex flex-col gap-2">
           <legend className="type-label-14 mb-1">What it can do</legend>
+          <p className="type-label-12 text-text-secondary">
+            Checking files and reading files each need a system of their own, with no other
+            permission.
+          </p>
           {SCOPES.map((s) => (
             <Checkbox
               key={s}
               label={SCOPE_LABEL[s]}
               checked={scopes.includes(s)}
               onCheckedChange={(c) =>
-                setScopes((prev) => (c === true ? [...prev, s] : prev.filter((x) => x !== s)))
+                setScopes((prev) => (c === true ? withScope(prev, s) : prev.filter((x) => x !== s)))
               }
             />
           ))}

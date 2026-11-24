@@ -9,6 +9,7 @@ import * as systems from "@/services/integration-clients.functions";
 import * as search from "@/services/search.functions";
 import * as configWrite from "@/services/tenant-config-write.functions";
 import * as bulk from "@/services/bulk-jobs.functions";
+import * as processing from "@/services/external-processing.functions";
 import type { SearchFilters } from "@/services/search-rules";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -147,6 +148,11 @@ export const api = {
     unwrap(await systems.createSystem({ data: i })),
   rotateSystemKey: async (id: string) => unwrap(await systems.rotateSystemKey({ data: { id } })),
   revokeSystem: async (id: string) => unwrap(await systems.revokeSystem({ data: { id } })),
+  // the organisation's own antivirus and reader (file-hooks D1): administrators only
+  getProcessingSwitch: async () => unwrap(await processing.getProcessingSwitch()),
+  setProcessingSwitch: (
+    i: WithoutKey<Parameters<typeof processing.setProcessingSwitch>[0]["data"]>,
+  ) => write(processing.setProcessingSwitch, "setProcessingSwitch", i),
   updateSystemLimits: async (input: {
     id: string;
     readLimitPerMinute: number;
