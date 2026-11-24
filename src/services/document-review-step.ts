@@ -4,6 +4,7 @@ import type { z } from "zod";
 import type { Json } from "@/integrations/supabase/types";
 import type { reviewExtractionSchema } from "@/schemas/document";
 import { can, contentProtected, isFrozen } from "@/services/document-rules";
+import { updateDocumentIf } from "@/services/document-update";
 import { fail, loadDoc } from "@/services/document-write-shared";
 import { detailsWith } from "@/services/review-rules";
 import { audit, forbidden, type WriteEnv } from "@/services/seam-runtime";
@@ -41,7 +42,33 @@ export async function reviewExtractionStep(
             value: data.value as Json,
             original_value: field.original_value ?? field.value,
           };
-  // Guarded on the status as read: two decisions at once cannot both apply.
+  // Accepted or edited values become document details; rejected ones are taken off. The audit names the field, never its value.
+  const finalValue =
+    data.decision === "edit"
+      ? (data.value as Json)
+      : data.decision === "accept"
+        ? field.value
+        : null;
+  const characteristic = detailsWith(doc.characteristic, field.name, finalValue);
+  // The details are rewritten whole from the copy read above: guarded on that copy (its last
+  // change), the status and the version, so another decision, an approval or a new version made
+  // meanwhile is never overwritten (final seg re-check F2).
+  const written = await updateDocumentIf(
+    env.admin,
+    {
+      id: data.id,
+      tenantId: env.tenantId,
+      expect: {
+        status: doc.status,
+        current_version_id: doc.current_version_id,
+        updated_at: doc.updated_at,
+      },
+    },
+    { characteristic: characteristic as Json, updated_at: now },
+    "writing documents",
+  );
+  if (!written) return fail("doc.changedMeanwhile", "conflict", "retry");
+  // Guarded on the status as read: two decisions on one detail cannot both apply.
   const decided = must(
     await env.admin
       .from("extraction_fields")
@@ -52,23 +79,16 @@ export async function reviewExtractionStep(
       .select("id"),
     "writing extraction fields",
   );
-  if (!decided?.length) return fail("doc.changedMeanwhile", "conflict", "retry");
-  // Accepted or edited values become document details; rejected ones are taken off. The audit names the field, never its value.
-  const finalValue =
-    data.decision === "edit"
-      ? (data.value as Json)
-      : data.decision === "accept"
-        ? field.value
-        : null;
-  const characteristic = detailsWith(doc.characteristic, field.name, finalValue);
-  must(
-    await env.admin
-      .from("documents")
-      .update({ characteristic: characteristic as Json, updated_at: now })
-      .eq("id", data.id)
-      .eq("tenant_id", env.tenantId),
-    "writing documents",
-  );
+  if (!decided?.length) {
+    // The detail was decided meanwhile: put the document's details back as they were.
+    await updateDocumentIf(
+      env.admin,
+      { id: data.id, tenantId: env.tenantId, expect: { updated_at: now } },
+      { characteristic: doc.characteristic as Json, updated_at: doc.updated_at },
+      "taking back a detail decided meanwhile",
+    );
+    return fail("doc.changedMeanwhile", "conflict", "retry");
+  }
   const verb =
     data.decision === "accept" ? "accepted" : data.decision === "edit" ? "edited" : "rejected";
   await audit(env, "extractionReview", data.id, `Field ${field.name} ${verb}`);

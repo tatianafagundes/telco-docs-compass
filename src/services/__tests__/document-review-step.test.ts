@@ -19,6 +19,7 @@ function world(field: Row = {}, doc: Row = {}) {
         status: "draft",
         characteristic: [],
         current_version_id: V1,
+        updated_at: "2026-11-24T10:00:00.000Z",
         ...doc,
       },
     ],
@@ -71,7 +72,48 @@ describe("reviewExtractionStep", () => {
     const r = await reviewExtractionStep(env, accept);
     expect(!r.ok && r.error.code).toBe("doc.changedMeanwhile");
     expect(db.rows("extraction_fields")[0]!["status"]).toBe("rejected");
-    expect(db.writesTo("documents")).toEqual([]);
+    expect(db.rows("documents")[0]!["characteristic"]).toEqual([]);
+  });
+  it("a document approved meanwhile keeps its details; nothing is decided (seg re-check F2)", async () => {
+    const { db, env } = world();
+    db.stubNextSelect("documents", [{ ...db.rows("documents")[0]! }]);
+    Object.assign(db.rows("documents")[0]!, {
+      status: "approved",
+      updated_at: "2026-11-24T10:05:00.000Z",
+    });
+    const r = await reviewExtractionStep(env, accept);
+    expect(!r.ok && r.error.code).toBe("doc.changedMeanwhile");
+    expect(db.rows("documents")[0]!["characteristic"]).toEqual([]);
+    expect(db.rows("extraction_fields")[0]!["status"]).toBe("pending");
+  });
+  it("a status change meanwhile is enough to stop it, even with the same last change", async () => {
+    const { db, env } = world();
+    db.stubNextSelect("documents", [{ ...db.rows("documents")[0]! }]);
+    db.rows("documents")[0]!["status"] = "in_review";
+    const r = await reviewExtractionStep(env, accept);
+    expect(!r.ok && r.error.code).toBe("doc.changedMeanwhile");
+  });
+  it("another detail decided meanwhile is not lost: the second decision must retry", async () => {
+    const { db, env } = world();
+    db.stubNextSelect("documents", [{ ...db.rows("documents")[0]! }]);
+    Object.assign(db.rows("documents")[0]!, {
+      characteristic: [{ name: "party", value: "Acme" }],
+      updated_at: "2026-11-24T10:05:00.000Z",
+    });
+    const r = await reviewExtractionStep(env, accept);
+    expect(!r.ok && r.error.code).toBe("doc.changedMeanwhile");
+    expect(db.rows("documents")[0]!["characteristic"]).toEqual([{ name: "party", value: "Acme" }]);
+  });
+  it("when the detail was decided meanwhile, the document's details are put back", async () => {
+    const { db, env } = world();
+    db.stubNextSelect("extraction_fields", [{ ...db.rows("extraction_fields")[0]! }]);
+    db.rows("extraction_fields")[0]!["status"] = "rejected";
+    const r = await reviewExtractionStep(env, accept);
+    expect(!r.ok && r.error.code).toBe("doc.changedMeanwhile");
+    expect(db.rows("documents")[0]).toMatchObject({
+      characteristic: [],
+      updated_at: "2026-11-24T10:00:00.000Z",
+    });
   });
   it("a detail of another organisation is not found", async () => {
     const { env } = world({ tenant_id: "t2" });
