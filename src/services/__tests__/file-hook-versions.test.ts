@@ -65,6 +65,8 @@ describe("keepUnread", () => {
     ["an old scan error with no step", { reason: "scanError" }, false],
     ["a scanner that did not answer", { reason: "noResult", step: "scan" }, false],
     ["a file that never arrived", { reason: "noFile" }, false],
+    // A timeout that recorded no step may have been the scan: never kept unread (legacy rows).
+    ["an old timeout with no step", { reason: "noResult" }, false],
   ])("%s → %s", (_n, detail, allowed) => {
     const r = keepUnread("failed", detail, V);
     expect(r.ok).toBe(allowed);

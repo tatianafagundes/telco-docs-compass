@@ -264,9 +264,10 @@ export function stepTransition(
     }
     case "retry": {
       if (state !== "failed") return refuse("wrongState");
-      // A file that never arrived is added again, not retried. Old failures without a step were reading.
+      // A file that never arrived is added again, not retried. Old failures with neither step nor
+      // reason were reading; a reason with no known step (a timeout) may have been the scan: scan again.
       if (prev.reason === "noFile") return refuse("notRetryable");
-      const step = prev.step ?? "read";
+      const step = prev.step ?? (prev.reason === undefined ? "read" : "scan");
       return ok(STEP_STATE[step], start(step, prev, ctx));
     }
   }
