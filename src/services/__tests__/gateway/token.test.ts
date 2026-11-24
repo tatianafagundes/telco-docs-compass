@@ -36,6 +36,7 @@ describe("asking for a token", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("Cache-Control")).toBe("no-store");
     expect(res.headers.get("Pragma")).toBe("no-cache");
+    expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
     const body = await json(res);
     expect(body).toMatchObject({ token_type: "Bearer", expires_in: 900, scope: "read hold" });
     expect(String(body["access_token"])).toMatch(/^eradt_[0-9a-f]{64}$/);
@@ -100,6 +101,7 @@ describe("asking for a token", () => {
     const db = await buildWorld();
     const res = await issueToken(form(fields));
     expect(res.status).toBe(status);
+    expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
     expect((await json(res))["error"]).toBe(error);
     expect(db.rows("integration_tokens")).toHaveLength(0);
   });

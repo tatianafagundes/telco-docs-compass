@@ -9,7 +9,10 @@ import { isQuarantined, readDetail } from "@/services/file-hook-detail";
  */
 function checkedFile(state: PipelineState, d: ReturnType<typeof readDetail>): boolean {
   if (state === "ready" || state === "reading") return true;
-  return state === "failed" && d.reason !== "noFile" && (d.step ?? "read") === "read";
+  if (state !== "failed" || d.reason === "noFile") return false;
+  // Old failures with neither step nor reason were reading failures. A reason with no known step
+  // (a timeout written without its step) may have been a scan: never treated as checked.
+  return d.step === "read" || (d.step === undefined && d.reason === undefined);
 }
 export type Downloader =
   | { kind: "person" }

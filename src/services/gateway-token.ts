@@ -51,6 +51,7 @@ function oauthError(status: number, error: string, description: string): Respons
       "Content-Type": "application/json;charset=utf-8",
       "Cache-Control": "no-store",
       Pragma: "no-cache",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }
@@ -146,6 +147,7 @@ export async function issueToken(request: Request): Promise<Response> {
         "Content-Type": "application/json;charset=utf-8",
         "Cache-Control": "no-store",
         Pragma: "no-cache",
+        "X-Content-Type-Options": "nosniff",
       },
     },
   );

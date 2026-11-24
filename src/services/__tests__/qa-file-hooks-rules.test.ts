@@ -535,6 +535,19 @@ describe("QA downloadDecision matrix", () => {
       code: "notCurrent",
     });
   });
+  it.each([
+    [{ reason: "noResult" }, false],
+    [{ reason: "noFile" }, false],
+    [{ reason: "unreadable" }, true],
+    [{}, true],
+    [{ step: "scan", reason: "noResult" }, false],
+    [{ step: "read", reason: "noResult" }, true],
+  ])(
+    "a failed document with detail %j is a checked file for people: %s (seg re-check, legacy rows)",
+    (detail, given) => {
+      expect(downloadDecision(who.person, doc("failed", detail), V).ok).toBe(given);
+    },
+  );
   it.each(["ready", "reading"] as const)(
     "an older version is never given to people or read keys, even when the document is %s (seg H1)",
     (state) => {
