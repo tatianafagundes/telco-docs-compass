@@ -114,6 +114,9 @@ export async function advanceStep(
   let step: StepInput;
   if (retried) step = { kind: "retry" };
   else {
+    // A declared size over the limit is refused before the file is fetched into memory (seg M2).
+    if (version.size_bytes !== null && version.size_bytes > MAX_PROCESS_BYTES)
+      return fail("pipeline.tooLarge");
     const file = version.storage_path
       ? await deps.download(version.storage_path, MAX_PROCESS_BYTES)
       : null;

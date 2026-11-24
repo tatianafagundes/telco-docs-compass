@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { sha256Bytes } from "@/services/gateway-create-input";
 import {
   advanceStep,
+  MAX_PROCESS_BYTES,
   SIMULATED_OWNERS,
   SIMULATED_SNIFF_BYTES,
   type StepDeps,
@@ -262,6 +263,24 @@ describe("advanceStep", () => {
     const r = await advanceStep(w.env, { id: D }, w.deps);
     expect(!r.ok && r.error.code).toBe("pipeline.tooLarge");
     expect(w.admin.writesTo("documents")).toEqual([]);
+  });
+  it.each(["uploading", "scanning", "reading"])(
+    "refuses a version declared over the limit before fetching it, while %s (seg M2)",
+    async (state) => {
+      const w = await world(
+        { pipeline_state: state },
+        { version: { size_bytes: MAX_PROCESS_BYTES + 1 } },
+      );
+      const r = await advanceStep(w.env, { id: D }, w.deps);
+      expect(!r.ok && r.error.code).toBe("pipeline.tooLarge");
+      expect(w.downloads).toEqual([]);
+      expect(w.admin.writesTo("documents")).toEqual([]);
+    },
+  );
+  it("a version declared exactly at the limit is fetched", async () => {
+    const w = await world({}, { version: { size_bytes: MAX_PROCESS_BYTES } });
+    await advanceStep(w.env, { id: D }, w.deps);
+    expect(w.downloads).toHaveLength(1);
   });
   it("moves a document a connected system registered (no person created it)", async () => {
     const w = await world({ created_by: null, registered_by_client: "client-1" });
