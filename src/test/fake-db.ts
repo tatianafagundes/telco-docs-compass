@@ -366,6 +366,53 @@ class QueryBuilder implements PromiseLike<DbAnswer> {
     });
     return this;
   }
+  /** `not(column, "is", null)`: the column has a value. Only `is` is supported. */
+  not(column: string, op: string, value: null) {
+    if (op !== "is" || value !== null) throw new Error(`FakeDb: not ${op} is not supported`);
+    this.filters.push((r) => {
+      const v = pathValue(r, column);
+      return v !== null && v !== undefined;
+    });
+    return this;
+  }
+  /**
+   * PostgREST `or=(…)`: any of the terms, each `column.op.value` with op `eq`, `lt`, `gt`, `is`
+   * (null only) or `not.is` (null only). Values must not contain commas.
+   */
+  or(expr: string) {
+    const terms = expr.split(",").map((t) => {
+      const m = /^(.+?)\.(not\.)?(eq|lt|gt|is)\.(.*)$/.exec(t.trim());
+      if (!m) throw new Error(`FakeDb: or term ${t} is not supported`);
+      const [, column, not, op, raw] = m as unknown as [
+        string,
+        string,
+        string | undefined,
+        string,
+        string,
+      ];
+      if (op === "is" && raw !== "null") throw new Error("FakeDb: or supports is.null only");
+      // PostgREST: a value holding `.`, `:` or `,` must be double-quoted in an `or` list.
+      if (/[.:]/.test(raw) && !/^".*"$/.test(raw))
+        throw new Error(`FakeDb: or value ${raw} must be quoted`);
+      const value = raw.replace(/^"(.*)"$/, "$1");
+      return (r: Row) => {
+        const v = pathValue(r, column);
+        const hit =
+          op === "is"
+            ? v === null || v === undefined
+            : v !== null &&
+              v !== undefined &&
+              (op === "eq"
+                ? String(v) === value
+                : op === "lt"
+                  ? String(v) < value
+                  : String(v) > value);
+        return not ? !hit : hit;
+      };
+    });
+    this.filters.push((r) => terms.some((t) => t(r)));
+    return this;
+  }
   /** SQL LIKE: `%` any run of characters, `_` one character; case-sensitive, as in Postgres. */
   like(column: string, pattern: string) {
     const re = new RegExp(

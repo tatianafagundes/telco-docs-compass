@@ -13,6 +13,10 @@ const NOW = new Date("2026-11-24T12:00:00.000Z");
 const ago = (ms: number) => new Date(NOW.getTime() - ms).toISOString();
 const MIN = 60_000;
 const HOUR = 3_600_000;
+/** A document unchanged for longer than the upload timeout. */
+const OLD_UPLOAD = new Date(
+  NOW.getTime() - (UPLOAD_CONFIRM_TIMEOUT_HOURS * HOUR + 1),
+).toISOString();
 const D = "11111111-1111-4111-8111-111111111111";
 const V = "22222222-2222-4222-8222-222222222222";
 const external = (over: Row = {}) => ({
@@ -115,7 +119,7 @@ describe("a step waiting for an outside system", () => {
 describe("an upload never confirmed", () => {
   it("fails after the timeout from when its version was created, with noFile", async () => {
     const db = world(
-      { pipeline_state: "uploading", pipeline_detail: null },
+      { pipeline_state: "uploading", pipeline_detail: null, updated_at: OLD_UPLOAD },
       { created_at: ago(UPLOAD_CONFIRM_TIMEOUT_HOURS * HOUR + 1) },
     );
     expect(await sweep(db)).toBe(1);
@@ -129,14 +133,14 @@ describe("an upload never confirmed", () => {
   });
   it("waits at exactly the timeout", async () => {
     const db = world(
-      { pipeline_state: "uploading", pipeline_detail: null },
+      { pipeline_state: "uploading", pipeline_detail: null, updated_at: OLD_UPLOAD },
       { created_at: ago(UPLOAD_CONFIRM_TIMEOUT_HOURS * HOUR) },
     );
     expect(await sweep(db)).toBe(0);
   });
   it("uses its own version's time, never a version of another document", async () => {
     const db = world(
-      { pipeline_state: "uploading", pipeline_detail: null },
+      { pipeline_state: "uploading", pipeline_detail: null, updated_at: OLD_UPLOAD },
       { document_id: "someone-else", created_at: ago(99 * HOUR) },
     );
     expect(await sweep(db)).toBe(0);
@@ -164,7 +168,7 @@ describe("never moved", () => {
   });
   it("a document that moved meanwhile is not overwritten (guarded write)", async () => {
     const db = world(
-      { pipeline_state: "uploading", pipeline_detail: null },
+      { pipeline_state: "uploading", pipeline_detail: null, updated_at: OLD_UPLOAD },
       { created_at: ago(UPLOAD_CONFIRM_TIMEOUT_HOURS * HOUR + 1) },
     );
     // The sweep reads the upload as it was; its upload is confirmed before the write.
@@ -178,10 +182,95 @@ describe("never moved", () => {
   });
 });
 
+/** `n` more documents like the one of `world`, each with its own version. */
+function more(db: FakeDb, n: number, doc: Row = {}, version: Row = {}) {
+  const base = { ...row(db) };
+  for (let i = 0; i < n; i++) {
+    const id = `aaaaaaaa-0000-4000-8000-${String(i).padStart(12, "0")}`;
+    const vid = `bbbbbbbb-0000-4000-8000-${String(i).padStart(12, "0")}`;
+    db.rows("documents").push({ ...base, id, current_version_id: vid, ...doc });
+    db.rows("document_versions").push({
+      id: vid,
+      document_id: id,
+      tenant_id: "t1",
+      created_at: ago(99 * HOUR),
+      ...version,
+    });
+  }
+}
+const due = { pipeline_state: "uploading", pipeline_detail: null, updated_at: OLD_UPLOAD };
+
+describe("the batch (code review M1, S3)", () => {
+  it.each([
+    ["seeded documents", { created_by: null, registered_by_client: null }],
+    ["documents without a version", { current_version_id: null }],
+  ])(
+    "a due upload is reached behind more than a batch of older %s that never move",
+    async (_n, stuck) => {
+      const db = world({ ...due, updated_at: ago(30 * HOUR) }, { created_at: ago(30 * HOUR) });
+      more(db, TIMEOUT_BATCH + 5, { ...due, updated_at: ago(90 * HOUR), ...stuck });
+      expect(await sweep(db)).toBe(1);
+      expect(row(db)["pipeline_state"]).toBe("failed");
+    },
+  );
+  it("a due outside step is reached behind more than a batch of steps not due yet", async () => {
+    // Started 31 minutes ago and edited a few seconds ago: it sorts after steps started a minute ago.
+    const db = world({ updated_at: ago(5_000) });
+    more(db, TIMEOUT_BATCH + 5, {
+      updated_at: ago(MIN),
+      pipeline_detail: external({ since: ago(MIN) }),
+    });
+    expect(await sweep(db)).toBe(1);
+    expect(row(db)["pipeline_state"]).toBe("failed");
+  });
+  it("an upload edited recently is not read yet, and fails once the edit is that old", async () => {
+    const db = world({ ...due, updated_at: ago(HOUR) }, { created_at: ago(99 * HOUR) });
+    expect(await sweep(db)).toBe(0);
+    row(db)["updated_at"] = OLD_UPLOAD;
+    expect(await sweep(db)).toBe(1);
+  });
+  it("moves at most a batch of each kind per run; the next run moves the rest", async () => {
+    const db = world(due, { created_at: ago(99 * HOUR) });
+    more(db, TIMEOUT_BATCH + 9, due);
+    expect(await sweep(db)).toBe(TIMEOUT_BATCH);
+    expect(await sweep(db)).toBe(10);
+    expect(await sweep(db)).toBe(0);
+    expect(db.rows("document_events")).toHaveLength(TIMEOUT_BATCH + 10);
+  });
+  it("a full batch that moves nothing is logged, so stuck rows are seen", async () => {
+    const logged: string[] = [];
+    vi.spyOn(console, "error").mockImplementation((m: unknown) => void logged.push(String(m)));
+    // Due by the query, but their version belongs to no document of theirs: never moved.
+    const db = world(due, { document_id: "nobody" });
+    more(db, TIMEOUT_BATCH, due, { document_id: "nobody" });
+    expect(await sweep(db)).toBe(0);
+    expect(logged.join("\n")).toContain("noProgress");
+  });
+});
+
+describe("a write failing mid-run (code review S1)", () => {
+  it("the documents already moved still get their record, then the run fails", async () => {
+    const db = world(due, { created_at: ago(99 * HOUR) });
+    more(db, 1, due);
+    db.onWrite("documents", "update", () => void db.fail("documents", "update"));
+    await expect(sweep(db)).rejects.toThrow();
+    const failed = db.rows("documents").filter((d) => d["pipeline_state"] === "failed");
+    expect(failed).toHaveLength(1);
+    expect(db.rows("document_events").map((e) => e["document_id"])).toEqual([failed[0]!["id"]]);
+  });
+  it("a failed record names the documents for a backfill", async () => {
+    const logged: string[] = [];
+    vi.spyOn(console, "error").mockImplementation((m: unknown) => void logged.push(String(m)));
+    const db = world().fail("document_events", "insert");
+    await expect(sweep(db)).rejects.toThrow();
+    expect(logged.join("\n")).toContain(D);
+  });
+});
+
 describe("two runs at once", () => {
   it("record a timed-out upload once (the write is guarded on the state too)", async () => {
     const db = world(
-      { pipeline_state: "uploading", pipeline_detail: null },
+      { pipeline_state: "uploading", pipeline_detail: null, updated_at: OLD_UPLOAD },
       { created_at: ago(UPLOAD_CONFIRM_TIMEOUT_HOURS * HOUR + 1) },
     );
     db.stubNextSelect("documents", [{ ...row(db) }]);
@@ -216,9 +305,6 @@ describe("the run", () => {
         .map((e) => e["tenant_id"])
         .sort(),
     ).toEqual(["t1", "t2"]);
-  });
-  it("looks at a bounded batch of each kind", () => {
-    expect(TIMEOUT_BATCH).toBeLessThanOrEqual(500);
   });
   it("a failed record is reported loudly and fails the step of the scheduled run", async () => {
     const logged: string[] = [];

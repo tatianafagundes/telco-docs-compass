@@ -22,7 +22,7 @@ import {
   type Answer,
   type Target,
 } from "@/services/file-result-target";
-import { checkQuarantineRate } from "@/services/file-result-alerts";
+import { checkQuarantineRate, INFECTED_DETAIL_PREFIX } from "@/services/file-result-alerts";
 import { downloadedForScan } from "@/services/file-result-receipts";
 import { isUuid } from "@/services/file-hook-detail";
 import { authenticate, readJson, type SystemCtx } from "@/services/gateway-core";
@@ -133,18 +133,14 @@ export async function postScanResult(
         };
       if (!(await writeOutcome(ctx, t.doc.id, next))) return CHANGED;
       // The threat name appears here only, never in events or logs (R2.7).
+      // The alert counts infected results by this prefix (file-result-alerts.ts): built from it here.
       const what =
         body.result === "infected"
-          ? `infected: ${body.threatName ?? "threat"}`
+          ? `${INFECTED_DETAIL_PREFIX}: ${body.threatName ?? "threat"}`
           : body.result === "clean"
-            ? "clean"
-            : "could not check";
-      await audit(
-        ctx,
-        "scanResult",
-        t.doc.id,
-        `Scan ${what} (${body.engine}, attempt ${body.attempt})`,
-      );
+            ? "Scan clean"
+            : "Scan could not check";
+      await audit(ctx, "scanResult", t.doc.id, `${what} (${body.engine}, attempt ${body.attempt})`);
       if (body.result === "infected") await checkQuarantineRate(ctx);
       let state: string = next.state;
       // The built-in reading is run here: no browser waits on a file the antivirus answered for.

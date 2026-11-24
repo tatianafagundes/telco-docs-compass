@@ -9,7 +9,11 @@ import { DatabaseError } from "@/services/shared/must";
 /** How an infected result is recorded in the activity log (gateway-file-results.ts). */
 export const INFECTED_DETAIL_PREFIX = "Scan infected";
 
-/** Counts this hour's infected results and logs an alert past the limit. Never throws. */
+/**
+ * Counts this hour's infected results and logs an alert past the limit, on every infected result
+ * past it (alerting deduplicates; logging only on crossing would miss it under concurrent results).
+ * Never throws.
+ */
 export async function checkQuarantineRate(ctx: SystemCtx, now = new Date()): Promise<void> {
   try {
     const since = new Date(now.getTime() - 3_600_000).toISOString();
@@ -39,7 +43,8 @@ export async function checkQuarantineRate(ctx: SystemCtx, now = new Date()): Pro
     console.error(
       JSON.stringify({
         op: "fileHooks.quarantineRate",
-        step: e instanceof Error ? e.message : "unknown",
+        // A fixed word: an unexpected error's message is never logged here.
+        step: e instanceof DatabaseError ? e.message : "countFailed",
       }),
     );
   }
