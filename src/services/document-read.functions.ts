@@ -1,11 +1,11 @@
 // Server functions that only read documents: the list (`find`), the content link and who has
 // access. They run as the caller (row-level security) through `runRead`.
+import { downloadDecision } from "@/services/file-hook-download";
 import { createServerFn } from "@tanstack/react-start";
 import type { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { contentUrlSchema, docWriteSchema, findSchema } from "@/schemas/document";
 import {
-  contentLocked,
   DOWNLOAD_URL_SECONDS,
   isSampleStorage,
   PREVIEW_URL_SECONDS,
@@ -83,8 +83,23 @@ export const getContentUrl = createServerFn({ method: "POST" })
     runRead<ContentResult>(context, "getContentUrl", data.id, async ({ caller }) => {
       const doc = await loadDoc(caller, data.id);
       if (!doc || !doc.current_version_id) return fail("doc.notFound", "notFound");
-      if (contentLocked(doc.pipeline_state))
-        return fail("doc.content.locked", "rejected", "none", doc.pipeline_state);
+      // Only a checked file, and never a quarantined version (file-hooks spec D5).
+      const decision = downloadDecision(
+        { kind: "person" },
+        {
+          pipelineState: doc.pipeline_state,
+          pipelineDetail: doc.pipeline_detail,
+          currentVersionId: doc.current_version_id,
+        },
+        doc.current_version_id,
+      );
+      if (!decision.ok)
+        return fail(
+          decision.code === "quarantined" ? "doc.content.quarantined" : "doc.content.locked",
+          "rejected",
+          "none",
+          doc.pipeline_state,
+        );
       const { data: v } = await caller
         .from("document_versions")
         .select("id, mime_type, storage_path, sample_pages")

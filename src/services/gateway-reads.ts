@@ -15,6 +15,9 @@ import { externalIdentifierFilter, relatedDocumentIds } from "@/services/gateway
 import { errorReply, reply } from "@/services/gateway-reply";
 import { DOC_COLS, authenticate, findDoc, loadTmfDocs, notFound } from "@/services/gateway-core";
 import { audit } from "@/services/gateway-idempotency";
+import { isUuid, readDetail } from "@/services/file-hook-detail";
+import { downloadDecision, type Downloader } from "@/services/file-hook-download";
+import { recordScanDownload } from "@/services/file-result-receipts";
 // ---------- reads ----------
 
 export async function listDocuments(request: Request): Promise<Response> {
@@ -67,43 +70,74 @@ export async function getDocument(request: Request, id: string): Promise<Respons
   );
 }
 
-/** Short-lived download link for one attachment (version). */
+/**
+ * Short-lived download link for one attachment (version). A `read` key gets a checked file; the
+ * organisation's own antivirus (`scan`) or reader (`extract`) gets the current version during its own
+ * step, and the antivirus's download is recorded so a `clean` answer can be checked against it.
+ * A quarantined version is never downloaded (file-hooks spec R2.1, R3.1, D5).
+ */
 export async function getAttachmentContent(
   request: Request,
   id: string,
   attachmentId: string,
 ): Promise<Response> {
-  const ctx = await authenticate(request, "read");
+  const ctx = await authenticate(request, ["read", "scan", "extract"]);
   if (ctx instanceof Response) return ctx;
   const doc = await findDoc(ctx, id);
-  if (!doc) return notFound(ctx);
-  const { data: v } = await ctx.admin
-    .from("document_versions")
-    .select("id, storage_path")
-    .eq("id", attachmentId)
-    .eq("document_id", doc.id)
-    .maybeSingle();
-  if (!v?.storage_path)
+  if (!doc || !isUuid(attachmentId)) return notFound(ctx);
+  const [{ data: v }, { data: pipe }] = await Promise.all([
+    ctx.admin
+      .from("document_versions")
+      .select("id, storage_path")
+      .eq("id", attachmentId)
+      .eq("document_id", doc.id)
+      .eq("tenant_id", ctx.tenantId)
+      .maybeSingle(),
+    ctx.admin
+      .from("documents")
+      .select("pipeline_state, pipeline_detail, current_version_id")
+      .eq("id", doc.id)
+      .eq("tenant_id", ctx.tenantId)
+      .maybeSingle(),
+  ]);
+  if (!v?.storage_path || !pipe)
     return errorReply(
       tmfError(404, "notFound", "Not Found", "This attachment has no stored content."),
       ctx.requestId,
     );
-  const { data: pipe } = await ctx.admin
-    .from("documents")
-    .select("pipeline_state")
-    .eq("id", doc.id)
-    .single();
-  if (pipe && (pipe.pipeline_state === "scanning" || pipe.pipeline_state === "quarantined")) {
+  const who: Downloader = ctx.scopes.includes("scan")
+    ? { kind: "scanner", clientId: ctx.clientId }
+    : ctx.scopes.includes("extract")
+      ? { kind: "reader", clientId: ctx.clientId }
+      : { kind: "readKey" };
+  const decision = downloadDecision(
+    who,
+    {
+      pipelineState: pipe.pipeline_state,
+      pipelineDetail: pipe.pipeline_detail,
+      currentVersionId: pipe.current_version_id,
+    },
+    v.id,
+  );
+  if (!decision.ok)
     return errorReply(
-      tmfError(
-        409,
-        "contentLocked",
-        "Conflict",
-        "Content is being checked and can't be downloaded yet.",
-      ),
+      decision.code === "quarantined"
+        ? tmfError(
+            409,
+            "quarantined",
+            "Conflict",
+            "This file is blocked: a threat was found in it.",
+          )
+        : decision.code === "notYourStep"
+          ? tmfError(409, "notYourStep", "Conflict", "This file is not waiting for this system.")
+          : tmfError(
+              409,
+              "contentLocked",
+              "Conflict",
+              "Content is being checked and can't be downloaded yet.",
+            ),
       ctx.requestId,
     );
-  }
   const { data: signed } = await ctx.admin.storage
     .from("documents")
     .createSignedUrl(v.storage_path, DOWNLOAD_URL_SECONDS);
@@ -112,14 +146,15 @@ export async function getAttachmentContent(
       tmfError(503, "unavailable", "Service Unavailable", "Try again shortly."),
       ctx.requestId,
     );
-  await audit(ctx, "download", doc.id, "Download link");
+  if (decision.receipt)
+    await recordScanDownload(ctx, doc.id, v.id, readDetail(pipe.pipeline_detail).attempt);
+  else await audit(ctx, "download", doc.id, "Download link");
   return reply(
     200,
     { url: signed.signedUrl, expiresInSeconds: DOWNLOAD_URL_SECONDS },
     ctx.requestId,
   );
 }
-
 export async function listSpecifications(request: Request): Promise<Response> {
   const ctx = await authenticate(request, "read");
   if (ctx instanceof Response) return ctx;

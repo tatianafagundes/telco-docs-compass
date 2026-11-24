@@ -48,7 +48,12 @@ export const DOC_COLS =
  * Verifies the system key (erad_…) or a short-lived OAuth token (eradt_…), checks expiry, scope and
  * the per-minute rate limit, and returns a tenant-pinned context, or an error response.
  */
-export async function authenticate(request: Request, needed: Scope): Promise<SystemCtx | Response> {
+/** `needed` may list several scopes: the key needs one of them (a download: read, scan or extract). */
+export async function authenticate(
+  request: Request,
+  needed: Scope | readonly Scope[],
+): Promise<SystemCtx | Response> {
+  const wanted: readonly Scope[] = typeof needed === "string" ? [needed] : needed;
   const requestId = crypto.randomUUID();
   const key = readBearer(request.headers.get("authorization"));
   if (!key)
@@ -96,9 +101,14 @@ export async function authenticate(request: Request, needed: Scope): Promise<Sys
       requestId,
     );
   }
-  if (!hasScope(client.scopes, needed)) {
+  if (!wanted.some((s) => hasScope(client.scopes, s))) {
     return errorReply(
-      tmfError(403, "scopeMissing", "Forbidden", `This system key does not include '${needed}'.`),
+      tmfError(
+        403,
+        "scopeMissing",
+        "Forbidden",
+        `This system key does not include '${wanted.join("' or '")}'.`,
+      ),
       requestId,
     );
   }
@@ -147,7 +157,7 @@ export async function authenticate(request: Request, needed: Scope): Promise<Sys
       op: "tmf",
       client: client.id,
       tenant: client.tenant_id,
-      scope: needed,
+      scope: wanted.join(","),
       requestId,
     }),
   );

@@ -76,6 +76,8 @@ export function activityLabel(action: string): string {
 /** Friendly message for a failed action; never the raw code. */
 export function friendlyError(code: string | undefined): string {
   switch (code) {
+    case "doc.content.quarantined":
+      return "This file is blocked: a possible threat was found in it. Nobody can open or download it.";
     case "system.scopesExclusive":
       return "Checking files and reading files each need a key of their own. Choose only that permission.";
     case "system.processingKeyExists":

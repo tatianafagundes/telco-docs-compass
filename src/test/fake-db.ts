@@ -98,7 +98,7 @@ function project(row: Row, columns: string | null): Row {
 /** One call made to the storage stub. */
 export interface StorageCall {
   bucket: string;
-  op: "upload" | "createSignedUploadUrl" | "createSignedUrl" | "remove";
+  op: "upload" | "download" | "createSignedUploadUrl" | "createSignedUrl" | "remove";
   path: string;
   bytes?: Uint8Array;
   contentType?: string;
@@ -191,6 +191,8 @@ export class FakeDb {
   }
 
   /** Stand-in for `client.storage`: records the call and answers a fake signed address. */
+  /** Stored files by "bucket/path": filled by upload, read by download. Seed it for files already there. */
+  readonly objects = new Map<string, Uint8Array>();
   get storage() {
     const answer = (bucket: string, op: StorageCall["op"], path: string, extra: object = {}) => {
       this.storageCalls.push({ bucket, op, path, ...extra });
@@ -205,8 +207,18 @@ export class FakeDb {
     };
     return {
       from: (bucket: string) => ({
-        upload: (path: string, bytes: Uint8Array, o?: { contentType?: string }) =>
-          answer(bucket, "upload", path, { bytes, contentType: o?.contentType }),
+        upload: (path: string, bytes: Uint8Array, o?: { contentType?: string }) => {
+          if (!this.storageFailures.has("upload") && !this.storageThrows.has("upload"))
+            this.objects.set(`${bucket}/${path}`, bytes);
+          return answer(bucket, "upload", path, { bytes, contentType: o?.contentType });
+        },
+        download: async (path: string) => {
+          const a = await answer(bucket, "download", path);
+          const bytes = this.objects.get(`${bucket}/${path}`);
+          if (a.error || !bytes)
+            return { data: null, error: a.error ?? { message: "Object not found" } };
+          return { data: new Blob([bytes as Uint8Array<ArrayBuffer>]), error: null };
+        },
         createSignedUploadUrl: (path: string) => answer(bucket, "createSignedUploadUrl", path),
         createSignedUrl: (path: string) => answer(bucket, "createSignedUrl", path),
         remove: (paths: string[]) => answer(bucket, "remove", paths.join(",")),

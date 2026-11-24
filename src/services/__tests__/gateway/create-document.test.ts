@@ -610,13 +610,23 @@ describe("the download link of an attachment", () => {
     },
   );
 
-  it.each(["ready", "uploading", "failed"])(
-    "gives the link while the state is %s",
+  it.each(["ready", "reading", "failed"])(
+    "gives the link once the file was checked: %s",
     async (state) => {
       await stored({ pipeline_state: state });
       expect((await link()).status).toBe(200);
     },
   );
+  it.each([
+    ["uploading", null],
+    ["failed", { step: "scan", reason: "scanError" }],
+    ["failed", { reason: "noFile" }],
+  ])("refuses a file that was not checked: %s %j (file-hooks H5)", async (state, detail) => {
+    await stored({ pipeline_state: state, pipeline_detail: detail });
+    const res = await link();
+    expect(res.status).toBe(409);
+    expect(await code(res)).toBe("contentLocked");
+  });
 
   it("answers 404 for a version with no stored content", async () => {
     await stored({}, { storage_path: null });
