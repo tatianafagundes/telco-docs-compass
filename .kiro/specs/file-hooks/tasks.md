@@ -127,8 +127,9 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
   - QA F2: announcements speak a headline built apart from the rest (a system name with ". " no longer cuts it); F3: a stored upload never shows as stopped or is registered twice; F4: an expired key is no system to wait for.
   - Decided: F1, the quarantine count is the organisation's antivirus, also across a key replaced inside the hour (R6.5 updated).
   - CR S3 (dead `UploadRow.retried` removed), S4–S8 (internal API table, BR section intro, error tables, contract responses, ARCHITECTURE.md).
+- [x] 8.5b Re-check: `seg-review` PASS WITH FINDINGS; H1 closed, H2 closed once the listing carries a size. Fixed: F1 (no listed size: read through a 60-second address, cut at 25 MB, never buffered whole), F2 (the details write is guarded on the document's status, version and last change; a detail decided meanwhile puts them back). Left: F3 (a failed listing refuses the step without writing, which is safe), F4 (transition and token bodies are not lists; `readJson` holds the limit), F5 (build 0021's indexes CONCURRENTLY first on a large table, see the migration's comment), F6 (legacy failures with neither step nor reason: part of the 2.5 L3 data check).
 - [ ] 8.7 Carried from the final review, with reasons (not release-blocking unless marked):
-  - **Release gate:** confirm on the hosted project that the Storage listing carries `metadata.size` (else the H2 check falls back to the size after the download) and that the `documents` bucket limit is at most 25 MB.
+  - **Release gate:** set the hosted `documents` bucket limit to at most 25 MB and record it (defence in depth; the code bounds memory either way since 8.5b).
   - **Release gate:** migrations 0016–0021 applied on the hosted database; the 2.5 L3/L4 data checks run.
   - **Release gate:** a human security review (R6.6) and a screen-reader check of the announcements (R5.7).
   - **Release gate:** `e2e/file-hooks.py` run on the preview (it turns the Sweden organisation's own antivirus on during the run; needs the owner's go-ahead).
