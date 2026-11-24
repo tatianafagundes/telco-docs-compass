@@ -12,6 +12,8 @@
 //   gateway-hub.ts          event subscriptions
 //   gateway-routing.ts      unsupported methods, unknown paths, legacy marker
 //   gateway-token.ts        POST /oauth/token
+//   gateway-file-results.ts the organisation's antivirus and reader answers (scanResult, extractionResult)
+//   gateway-file-upload.ts  confirming an uploadUrl upload (uploaded)
 export { MAX_BODY_CHARS, authenticate, type SystemCtx } from "@/services/gateway-core";
 export { MAX_INLINE_BYTES } from "@/services/gateway-create-input";
 // Other modules (event delivery) and the tests reach the address check through the gateway.
@@ -30,3 +32,5 @@ export { deleteDocument, setLegalHold, transitionDocument } from "@/services/gat
 export { subscribe, unsubscribe } from "@/services/gateway-hub";
 export { legacy, otherMethods, unknownPath } from "@/services/gateway-routing";
 export { issueToken, TOKEN_TTL_SECONDS } from "@/services/gateway-token";
+export { postExtractionResult, postScanResult } from "@/services/gateway-file-results";
+export { confirmUpload } from "@/services/gateway-file-upload";

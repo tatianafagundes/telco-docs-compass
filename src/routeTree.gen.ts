@@ -48,7 +48,13 @@ import { Route as ApiPublicTmfApiDocumentV4DocumentIdTransitionRouteImport } fro
 import { Route as ApiPublicTmfApiDocumentManagementV4DocumentIdLegalHoldRouteImport } from './routes/api/public/tmf-api/documentManagement/v4/document.$id.legalHold'
 import { Route as ApiPublicTmfApiDocumentManagementV4DocumentIdTransitionRouteImport } from './routes/api/public/tmf-api/documentManagement/v4/document.$id.transition'
 import { Route as ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRouteImport } from './routes/api/public/tmf-api/document/v4/document.$id.attachment.$attachmentId.content'
+import { Route as ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdExtractionResultRouteImport } from './routes/api/public/tmf-api/document/v4/document.$id.attachment.$attachmentId.extractionResult'
+import { Route as ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdScanResultRouteImport } from './routes/api/public/tmf-api/document/v4/document.$id.attachment.$attachmentId.scanResult'
+import { Route as ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdUploadedRouteImport } from './routes/api/public/tmf-api/document/v4/document.$id.attachment.$attachmentId.uploaded'
 import { Route as ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdContentRouteImport } from './routes/api/public/tmf-api/documentManagement/v4/document.$id.attachment.$attachmentId.content'
+import { Route as ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdExtractionResultRouteImport } from './routes/api/public/tmf-api/documentManagement/v4/document.$id.attachment.$attachmentId.extractionResult'
+import { Route as ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdScanResultRouteImport } from './routes/api/public/tmf-api/documentManagement/v4/document.$id.attachment.$attachmentId.scanResult'
+import { Route as ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdUploadedRouteImport } from './routes/api/public/tmf-api/documentManagement/v4/document.$id.attachment.$attachmentId.uploaded'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -275,11 +281,59 @@ const ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRoute =
       getParentRoute: () => ApiPublicTmfApiDocumentV4DocumentIdRoute,
     } as any,
   )
+const ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdExtractionResultRoute =
+  ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdExtractionResultRouteImport.update(
+    {
+      id: '/attachment/$attachmentId/extractionResult',
+      path: '/attachment/$attachmentId/extractionResult',
+      getParentRoute: () => ApiPublicTmfApiDocumentV4DocumentIdRoute,
+    } as any,
+  )
+const ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdScanResultRoute =
+  ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdScanResultRouteImport.update(
+    {
+      id: '/attachment/$attachmentId/scanResult',
+      path: '/attachment/$attachmentId/scanResult',
+      getParentRoute: () => ApiPublicTmfApiDocumentV4DocumentIdRoute,
+    } as any,
+  )
+const ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdUploadedRoute =
+  ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdUploadedRouteImport.update(
+    {
+      id: '/attachment/$attachmentId/uploaded',
+      path: '/attachment/$attachmentId/uploaded',
+      getParentRoute: () => ApiPublicTmfApiDocumentV4DocumentIdRoute,
+    } as any,
+  )
 const ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdContentRoute =
   ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdContentRouteImport.update(
     {
       id: '/attachment/$attachmentId/content',
       path: '/attachment/$attachmentId/content',
+      getParentRoute: () => ApiPublicTmfApiDocumentManagementV4DocumentIdRoute,
+    } as any,
+  )
+const ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdExtractionResultRoute =
+  ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdExtractionResultRouteImport.update(
+    {
+      id: '/attachment/$attachmentId/extractionResult',
+      path: '/attachment/$attachmentId/extractionResult',
+      getParentRoute: () => ApiPublicTmfApiDocumentManagementV4DocumentIdRoute,
+    } as any,
+  )
+const ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdScanResultRoute =
+  ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdScanResultRouteImport.update(
+    {
+      id: '/attachment/$attachmentId/scanResult',
+      path: '/attachment/$attachmentId/scanResult',
+      getParentRoute: () => ApiPublicTmfApiDocumentManagementV4DocumentIdRoute,
+    } as any,
+  )
+const ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdUploadedRoute =
+  ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdUploadedRouteImport.update(
+    {
+      id: '/attachment/$attachmentId/uploaded',
+      path: '/attachment/$attachmentId/uploaded',
       getParentRoute: () => ApiPublicTmfApiDocumentManagementV4DocumentIdRoute,
     } as any,
   )
@@ -323,7 +377,13 @@ export interface FileRoutesByFullPath {
   '/api/public/tmf-api/documentManagement/v4/document/$id/legalHold': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdLegalHoldRoute
   '/api/public/tmf-api/documentManagement/v4/document/$id/transition': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdTransitionRoute
   '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/content': typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRoute
+  '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/extractionResult': typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdExtractionResultRoute
+  '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/scanResult': typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdScanResultRoute
+  '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/uploaded': typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdUploadedRoute
   '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/content': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdContentRoute
+  '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/extractionResult': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdExtractionResultRoute
+  '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/scanResult': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdScanResultRoute
+  '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/uploaded': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdUploadedRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -363,7 +423,13 @@ export interface FileRoutesByTo {
   '/api/public/tmf-api/documentManagement/v4/document/$id/legalHold': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdLegalHoldRoute
   '/api/public/tmf-api/documentManagement/v4/document/$id/transition': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdTransitionRoute
   '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/content': typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRoute
+  '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/extractionResult': typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdExtractionResultRoute
+  '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/scanResult': typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdScanResultRoute
+  '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/uploaded': typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdUploadedRoute
   '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/content': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdContentRoute
+  '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/extractionResult': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdExtractionResultRoute
+  '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/scanResult': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdScanResultRoute
+  '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/uploaded': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdUploadedRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -406,7 +472,13 @@ export interface FileRoutesById {
   '/api/public/tmf-api/documentManagement/v4/document/$id/legalHold': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdLegalHoldRoute
   '/api/public/tmf-api/documentManagement/v4/document/$id/transition': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdTransitionRoute
   '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/content': typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRoute
+  '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/extractionResult': typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdExtractionResultRoute
+  '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/scanResult': typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdScanResultRoute
+  '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/uploaded': typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdUploadedRoute
   '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/content': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdContentRoute
+  '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/extractionResult': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdExtractionResultRoute
+  '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/scanResult': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdScanResultRoute
+  '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/uploaded': typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdUploadedRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -449,7 +521,13 @@ export interface FileRouteTypes {
     | '/api/public/tmf-api/documentManagement/v4/document/$id/legalHold'
     | '/api/public/tmf-api/documentManagement/v4/document/$id/transition'
     | '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/content'
+    | '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/extractionResult'
+    | '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/scanResult'
+    | '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/uploaded'
     | '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/content'
+    | '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/extractionResult'
+    | '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/scanResult'
+    | '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/uploaded'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -489,7 +567,13 @@ export interface FileRouteTypes {
     | '/api/public/tmf-api/documentManagement/v4/document/$id/legalHold'
     | '/api/public/tmf-api/documentManagement/v4/document/$id/transition'
     | '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/content'
+    | '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/extractionResult'
+    | '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/scanResult'
+    | '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/uploaded'
     | '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/content'
+    | '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/extractionResult'
+    | '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/scanResult'
+    | '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/uploaded'
   id:
     | '__root__'
     | '/'
@@ -531,7 +615,13 @@ export interface FileRouteTypes {
     | '/api/public/tmf-api/documentManagement/v4/document/$id/legalHold'
     | '/api/public/tmf-api/documentManagement/v4/document/$id/transition'
     | '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/content'
+    | '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/extractionResult'
+    | '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/scanResult'
+    | '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/uploaded'
     | '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/content'
+    | '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/extractionResult'
+    | '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/scanResult'
+    | '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/uploaded'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -826,11 +916,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRouteImport
       parentRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdRoute
     }
+    '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/extractionResult': {
+      id: '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/extractionResult'
+      path: '/attachment/$attachmentId/extractionResult'
+      fullPath: '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/extractionResult'
+      preLoaderRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdExtractionResultRouteImport
+      parentRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdRoute
+    }
+    '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/scanResult': {
+      id: '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/scanResult'
+      path: '/attachment/$attachmentId/scanResult'
+      fullPath: '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/scanResult'
+      preLoaderRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdScanResultRouteImport
+      parentRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdRoute
+    }
+    '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/uploaded': {
+      id: '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/uploaded'
+      path: '/attachment/$attachmentId/uploaded'
+      fullPath: '/api/public/tmf-api/document/v4/document/$id/attachment/$attachmentId/uploaded'
+      preLoaderRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdUploadedRouteImport
+      parentRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdRoute
+    }
     '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/content': {
       id: '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/content'
       path: '/attachment/$attachmentId/content'
       fullPath: '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/content'
       preLoaderRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdContentRouteImport
+      parentRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentIdRoute
+    }
+    '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/extractionResult': {
+      id: '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/extractionResult'
+      path: '/attachment/$attachmentId/extractionResult'
+      fullPath: '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/extractionResult'
+      preLoaderRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdExtractionResultRouteImport
+      parentRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentIdRoute
+    }
+    '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/scanResult': {
+      id: '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/scanResult'
+      path: '/attachment/$attachmentId/scanResult'
+      fullPath: '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/scanResult'
+      preLoaderRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdScanResultRouteImport
+      parentRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentIdRoute
+    }
+    '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/uploaded': {
+      id: '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/uploaded'
+      path: '/attachment/$attachmentId/uploaded'
+      fullPath: '/api/public/tmf-api/documentManagement/v4/document/$id/attachment/$attachmentId/uploaded'
+      preLoaderRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdUploadedRouteImport
       parentRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentIdRoute
     }
   }
@@ -900,6 +1032,9 @@ interface ApiPublicTmfApiDocumentV4DocumentIdRouteChildren {
   ApiPublicTmfApiDocumentV4DocumentIdLegalHoldRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdLegalHoldRoute
   ApiPublicTmfApiDocumentV4DocumentIdTransitionRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdTransitionRoute
   ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRoute
+  ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdExtractionResultRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdExtractionResultRoute
+  ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdScanResultRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdScanResultRoute
+  ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdUploadedRoute: typeof ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdUploadedRoute
 }
 
 const ApiPublicTmfApiDocumentV4DocumentIdRouteChildren: ApiPublicTmfApiDocumentV4DocumentIdRouteChildren =
@@ -910,6 +1045,12 @@ const ApiPublicTmfApiDocumentV4DocumentIdRouteChildren: ApiPublicTmfApiDocumentV
       ApiPublicTmfApiDocumentV4DocumentIdTransitionRoute,
     ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRoute:
       ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdContentRoute,
+    ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdExtractionResultRoute:
+      ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdExtractionResultRoute,
+    ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdScanResultRoute:
+      ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdScanResultRoute,
+    ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdUploadedRoute:
+      ApiPublicTmfApiDocumentV4DocumentIdAttachmentAttachmentIdUploadedRoute,
   }
 
 const ApiPublicTmfApiDocumentV4DocumentIdRouteWithChildren =
@@ -965,6 +1106,9 @@ interface ApiPublicTmfApiDocumentManagementV4DocumentIdRouteChildren {
   ApiPublicTmfApiDocumentManagementV4DocumentIdLegalHoldRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentIdLegalHoldRoute
   ApiPublicTmfApiDocumentManagementV4DocumentIdTransitionRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentIdTransitionRoute
   ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdContentRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdContentRoute
+  ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdExtractionResultRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdExtractionResultRoute
+  ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdScanResultRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdScanResultRoute
+  ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdUploadedRoute: typeof ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdUploadedRoute
 }
 
 const ApiPublicTmfApiDocumentManagementV4DocumentIdRouteChildren: ApiPublicTmfApiDocumentManagementV4DocumentIdRouteChildren =
@@ -975,6 +1119,12 @@ const ApiPublicTmfApiDocumentManagementV4DocumentIdRouteChildren: ApiPublicTmfAp
       ApiPublicTmfApiDocumentManagementV4DocumentIdTransitionRoute,
     ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdContentRoute:
       ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdContentRoute,
+    ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdExtractionResultRoute:
+      ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdExtractionResultRoute,
+    ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdScanResultRoute:
+      ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdScanResultRoute,
+    ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdUploadedRoute:
+      ApiPublicTmfApiDocumentManagementV4DocumentIdAttachmentAttachmentIdUploadedRoute,
   }
 
 const ApiPublicTmfApiDocumentManagementV4DocumentIdRouteWithChildren =

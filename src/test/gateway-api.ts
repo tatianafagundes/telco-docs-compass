@@ -1,6 +1,9 @@
 // The gateway functions the characterisation tests call, in one place. The tests import from here,
 // so when tmf-gateway.ts is split into modules only this file changes.
 export {
+  confirmUpload,
+  postExtractionResult,
+  postScanResult,
   authenticate,
   createDocument,
   deleteDocument,
