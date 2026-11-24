@@ -90,6 +90,8 @@ async function world(doc: Record<string, unknown> = {}, scopes = ["extract"]) {
     content_hash: "sha256:" + "a".repeat(64),
     size_bytes: 10,
   }));
+  // Proposals get ids as the database default would: the take-back deletes by id.
+  db.withAutoId("extraction_fields");
   return db;
 }
 const read = (body: Record<string, unknown>, key?: string, v = V) =>
@@ -213,34 +215,30 @@ describe("fields at the limits", () => {
     expect(res.status).toBe(200);
     expect(db.rows("extraction_fields")).toHaveLength(100);
   });
-  it("a body of exactly 300000 bytes is read, one more byte is 413", async () => {
+  it("a body of exactly 1000000 bytes is read, one more byte is 413", async () => {
     const base = JSON.stringify({ result: "read", attempt: 3, fields: [] });
     const pad = (n: number) =>
       JSON.stringify({ result: "read", attempt: 3, fields: [], ...{} }).slice(0, -1) +
       " ".repeat(n) +
       "}";
-    const exact = pad(300_000 - base.length);
-    expect(new TextEncoder().encode(exact).length).toBe(300_000);
+    const exact = pad(1_000_000 - base.length);
+    expect(new TextEncoder().encode(exact).length).toBe(1_000_000);
     const db = await world();
     expect((await rawRead(exact)).status).toBe(200);
     expect(doc(db)["pipeline_state"]).toBe("ready");
     const db2 = await world();
-    expect((await rawRead(pad(300_001 - base.length))).status).toBe(413);
+    expect((await rawRead(pad(1_000_001 - base.length))).status).toBe(413);
     expect(db2.writesTo("documents")).toEqual([]);
   });
-  // R3.3: at most 100 fields of at most 2000 code points. The limit counts bytes, so a reader that
-  // sends 100 values of 2000 Japanese characters (3 bytes each, 600 KB) is refused with 413 although
-  // every limit of R3.3 is respected. The constant's comment says "2000 characters each".
-  it.fails(
-    "DEFECT (Low) gateway-file-results.ts:~44 MAX_RESULT_BODY_CHARS counts bytes: 100 fields of 2000 non-Latin characters are refused 413",
-    async () => {
-      const db = await world();
-      const fields = Array.from({ length: 100 }, (_v, i) => f(`f${i}`, "あ".repeat(2000)));
-      const res = await read({ result: "read", fields });
-      expect(res.status).toBe(200);
-      expect(db.rows("extraction_fields")).toHaveLength(100);
-    },
-  );
+  // R3.3: at most 100 fields of at most 2000 code points. The limit counts bytes, so it leaves room
+  // for 100 values of 2000 Japanese characters (3 bytes each, 600 KB). Was QA D3.
+  it("100 fields of 2000 non-Latin characters fit in the body limit (QA D3)", async () => {
+    const db = await world();
+    const fields = Array.from({ length: 100 }, (_v, i) => f(`f${i}`, "あ".repeat(2000)));
+    const res = await read({ result: "read", fields });
+    expect(res.status).toBe(200);
+    expect(db.rows("extraction_fields")).toHaveLength(100);
+  });
   it("read with an empty list is ready, and unreadable is failed", async () => {
     const db = await world();
     expect(await json(await read({ result: "read", fields: [] }))).toMatchObject({
@@ -565,18 +563,28 @@ describe("R3.4: only proposals, and a person's row stays", () => {
     expect(db.rows("extraction_fields")).toEqual([]);
   });
   // R2.9/R3: when the take-back itself fails, the loser's proposed details stay behind although the
-  // document did not move; they would then be shown to people as proposals of a result that never applied.
-  it.fails(
-    "DEFECT (Low) gateway-file-results.ts:~262: a failed take-back leaves proposed details of a result that never applied",
-    async () => {
-      const db = await world();
-      db.stubNextSelect("documents", [{ ...doc(db) }]);
-      doc(db)["pipeline_detail"] = external({ attempt: 4 });
-      db.fail("extraction_fields", "delete");
-      await read({ result: "read", fields: [f("amount", "v")] });
-      expect(db.rows("extraction_fields")).toEqual([]);
-    },
-  );
+  // document did not move. They cannot be removed then, so the log names the rows (ids only, never a
+  // value) for a person to reject. Was QA D7.
+  it("a failed take-back is logged with the row ids, never a value (QA D7)", async () => {
+    const db = await world();
+    db.stubNextSelect("documents", [{ ...doc(db) }]);
+    doc(db)["pipeline_detail"] = external({ attempt: 4 });
+    db.fail("extraction_fields", "delete");
+    const logged: string[] = [];
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation((m: unknown) => void logged.push(String(m)));
+    try {
+      const res = await read({ result: "read", fields: [f("amount", SECRET_VALUE)] });
+      expect(await codeOf(res)).toBe("changedMeanwhile");
+    } finally {
+      spy.mockRestore();
+    }
+    const row = db.rows("extraction_fields")[0]!;
+    expect(logged.join("\n")).toContain("takeBackFields");
+    expect(logged.join("\n")).toContain(String(row["id"]));
+    expect(logged.join("\n")).not.toContain(SECRET_VALUE);
+  });
   it("a failure writing the details answers 503 and moves nothing", async () => {
     const db = await world();
     db.fail("extraction_fields", "insert");
@@ -595,17 +603,14 @@ describe("the type's details", () => {
     expect((await read({ result: "read", fields: [] }, "second-key-002")).status).toBe(200);
     expect(doc(db)["pipeline_state"]).toBe("ready");
   });
-  // When the specification cannot be read (the database answers an error), every name looks unknown
-  // and the reader is told 400 unknownFields: a permanent-looking refusal for a temporary fault.
-  it.fails(
-    "DEFECT (Medium) gateway-file-results.ts:~146 fieldSpecs: an error reading the specifications answers 400 unknownFields, not 503",
-    async () => {
-      const db = await world();
-      delete (db as unknown as { rpcs: Record<string, unknown> }).rpcs["effective_specifications"];
-      const res = await read({ result: "read", fields: [f("amount", "v")] });
-      expect(res.status).toBe(503);
-    },
-  );
+  // When the specification cannot be read (the database answers an error), the reader is told to
+  // retry, not that every name is unknown. Was QA D2.
+  it("an error reading the specifications answers 503, not 400 unknownFields (QA D2)", async () => {
+    const db = await world();
+    delete (db as unknown as { rpcs: Record<string, unknown> }).rpcs["effective_specifications"];
+    const res = await read({ result: "read", fields: [f("amount", "v")] });
+    expect(res.status).toBe(503);
+  });
   it("characteristics that are not objects or have no name are ignored, not fatal", async () => {
     const db = await world();
     db.onRpc("effective_specifications", [

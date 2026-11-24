@@ -4,16 +4,14 @@
 // waits for this system and this attempt, the hash, and for `clean` that this system downloaded the
 // file in this attempt. Nothing is written when a check refuses.
 import { z } from "zod";
-import type { Json } from "@/integrations/supabase/types";
 import { resolveOwners } from "@/services/external-processing";
 import {
   checkExtractedFields,
   extractionResultSchema,
   scanResultSchema,
-  type FieldSpec,
 } from "@/services/file-hook-fields";
 import { sameContentHash, stepTransition, type StepOwner } from "@/services/file-hook-rules";
-import { cleanLabel } from "@/services/file-hook-text";
+import { fieldSpecs, proposeFields, takeBackFields } from "@/services/file-result-fields";
 import {
   CHANGED,
   loadTarget,
@@ -28,12 +26,14 @@ import { downloadedForScan } from "@/services/file-result-receipts";
 import { authenticate, readJson, type SystemCtx } from "@/services/gateway-core";
 import { audit, idempotent } from "@/services/gateway-idempotency";
 import { errorReply } from "@/services/gateway-reply";
-import { must } from "@/services/shared/must";
 import { processAsSystem } from "@/services/system-processing";
 import { tmfError } from "@/services/tmf667-mapper";
 
-/** A reader's answer holds up to 100 details of up to 2000 characters each. */
-export const MAX_RESULT_BODY_CHARS = 300000;
+/**
+ * A reader's answer, in bytes: room for 100 details of 2000 characters each even in a script of
+ * 3 bytes a character. Other API bodies keep `MAX_BODY_CHARS`.
+ */
+export const MAX_RESULT_BODY_BYTES = 1_000_000;
 const SIMULATED: Record<"scan" | "read", StepOwner> = {
   scan: { mode: "simulated" },
   read: { mode: "simulated" },
@@ -147,30 +147,6 @@ export async function postScanResult(
   );
 }
 
-/** The details of a document type a reader may fill, as stored in its specification. */
-async function fieldSpecs(ctx: SystemCtx, documentType: string): Promise<FieldSpec[]> {
-  const { data } = await ctx.admin.rpc("effective_specifications", { p_tenant: ctx.tenantId });
-  const def = (data ?? []).find((s) => s.code === documentType)?.definition as
-    { specCharacteristic?: unknown } | undefined;
-  const list = Array.isArray(def?.specCharacteristic) ? def.specCharacteristic : [];
-  return list.flatMap((c: unknown) => {
-    const r = (typeof c === "object" && c !== null ? c : {}) as Record<string, unknown>;
-    if (typeof r["name"] !== "string") return [];
-    return [
-      {
-        name: r["name"],
-        ...(typeof r["valueType"] === "string" ? { valueType: r["valueType"] } : {}),
-        ...(Array.isArray(r["enumValues"])
-          ? { enumValues: r["enumValues"].filter((v): v is string => typeof v === "string") }
-          : {}),
-        ...(typeof r["reviewThreshold"] === "number"
-          ? { reviewThreshold: r["reviewThreshold"] }
-          : {}),
-      },
-    ];
-  });
-}
-
 export async function postExtractionResult(
   request: Request,
   id: string,
@@ -178,7 +154,7 @@ export async function postExtractionResult(
 ): Promise<Response> {
   const ctx = await authenticate(request, "extract");
   if (ctx instanceof Response) return ctx;
-  const parsed = await readJson(request, ctx, MAX_RESULT_BODY_CHARS);
+  const parsed = await readJson(request, ctx, MAX_RESULT_BODY_BYTES);
   if (!parsed.ok) return parsed.res;
   const b = extractionResultSchema.safeParse(parsed.body);
   if (!b.success) return invalid(ctx, b.error.issues);
@@ -224,51 +200,10 @@ export async function postExtractionResult(
               names: check.names,
             },
           };
-        // A detail a person already has for this version keeps the person's value (R3.4).
-        const existing = must(
-          await ctx.admin
-            .from("extraction_fields")
-            .select("name")
-            .eq("tenant_id", ctx.tenantId)
-            .eq("document_id", t.doc.id)
-            .eq("version_id", t.version.id),
-          "reading the details of a version",
-        );
-        const taken = new Set((existing ?? []).map((r) => r.name));
-        skipped = check.fields.filter((f) => taken.has(f.name)).map((f) => f.name);
-        const rows = check.fields
-          .filter((f) => !taken.has(f.name))
-          .map((f) => ({
-            version_id: t.version.id,
-            document_id: t.doc.id,
-            tenant_id: ctx.tenantId,
-            name: f.name,
-            value: f.value as Json,
-            confidence: f.confidence,
-            band: f.band,
-            // Proposed by a system: a person checks each one before it counts (R3.4, BR-023).
-            source: {
-              system: ctx.clientId,
-              systemName: cleanLabel(ctx.name, 80),
-              ...(f.source ? { label: f.source } : {}),
-            },
-            status: "pending" as const,
-          }));
-        if (rows.length)
-          inserted = (
-            must(
-              await ctx.admin.from("extraction_fields").insert(rows).select("id"),
-              "saving proposed details",
-            ) ?? []
-          ).map((r) => r.id);
+        ({ inserted, skipped } = await proposeFields(ctx, t, check.fields));
       }
       if (!(await writeOutcome(ctx, t.doc.id, next))) {
-        if (inserted.length)
-          await ctx.admin
-            .from("extraction_fields")
-            .delete()
-            .in("id", inserted)
-            .eq("tenant_id", ctx.tenantId);
+        await takeBackFields(ctx, inserted);
         return CHANGED;
       }
       // Names and counts only, never a value (R6.4).
