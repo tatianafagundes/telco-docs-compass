@@ -5,32 +5,24 @@ import { ProgressBar } from "@/components/erad/misc";
 import { Tag } from "@/components/erad/tag";
 import { Tooltip } from "@/components/erad/tooltip";
 import { PIPELINE_LABEL, PIPELINE_TONE } from "@/lib/document-labels";
+import { processingView, waitingLine } from "@/lib/pipeline-copy";
 import { batchState, type UploadRow } from "@/hooks/use-upload";
 import { batchSummary, middleTruncate, uploadProgress } from "@/services/upload-rules";
 
 export interface UploadProgressProps {
   rows: UploadRow[];
+  /** Each document's processing detail as the list has it (who a step waits for, why it failed). */
+  details?: ReadonlyMap<string, unknown>;
   canDelete: boolean;
   onCancel: (key: string) => void;
   onRetryUpload: (row: UploadRow) => void;
-  onRetryReading: (row: UploadRow) => void;
+  /** Try again: the step that failed starts again (the scan or the reading). */
+  onRetryStep: (row: UploadRow) => void;
   onKeepUnread: (row: UploadRow) => void;
-  onReportSecurity: (row: UploadRow) => void;
+  onReport: (row: UploadRow) => void;
   onDelete: (row: UploadRow) => void;
   onShowAttention: () => void;
   onDismiss: () => void;
-}
-
-function cause(row: UploadRow): string | null {
-  if (row.state === "error") return "Upload stopped. Nothing was added. Try again.";
-  if (row.state === "quarantined")
-    return "The security scan found a threat in this file. It was blocked and cannot be opened or downloaded.";
-  if (row.state === "failed") {
-    return row.retried
-      ? "Retrying won't help with this file. Keep it without reading, or delete it and ask for a clearer copy."
-      : "We couldn't read the text in this file, so no details were filled in.";
-  }
-  return null;
 }
 
 /** Collapsible per-batch status, bottom right. Only the final state is announced. */
@@ -100,8 +92,16 @@ export function UploadProgress(p: UploadProgressProps) {
       {open ? (
         <ul className="flex max-h-72 flex-col gap-2 overflow-y-auto">
           {p.rows.map((r) => {
-            const why = cause(r);
             const st = r.state === "error" || r.state === "cancelled" ? null : r.state;
+            const view = st ? processingView(st, r.docId ? p.details?.get(r.docId) : null) : null;
+            const why =
+              r.state === "error" ? "Upload stopped. Nothing was added. Try again." : view?.message;
+            const has = (a: string) => view?.actions.includes(a as never) ?? false;
+            const tag = st ? (
+              <Tag tone={PIPELINE_TONE[st]} small>
+                {PIPELINE_LABEL[st]}
+              </Tag>
+            ) : null;
             return (
               <li key={r.key} className="flex flex-col gap-1 border-t border-border-subtle pt-2">
                 <div className="flex items-center justify-between gap-2">
@@ -114,16 +114,20 @@ export function UploadProgress(p: UploadProgressProps) {
                     <Tag tone="major" small>
                       Upload stopped
                     </Tag>
-                  ) : st ? (
+                  ) : view?.simulated ? (
+                    // Only a built-in step is simulated; an outside system's is real (R5.1).
                     <Tooltip content="Scan is simulated in this prototype.">
                       <span tabIndex={0} className="focus-ring">
-                        <Tag tone={PIPELINE_TONE[st]} small>
-                          {PIPELINE_LABEL[st]}
-                        </Tag>
+                        {tag}
                       </span>
                     </Tooltip>
-                  ) : null}
+                  ) : (
+                    tag
+                  )}
                 </div>
+                {view?.waiting ? (
+                  <p className="type-label-12 text-text-secondary">{waitingLine(view.waiting)}</p>
+                ) : null}
                 {why ? <p className="type-label-12 text-text-secondary">{why}</p> : null}
                 <div className="flex flex-wrap gap-2">
                   {r.state === "uploading" && !r.uploaded ? (
@@ -132,16 +136,16 @@ export function UploadProgress(p: UploadProgressProps) {
                   {r.state === "error" && failedUploads.length <= 1 ? (
                     <Button onClick={() => p.onRetryUpload(r)}>Try again</Button>
                   ) : null}
-                  {r.state === "failed" ? (
+                  {has("retry") ? (
+                    <Button onClick={() => p.onRetryStep(r)}>Try again</Button>
+                  ) : null}
+                  {has("keepUnread") ? (
                     <Button onClick={() => p.onKeepUnread(r)}>Keep without reading</Button>
                   ) : null}
-                  {r.state === "failed" && !r.retried ? (
-                    <Button onClick={() => p.onRetryReading(r)}>Retry</Button>
+                  {has("report") ? (
+                    <Button onClick={() => p.onReport(r)}>Report a problem</Button>
                   ) : null}
-                  {r.state === "quarantined" ? (
-                    <Button onClick={() => p.onReportSecurity(r)}>Report to security</Button>
-                  ) : null}
-                  {r.state === "failed" || r.state === "quarantined" ? (
+                  {has("delete") ? (
                     <Button
                       unavailable={!p.canDelete}
                       title={p.canDelete ? undefined : "Ask a manager to delete it"}
@@ -151,7 +155,7 @@ export function UploadProgress(p: UploadProgressProps) {
                     </Button>
                   ) : null}
                 </div>
-                {(r.state === "failed" || r.state === "quarantined") && !p.canDelete ? (
+                {has("delete") && !p.canDelete ? (
                   <p className="type-label-12 text-text-secondary">
                     A manager can delete this file.
                   </p>

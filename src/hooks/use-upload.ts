@@ -43,6 +43,8 @@ export function useUpload(entityId: string) {
   const qc = useQueryClient();
   const [rows, setRows] = useState<UploadRow[]>([]);
   const cancelled = useRef(new Set<string>());
+  // Rows whose steps this page is walking right now: the list must not overwrite them meanwhile.
+  const walking = useRef(new Set<string>());
   const refresh = useCallback(
     () => void qc.invalidateQueries({ queryKey: ["documents", { entityId }] }),
     [qc, entityId],
@@ -50,8 +52,8 @@ export function useUpload(entityId: string) {
   const patch = (key: string, p: Partial<UploadRow>) =>
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...p } : r)));
 
-  const walk = useCallback(
-    async (key: string, docId: string, retry = false) => {
+  const steps = useCallback(
+    async (key: string, docId: string, retry: boolean) => {
       let first = true;
       for (let i = 0; i < 6; i++) {
         await wait(STEP_DELAY_MS);
@@ -70,6 +72,17 @@ export function useUpload(entityId: string) {
     [refresh],
   );
 
+  const walk = useCallback(
+    async (key: string, docId: string, retry = false) => {
+      walking.current.add(key);
+      try {
+        await steps(key, docId, retry);
+      } finally {
+        walking.current.delete(key);
+      }
+    },
+    [steps],
+  );
   const runOne = useCallback(
     async (row: UploadRow) => {
       try {
@@ -149,14 +162,32 @@ export function useUpload(entityId: string) {
     void runOne({ ...row, state: "uploading", docId: null, uploaded: false });
   };
 
-  const retryReading = (row: UploadRow) => {
+  /** Try again: the server restarts the step that failed (the scan or the reading). */
+  const retryStep = (row: UploadRow) => {
     if (!row.docId) return;
-    patch(row.key, { state: "reading" });
     void walk(row.key, row.docId, true).catch(() => patch(row.key, { state: "error" }));
   };
+  /**
+   * Takes the states the list now shows for rows this page is not walking: an outside system answered,
+   * or a step timed out (file-hooks R5.4). Rows that never got a document or stopped are left alone.
+   */
+  const sync = useCallback((docs: readonly { id: string; pipeline_state: PipelineState }[]) => {
+    const byId = new Map(docs.map((d) => [d.id, d.pipeline_state]));
+    setRows((rs) => {
+      let changed = false;
+      const next = rs.map((r) => {
+        const listed = r.docId ? byId.get(r.docId) : undefined;
+        if (!listed || !r.uploaded || walking.current.has(r.key)) return r;
+        if (r.state === "error" || r.state === "cancelled" || r.state === listed) return r;
+        changed = true;
+        return { ...r, state: listed };
+      });
+      return changed ? next : rs;
+    });
+  }, []);
 
   const forget = (key: string) => setRows((rs) => rs.filter((r) => r.key !== key));
   const clear = () => setRows([]);
 
-  return { rows, start, cancel, retryUpload, retryReading, forget, clear };
+  return { rows, start, cancel, retryUpload, retryStep, sync, forget, clear };
 }

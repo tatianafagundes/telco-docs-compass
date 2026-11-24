@@ -28,6 +28,7 @@ import { isOwnDocument, journeyStep } from "@/services/review-flow-rules";
 import { ReviewJourney } from "@/components/review/review-journey";
 import { meQuery } from "@/hooks/use-me";
 import { RecordLine } from "@/components/documents/record-line";
+import { ProcessingNotice } from "@/components/documents/processing-notice";
 
 // Query factory shared with route loaders; moving it only helps hot reload.
 // eslint-disable-next-line react-refresh/only-export-components
@@ -104,6 +105,7 @@ export function DocumentPanel({
           <Tag icon={<Lock aria-hidden="true" className="size-4 shrink-0" />}>On hold</Tag>
         ) : null}
       </div>
+      {!shared ? <ProcessingNotice doc={doc} entityId={recordId} role={role} /> : null}
       {shared || showRecord ? <RecordLine entityId={entityId} /> : null}
       {!shared && journeyStep(doc.status, toCheck, review.gate.pending) !== null ? (
         <ReviewJourney step={journeyStep(doc.status, toCheck, review.gate.pending) ?? 0} />

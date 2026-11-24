@@ -39,8 +39,9 @@ export interface AddDocumentsProps {
   role: AppRole;
   existing: {
     id: string;
-    name: string; /** Show the button as a default one, because another primary action is on screen. */
-    secondary?: boolean;
+    name: string;
+    /** Who a step waits for or why it failed, for the progress card. */
+    pipeline_detail?: unknown;
   }[];
   upload: ReturnType<typeof useUpload>;
   onShowAttention: () => void;
@@ -82,6 +83,7 @@ export function AddDocuments({
     } else button.current?.focus();
   }, [arrivingFor, entityId, allowed]);
   const canDelete = can(role, "manage");
+  const details = new Map(existing.map((d) => [d.id, d.pipeline_detail]));
   const specs = useQuery(specsQuery);
   const input = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
@@ -209,10 +211,11 @@ export function AddDocuments({
       />
       <UploadProgress
         rows={upload.rows}
+        details={details}
         canDelete={canDelete}
         onCancel={upload.cancel}
         onRetryUpload={upload.retryUpload}
-        onRetryReading={upload.retryReading}
+        onRetryStep={upload.retryStep}
         onKeepUnread={(r) =>
           r.docId &&
           act(async () => {
@@ -220,7 +223,7 @@ export function AddDocuments({
             upload.forget(r.key);
           }, "Kept. Not read, so enter the details by hand.")
         }
-        onReportSecurity={(r) =>
+        onReport={(r) =>
           r.docId &&
           act(
             () => api.reportProblem({ id: r.docId as string, kind: "security", reason: "threat" }),

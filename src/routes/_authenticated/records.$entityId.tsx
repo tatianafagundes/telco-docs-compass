@@ -26,6 +26,10 @@ import { DataTable } from "@/components/erad/data-table";
 import { EmptyCell } from "@/components/erad/empty-cell";
 import { Pagination } from "@/components/erad/pagination";
 import { tableDate } from "@/lib/table-format";
+import { pollDelay, processingView, waitingLine } from "@/lib/pipeline-copy";
+import { Banner } from "@/components/erad/banner";
+import { Button } from "@/components/erad/button";
+import { ProcessingAnnouncer } from "@/components/documents/processing-announcer";
 /** EDS pagination: 25 documents per page on a record. */
 const RECORD_PAGE = 25;
 import {
@@ -43,6 +47,7 @@ interface DocListItem {
   name: string;
   status: DocStatus;
   pipeline_state: PipelineState;
+  pipeline_detail?: unknown;
   legal_hold: boolean;
   current_version_id: string | null;
   document_type: string | null;
@@ -107,11 +112,21 @@ function RecordPage() {
   const { entityId } = Route.useParams();
   const { doc, add } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const { data } = useSuspenseQuery(recordQuery(entityId));
+  // While a shown document waits for an outside system, the one list query refetches (R5.4); React
+  // Query stops while the tab is hidden and refetches when it is shown again.
+  const list = useSuspenseQuery({
+    ...recordQuery(entityId),
+    refetchInterval: (q) => pollDelay(q.state.data?.items ?? [], Date.now()),
+  });
+  const { data } = list;
+  const waiting = pollDelay(data.items, Date.now()) !== false;
   const { data: me } = useSuspenseQuery(meQuery);
   const role = me.access?.role ?? "viewer";
   const entityKind = data.entity?.referred_type === "Account" ? "account" : "order";
   const upload = useUpload(entityId);
+  const { sync } = upload;
+  // The progress card follows the list: an outside system's answer or a timeout reaches it too.
+  useEffect(() => sync(data.items), [data.items, sync]);
   const [attentionOnly, setAttentionOnly] = useState(false);
   const [sort, setSort] = useState<RecordSort>(DEFAULT_RECORD_SORT);
   const [pageWanted, setPage] = useState(0);
@@ -167,6 +182,27 @@ function RecordPage() {
             {` · ${data.items.length} ${data.items.length === 1 ? "document" : "documents"}`}
           </p>
         </div>
+        <ProcessingAnnouncer docs={data.items} />
+        {list.isRefetchError ? (
+          <Banner
+            tone="warning"
+            status="Can't refresh right now"
+            action={
+              <Button onClick={() => void list.refetch()} unavailable={list.isFetching}>
+                Check now
+              </Button>
+            }
+          >
+            The states shown may be out of date.
+          </Banner>
+        ) : waiting ? (
+          <p className="type-label-14 flex flex-wrap items-center gap-2 text-text-secondary">
+            Some files are waiting for your organisation's systems. This list updates on its own.
+            <Button onClick={() => void list.refetch()} unavailable={list.isFetching}>
+              Check now
+            </Button>
+          </p>
+        ) : null}
         <ApprovedSummary
           items={data.items}
           onOpen={(id) => void navigate({ search: { doc: id } })}
@@ -175,7 +211,11 @@ function RecordPage() {
           entityId={entityId}
           entityKind={entityKind}
           role={role}
-          existing={data.items.map((d) => ({ id: d.id, name: d.name }))}
+          existing={data.items.map((d) => ({
+            id: d.id,
+            name: d.name,
+            pipeline_detail: d.pipeline_detail,
+          }))}
           upload={upload}
           onShowAttention={() => setAttentionOnly(true)}
           arrivingFor={arriving ? data.entity.display_name : null}
@@ -270,6 +310,14 @@ function RecordPage() {
                             )}
                           </Tag>
                         ) : null}
+                        {(() => {
+                          const w = processingView(d.pipeline_state, d.pipeline_detail).waiting;
+                          return w ? (
+                            <span className="type-label-12 basis-full text-text-secondary">
+                              {waitingLine(w)}
+                            </span>
+                          ) : null;
+                        })()}
                         {d.pipeline_state === "ready" && addedHere.has(d.id) ? (
                           <Tag tone="cleared" small>
                             Ready
