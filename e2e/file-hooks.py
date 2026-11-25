@@ -129,6 +129,7 @@ def register(key: str, text: str) -> str | None:
         idem=f"fh-reg-{RUN}-{text}",
     )
     check(r.status_code == 201, f"register '{text}' answers 201 ({r.status_code})")
+    print(f"     state after registering: {(j or {}).get('lifecycleState')} / processing {r.headers.get('X-Processing-State', '?')}")
     return (j or {}).get("id") if r.status_code == 201 else None
 
 
@@ -150,13 +151,13 @@ def journeys(av: str, rw: str) -> None:
     if not (doc and v):
         return
     r, j = call("GET", f"/document/{doc}/attachment/{v}/content", rw)
-    check(r.status_code == 409 and (j or {}).get("code") == "contentLocked", "a read key gets no link while the scan waits")
+    check(r.status_code == 409 and (j or {}).get("code") == "contentLocked", f"a read key gets no link while the scan waits ({r.status_code} {(j or {}).get('code')})")
     # The right hash (of the bytes sent), but not downloaded in this attempt yet.
     sent = hashlib.sha256(sent_bytes("clean")).hexdigest()
     r, j = scan(av, doc, v, {"result": "clean", "contentHash": sent, "attempt": 1}, f"fh-early-{RUN}")
-    check(r.status_code == 409 and (j or {}).get("code") == "notFetched", "clean before downloading is refused (notFetched)")
+    check(r.status_code == 409 and (j or {}).get("code") == "notFetched", f"clean before downloading is refused (notFetched): {r.status_code} {(j or {}).get('code')}")
     r, j = call("GET", f"/document/{doc}/attachment/{v}/content", av)
-    check(r.status_code == 200 and "url" in (j or {}), "the antivirus gets a link during its step")
+    check(r.status_code == 200 and "url" in (j or {}), f"the antivirus gets a link during its step ({r.status_code} {(j or {}).get('code')})")
     if r.status_code != 200:
         return
     data = requests.get(j["url"], timeout=60).content
@@ -208,7 +209,14 @@ async def main() -> None:
                 page, rw_name, ["Read documents and download files", "Add documents and change their details"]
             )
             await own_antivirus(page, True)
-            journeys(av, rw)
+            row = page.get_by_role("list", name="Processing steps").get_by_role("listitem").filter(
+                has_text="Checking files for threats"
+            )
+            on = await row.get_by_text("Own system").count() > 0
+            check(on, "the organisation now waits for its own antivirus")
+            await page.screenshot(path="/tmp/file-hooks-admin.png", full_page=True)
+            if on:
+                journeys(av, rw)
         finally:
             # Always put the organisation back, even after a failure.
             await page.goto(BASE + "/admin/systems")

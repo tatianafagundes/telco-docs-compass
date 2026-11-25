@@ -132,6 +132,7 @@ before the next phase. Requirements: `requirements.md`; design: `design.md`.
   - **Release gate:** set the hosted `documents` bucket limit to at most 25 MB and record it (defence in depth; the code bounds memory either way since 8.5b).
   - **Release gate:** migrations 0016–0021 applied on the hosted database; the 2.5 L3/L4 data checks run.
   - **Release gate:** a human security review (R6.6) and a screen-reader check of the announcements (R5.7).
+  - **Release gate, first run 2026-11-17:** the published app has the new routes (401 without a key), but the hosted database has none of migrations 0016–0021 (`tenants.external_processing` missing, 42703; `set_external_processing` missing, PGRST202). The switch could not be saved, the script stopped before the scenarios, and its test keys were disconnected (checked). Apply 0016–0021, then run again.
   - **Release gate:** `e2e/file-hooks.py` run on the preview (it turns the Sweden organisation's own antivirus on during the run; needs the owner's go-ahead).
   - CR S2: the guarded pipeline write and the simulated owners are written in three places; one helper later (the guard columns are the same today, checked by `file-events-paths.test.ts`).
   - CR S10: subscription query parsing changed in phase 1 (URLSearchParams); covered by `file-events-opt-in.test.ts`, no legacy `+` case added.
